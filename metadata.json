@@ -1,0 +1,8 @@
+{
+  "name": "CVCraft AI",
+  "description": "AI-Powered Resume & Cover Letter Builder with ATS Optimization, PDF Export, and Custom Templates",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

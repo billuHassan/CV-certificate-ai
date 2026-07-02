@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CVCraft AI - Elite Resume Builder</title>
+    <!-- Google AdSense Live Script Auto-Loader -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1642294829104829" crossorigin="anonymous"></script>
+    <script>
+      // Automatically load custom AdSense Publisher ID if set in localStorage
+      (function() {
+        try {
+          var savedPubId = localStorage.getItem("cvcraft_adsense_pub_id");
+          if (savedPubId && savedPubId !== "ca-pub-1642294829104829") {
+            var script = document.createElement("script");
+            script.async = true;
+            script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(savedPubId);
+            script.crossOrigin = "anonymous";
+            document.head.appendChild(script);
+          }
+        } catch (e) {
+          console.error("AdSense dynamic load error", e);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="google_translate_element" style="display:none"></div>
+    <script type="text/javascript">
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+          pageLanguage: 'en',
+          autoDisplay: false
+        }, 'google_translate_element');
+      }
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
