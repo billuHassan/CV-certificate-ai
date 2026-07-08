@@ -152,6 +152,7 @@ export default function App() {
     const savedUser = localStorage.getItem("cvcraft_user");
     if (savedUser) {
       const parsed = JSON.parse(savedUser);
+      parsed.isPremium = true; // Automatically upgrade all existing sessions to complimentary premium
       setUser(parsed);
     }
 
@@ -190,7 +191,7 @@ export default function App() {
   };
 
   const handleAuthSuccess = (u: { email: string; displayName: string }) => {
-    const session: UserSession = { ...u, isPremium: false };
+    const session: UserSession = { ...u, isPremium: true };
     setUser(session);
     localStorage.setItem("cvcraft_user", JSON.stringify(session));
   };

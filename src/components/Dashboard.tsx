@@ -65,11 +65,11 @@ export default function Dashboard({
   };
 
   const templatesPreview = [
-    { id: "minimal", name: "Minimalist ATS", badge: "Free" },
-    { id: "professional", name: "Professional Corporate", badge: "Free" },
-    { id: "modern", name: "Modern Developer", badge: "Pro" },
-    { id: "creative", name: "Creative Art/Designer", badge: "Pro" },
-    { id: "executive", name: "Executive Split", badge: "Pro" },
+    { id: "minimal", name: "Minimalist ATS", badge: "Unlocked" },
+    { id: "professional", name: "Professional Corporate", badge: "Unlocked" },
+    { id: "modern", name: "Modern Developer", badge: "Unlocked" },
+    { id: "creative", name: "Creative Art/Designer", badge: "Unlocked" },
+    { id: "executive", name: "Executive Split", badge: "Unlocked" },
   ];
 
   return (
@@ -87,20 +87,12 @@ export default function Dashboard({
           <div>
             <div className="flex items-center gap-2 justify-center md:justify-start">
               <h2 className="text-xl font-bold text-white font-display">Hello, {user.displayName}</h2>
-              {user.isPremium ? (
-                <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950 border border-amber-900 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
-                  <Award className="h-3 w-3 fill-amber-400" /> ELITE USER
-                </span>
-              ) : (
-                <span className="text-[10px] font-mono font-medium text-slate-400 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-full">
-                  FREE TIER
-                </span>
-              )}
+              <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-900/50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Award className="h-3 w-3 fill-amber-400" /> PREMIUM UNLOCKED (FREE)
+              </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              {user.isPremium
-                ? "You have complete unlimited Elite access to resumes, ATS scores, and Cover Letter generation."
-                : "Unlock full-stack Gemini suggestions, unlimited CVs, and exclusive design templates with Pro."}
+              You have complete unlimited complimentary access to all templates, ATS scores, and Cover Letter generation.
             </p>
           </div>
         </div>

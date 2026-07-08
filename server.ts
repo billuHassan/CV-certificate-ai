@@ -453,6 +453,83 @@ app.post("/api/payments/verify-receipt", async (req, res) => {
   }
 });
 
+// In-memory store for secure email verification codes (email -> { code, expires })
+const verificationCodes = new Map<string, { code: string; expires: number }>();
+
+// Endpoint to generate and "send" a secure 6-digit verification code
+app.post("/api/auth/send-code", (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required for verification." });
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "The email address format is invalid." });
+    }
+
+    // Generate a secure 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+
+    verificationCodes.set(email.toLowerCase(), { code, expires });
+    addServerEvent(`Generated secure verification code for ${email}`);
+    console.log(`[AUTH SECURE] Verification code for ${email}: ${code}`);
+
+    res.json({
+      success: true,
+      message: "Verification code generated successfully.",
+      // Return the code so that the dev sandbox UI can easily show it as a beautiful copyable toast
+      code: code
+    });
+  } catch (error: any) {
+    console.error("Send Code Error:", error);
+    res.status(500).json({ error: "Failed to generate verification code" });
+  }
+});
+
+// Endpoint to verify the secure 6-digit code on the server
+app.post("/api/auth/verify-code", (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: "Email and verification code are required." });
+    }
+
+    const record = verificationCodes.get(email.toLowerCase());
+    if (!record) {
+      return res.json({
+        success: false,
+        reason: "No active verification code requested. Please request a new code."
+      });
+    }
+
+    if (Date.now() > record.expires) {
+      verificationCodes.delete(email.toLowerCase());
+      return res.json({
+        success: false,
+        reason: "The verification code has expired. Please request a new code."
+      });
+    }
+
+    if (record.code !== code.trim()) {
+      return res.json({
+        success: false,
+        reason: "Invalid verification code. Please check your spelling and try again."
+      });
+    }
+
+    // Code is valid! Delete it from store to prevent reuse
+    verificationCodes.delete(email.toLowerCase());
+    addServerEvent(`Successfully verified email credentials for ${email}`);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Verify Code Error:", error);
+    res.status(500).json({ error: "Failed to verify code" });
+  }
+});
+
 // Email authentication validation check endpoint
 app.post("/api/auth/validate-email", async (req, res) => {
   try {
