@@ -87,24 +87,12 @@ export default function Dashboard({
           <div>
             <div className="flex items-center gap-2 justify-center md:justify-start">
               <h2 className="text-xl font-bold text-white font-display">Hello, {user.displayName}</h2>
-              <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-900/50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Award className="h-3 w-3 fill-amber-400" /> PREMIUM UNLOCKED (FREE)
-              </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              You have complete unlimited complimentary access to all templates, ATS scores, and Cover Letter generation.
+              Access all professional templates, ATS score analyzer, and cover letter creator at any time.
             </p>
           </div>
         </div>
-
-        {!user.isPremium && (
-          <button
-            onClick={onUpgrade}
-            className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl transition shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 flex items-center gap-1.5 shrink-0"
-          >
-            <Sparkles className="h-4 w-4 fill-slate-950" /> Go Elite for $1.99
-          </button>
-        )}
       </div>
 
       {/* Grid of Creators */}
@@ -318,12 +306,7 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Simulated Banner Ad */}
-      {!user.isPremium && (
-        <div className="pt-8">
-          <BannerAd onUpgrade={onUpgrade} />
-        </div>
-      )}
+
 
       {/* --- CREATE RESUME MODAL --- */}
       {showCreateResumeModal && (

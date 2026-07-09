@@ -13,6 +13,9 @@ import ScoreAnalyzer from "./components/ScoreAnalyzer";
 import Settings, { THEMES, WORLD_LANGUAGES } from "./components/Settings";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
+import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
+import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
+import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc } from "firebase/firestore";
 
 // Mock Sample Resume Data for Seeding
 const SAMPLE_RESUME: ResumeData = {
@@ -122,8 +125,9 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("cvcraft_theme") || "obsidian");
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
-  // Load persistence states
+  // Load persistence states and Firebase Auth listener
   useEffect(() => {
     // Sync language selection with Google Translate cookie
     const savedLang = localStorage.getItem("cvcraft_lang");
@@ -133,7 +137,6 @@ export default function App() {
         const langCode = selectedLang.code;
         const cookieValue = `/en/${langCode}`;
         
-        // Ensure the cookie is written to keep state active
         if (!document.cookie.includes(`googtrans=${cookieValue}`)) {
           document.cookie = `googtrans=${cookieValue}; path=/;`;
           document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname};`;
@@ -149,41 +152,122 @@ export default function App() {
     const savedOnboard = localStorage.getItem("cvcraft_onboarded");
     if (savedOnboard) setIsOnboarded(true);
 
-    const savedUser = localStorage.getItem("cvcraft_user");
-    if (savedUser) {
-      const parsed = JSON.parse(savedUser);
-      parsed.isPremium = true; // Automatically upgrade all existing sessions to complimentary premium
-      setUser(parsed);
-    }
+    let unsubUserDoc: (() => void) | null = null;
+    let unsubResumes: (() => void) | null = null;
+    let unsubLetters: (() => void) | null = null;
 
-    const savedResumes = localStorage.getItem("cvcraft_resumes");
-    if (savedResumes) {
-      setResumes(JSON.parse(savedResumes));
-    } else {
-      // Seed initial data
-      setResumes([SAMPLE_RESUME]);
-      localStorage.setItem("cvcraft_resumes", JSON.stringify([SAMPLE_RESUME]));
-    }
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clean up previous user doc listener if it exists
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
 
-    const savedLetters = localStorage.getItem("cvcraft_letters");
-    if (savedLetters) {
-      setLetters(JSON.parse(savedLetters));
-    } else {
-      setLetters([SAMPLE_LETTER]);
-      localStorage.setItem("cvcraft_letters", JSON.stringify([SAMPLE_LETTER]));
-    }
+      if (firebaseUser) {
+        try {
+          const userDocRef = doc(db, "users", firebaseUser.uid);
+          
+          // Set up real-time listener for the user profile document itself
+          unsubUserDoc = onSnapshot(userDocRef, (docSnap) => {
+            let profileData = {
+              email: firebaseUser.email || "",
+              displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
+              isPremium: true,
+              creationsCount: 0,
+              adViews: 0,
+              profilePhoto: firebaseUser.photoURL || ""
+            };
+
+            if (!docSnap.exists()) {
+              // Write the initial document asynchronously
+              setDoc(userDocRef, profileData).catch(console.error);
+            } else {
+              const data = docSnap.data();
+              profileData = {
+                ...profileData,
+                ...data
+              };
+            }
+
+            setUser({
+              uid: firebaseUser.uid,
+              email: profileData.email,
+              displayName: profileData.displayName,
+              isPremium: profileData.isPremium,
+              creationsCount: profileData.creationsCount,
+              adViews: profileData.adViews,
+              profilePhoto: profileData.profilePhoto
+            });
+          }, (err) => {
+            console.error("User document real-time listener error:", err);
+          });
+
+          // Set up real-time listener for resumes sub-collection
+          unsubResumes = onSnapshot(
+            collection(db, "users", firebaseUser.uid, "resumes"),
+            (snapshot) => {
+              const loadedResumes: ResumeData[] = [];
+              snapshot.forEach((doc) => {
+                loadedResumes.push(doc.data() as ResumeData);
+              });
+              loadedResumes.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+              
+              if (loadedResumes.length === 0) {
+                const seedResume = { ...SAMPLE_RESUME, id: crypto.randomUUID(), updatedAt: new Date().toISOString() };
+                setDoc(doc(db, "users", firebaseUser.uid, "resumes", seedResume.id), seedResume).catch(console.error);
+              } else {
+                setResumes(loadedResumes);
+              }
+            },
+            (err) => {
+              handleFirestoreError(err, OperationType.LIST, `users/${firebaseUser.uid}/resumes`);
+            }
+          );
+
+          // Set up real-time listener for letters sub-collection
+          unsubLetters = onSnapshot(
+            collection(db, "users", firebaseUser.uid, "letters"),
+            (snapshot) => {
+              const loadedLetters: CoverLetterData[] = [];
+              snapshot.forEach((doc) => {
+                loadedLetters.push(doc.data() as CoverLetterData);
+              });
+              loadedLetters.sort((a, b) => (b.updatedAt || b.date).localeCompare(a.updatedAt || a.date));
+              
+              if (loadedLetters.length === 0) {
+                const seedLetter = { ...SAMPLE_LETTER, id: crypto.randomUUID(), updatedAt: new Date().toISOString() };
+                setDoc(doc(db, "users", firebaseUser.uid, "letters", seedLetter.id), seedLetter).catch(console.error);
+              } else {
+                setLetters(loadedLetters);
+              }
+            },
+            (err) => {
+              handleFirestoreError(err, OperationType.LIST, `users/${firebaseUser.uid}/letters`);
+            }
+          );
+
+        } catch (error) {
+          console.error("Error setting up Firestore real-time listeners:", error);
+        } finally {
+          setIsAuthLoading(false);
+        }
+      } else {
+        if (unsubResumes) { unsubResumes(); unsubResumes = null; }
+        if (unsubLetters) { unsubLetters(); unsubLetters = null; }
+        setUser(null);
+        setResumes([]);
+        setLetters([]);
+        setIsAuthLoading(false);
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubUserDoc) unsubUserDoc();
+      if (unsubResumes) unsubResumes();
+      if (unsubLetters) unsubLetters();
+    };
   }, []);
-
-  // Sync to local storage
-  const syncResumes = (updated: ResumeData[]) => {
-    setResumes(updated);
-    localStorage.setItem("cvcraft_resumes", JSON.stringify(updated));
-  };
-
-  const syncLetters = (updated: CoverLetterData[]) => {
-    setLetters(updated);
-    localStorage.setItem("cvcraft_letters", JSON.stringify(updated));
-  };
 
   const handleOnboardingComplete = () => {
     setIsOnboarded(true);
@@ -191,28 +275,42 @@ export default function App() {
   };
 
   const handleAuthSuccess = (u: { email: string; displayName: string }) => {
-    const session: UserSession = { ...u, isPremium: true };
-    setUser(session);
-    localStorage.setItem("cvcraft_user", JSON.stringify(session));
+    // Session is handled automatically by onAuthStateChanged subscription
   };
 
-  const handleSignOut = () => {
-    setUser(null);
-    localStorage.removeItem("cvcraft_user");
+  const handleSignOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      setUser(null);
+    } catch (err) {
+      console.error("Sign out error:", err);
+    }
   };
 
   const handleUpgradeElite = () => {
     setIsPremiumModalOpen(true);
   };
 
-  const handleUpdateUser = (updatedUser: UserSession) => {
-    setUser(updatedUser);
-    localStorage.setItem("cvcraft_user", JSON.stringify(updatedUser));
+  const handleUpdateUser = async (updatedUser: UserSession) => {
+    if (!user || !auth.currentUser) return;
+    try {
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        displayName: updatedUser.displayName,
+        profilePhoto: updatedUser.profilePhoto || "",
+        adViews: updatedUser.adViews || 0,
+        creationsCount: updatedUser.creationsCount || 0
+      });
+      setUser(updatedUser);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+    }
   };
 
-  const handleCreateResume = (title: string, templateId: string) => {
+  const handleCreateResume = async (title: string, templateId: string) => {
+    if (!user || !auth.currentUser) return;
+    const newId = crypto.randomUUID();
     const newResume: ResumeData = {
-      id: crypto.randomUUID(),
+      id: newId,
       title,
       templateId,
       colorTheme: "#4f46e5",
@@ -220,15 +318,15 @@ export default function App() {
       spacing: "comfortable",
       updatedAt: new Date().toISOString(),
       personalInfo: {
-        fullName: user?.displayName || "",
+        fullName: user.displayName || "",
         jobTitle: "",
-        email: user?.email || "",
+        email: user.email || "",
         phone: "",
         location: "",
         website: "",
         linkedin: "",
         github: "",
-        profilePhoto: "",
+        profilePhoto: user.profilePhoto || "",
       },
       summary: "",
       experience: [],
@@ -240,15 +338,24 @@ export default function App() {
       references: [],
       sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications"],
     };
-    const updated = [newResume, ...resumes];
-    syncResumes(updated);
-    setSelectedResumeId(newResume.id);
-    setCurrentView("resume-editor");
+    try {
+      await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", newId), newResume);
+      const newCount = (user.creationsCount || 0) + 1;
+      await updateDoc(doc(db, "users", auth.currentUser.uid), { creationsCount: newCount });
+      setUser(prev => prev ? { ...prev, creationsCount: newCount } : null);
+      
+      setSelectedResumeId(newId);
+      setCurrentView("resume-editor");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/resumes/${newId}`);
+    }
   };
 
-  const handleCreateLetter = (title: string, company: string, role: string) => {
+  const handleCreateLetter = async (title: string, company: string, role: string) => {
+    if (!user || !auth.currentUser) return;
+    const newId = crypto.randomUUID();
     const newLetter: CoverLetterData = {
-      id: crypto.randomUUID(),
+      id: newId,
       title,
       recipientName: "Hiring Manager",
       recipientCompany: company,
@@ -256,48 +363,79 @@ export default function App() {
       content: "",
       date: new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' }),
       senderInfo: {
-        name: user?.displayName || "",
-        email: user?.email || "",
+        name: user.displayName || "",
+        email: user.email || "",
         phone: "",
         location: "",
       },
     };
-    const updated = [newLetter, ...letters];
-    syncLetters(updated);
-    setSelectedLetterId(newLetter.id);
-    setCurrentView("letter-editor");
+    try {
+      await setDoc(doc(db, "users", auth.currentUser.uid, "letters", newId), newLetter);
+      const newCount = (user.creationsCount || 0) + 1;
+      await updateDoc(doc(db, "users", auth.currentUser.uid), { creationsCount: newCount });
+      setUser(prev => prev ? { ...prev, creationsCount: newCount } : null);
+
+      setSelectedLetterId(newId);
+      setCurrentView("letter-editor");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/letters/${newId}`);
+    }
   };
 
-  const handleDuplicateResume = (target: ResumeData) => {
+  const handleDuplicateResume = async (target: ResumeData) => {
+    if (!user || !auth.currentUser) return;
+    const newId = crypto.randomUUID();
     const dup: ResumeData = {
       ...target,
-      id: crypto.randomUUID(),
+      id: newId,
       title: `${target.title} Copy`,
       updatedAt: new Date().toISOString(),
     };
-    syncResumes([dup, ...resumes]);
+    try {
+      await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", newId), dup);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/resumes/${newId}`);
+    }
   };
 
-  const handleDeleteResume = (id: string) => {
-    const filtered = resumes.filter((r) => r.id !== id);
-    syncResumes(filtered);
-    if (selectedResumeId === id) setSelectedResumeId(null);
+  const handleDeleteResume = async (id: string) => {
+    if (!user || !auth.currentUser) return;
+    try {
+      await deleteDoc(doc(db, "users", auth.currentUser.uid, "resumes", id));
+      if (selectedResumeId === id) setSelectedResumeId(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${auth.currentUser.uid}/resumes/${id}`);
+    }
   };
 
-  const handleDeleteLetter = (id: string) => {
-    const filtered = letters.filter((l) => l.id !== id);
-    syncLetters(filtered);
-    if (selectedLetterId === id) setSelectedLetterId(null);
+  const handleDeleteLetter = async (id: string) => {
+    if (!user || !auth.currentUser) return;
+    try {
+      await deleteDoc(doc(db, "users", auth.currentUser.uid, "letters", id));
+      if (selectedLetterId === id) setSelectedLetterId(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${auth.currentUser.uid}/letters/${id}`);
+    }
   };
 
-  const handleSaveActiveResume = (updated: ResumeData) => {
-    const matched = resumes.map((r) => (r.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : r));
-    syncResumes(matched);
+  const handleSaveActiveResume = async (updated: ResumeData) => {
+    if (!user || !auth.currentUser) return;
+    const updatedWithTime = { ...updated, updatedAt: new Date().toISOString() };
+    try {
+      await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", updated.id), updatedWithTime);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/resumes/${updated.id}`);
+    }
   };
 
-  const handleSaveActiveLetter = (updated: CoverLetterData) => {
-    const matched = letters.map((l) => (l.id === updated.id ? updated : l));
-    syncLetters(matched);
+  const handleSaveActiveLetter = async (updated: CoverLetterData) => {
+    if (!user || !auth.currentUser) return;
+    const updatedWithTime = { ...updated, updatedAt: new Date().toISOString() };
+    try {
+      await setDoc(doc(db, "users", auth.currentUser.uid, "letters", updated.id), updatedWithTime);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/letters/${updated.id}`);
+    }
   };
 
   const handleRunATSAnalysis = async () => {
@@ -321,19 +459,43 @@ export default function App() {
     }
   };
 
-  const handleImportBackup = (backupData: { resumes: ResumeData[]; letters: CoverLetterData[] }) => {
-    syncResumes([...backupData.resumes, ...resumes]);
-    syncLetters([...backupData.letters, ...letters]);
+  const handleImportBackup = async (backupData: { resumes: ResumeData[]; letters: CoverLetterData[] }) => {
+    if (!user || !auth.currentUser) return;
+    try {
+      for (const res of backupData.resumes) {
+        await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", res.id), res);
+      }
+      for (const letData of backupData.letters) {
+        await setDoc(doc(db, "users", auth.currentUser.uid, "letters", letData.id), letData);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  // Pre-onboarding screen
-  if (!isOnboarded) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
+  // Firebase auth initialization screen
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative flex items-center justify-center">
+            <div className="h-16 w-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+            <Sparkles className="h-6 w-6 text-indigo-400 absolute animate-pulse" />
+          </div>
+          <span className="text-slate-400 font-mono text-xs tracking-widest uppercase animate-pulse">Initializing Secure Session...</span>
+        </div>
+      </div>
+    );
   }
 
   // Auth wall
   if (!user) {
     return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  // Pre-onboarding screen (shown after login if not completed)
+  if (!isOnboarded) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
   const activeResume = resumes.find((r) => r.id === selectedResumeId) || resumes[0];

@@ -324,7 +324,7 @@ export default function ResumeBuilder({
   ];
 
   const templatesList = [
-    // --- 10 FREE TEMPLATES ---
+    // --- ALL UNIFIED TEMPLATES ---
     { id: "minimal", name: "Minimal ATS", desc: "Sleek, traditional single-column design maximizing readability and machine parsing.", isPremium: false },
     { id: "classic", name: "Classic Corporate", desc: "Double line dividers with bold titles for high-volume recruitment.", isPremium: false },
     { id: "professional", name: "Professional Executive", desc: "A beautifully structured executive template highlighting professional timelines.", isPremium: false },
@@ -335,48 +335,46 @@ export default function ResumeBuilder({
     { id: "clean", name: "Clean Functional", desc: "Highly structured standard format emphasizing operational milestones.", isPremium: false },
     { id: "simple", name: "Simple Compact", desc: "Condensed single-page template with subtle borders and elegant typography.", isPremium: false },
     { id: "standard", name: "Standard Business", desc: "Traditional layout suitable for legal, medical, and executive roles.", isPremium: false },
-
-    // --- 40 PREMIUM TEMPLATES ---
-    { id: "tokyo", name: "Tokyo Minimalist 👑", desc: "Japanese-inspired layout utilizing ultra-thin borders and a neat visual grid.", isPremium: true },
-    { id: "paris", name: "Paris Fashion House 👑", desc: "Chic, high-contrast editorial layout utilizing gorgeous serif typography.", isPremium: true },
-    { id: "silicon", name: "Silicon Valley Developer 👑", desc: "Tech-focused developer resume with monospace typography and modern tag highlights.", isPremium: true },
-    { id: "ny_firm", name: "Wall Street Analyst 👑", desc: "Authoritative design optimized with compact spacing and elegant traditional serif.", isPremium: true },
-    { id: "berlin", name: "Berlin Brutalist 👑", desc: "Stark structural borders and asymmetrical lines for modern creative professionals.", isPremium: true },
-    { id: "swiss", name: "Swiss Bauhaus 👑", desc: "A clean, avant-garde design following functional typographic grids with red color accents.", isPremium: true },
-    { id: "london", name: "London Academic 👑", desc: "Refined double border header ideal for researchers, professors, and scholars.", isPremium: true },
-    { id: "nordic", name: "Nordic Clean 👑", desc: "A friendly, geometric sans format utilizing cozy grey backdrops and forest-green headings.", isPremium: true },
-    { id: "sydney", name: "Sydney Startup Founder 👑", desc: "Features bright custom gradient accent buttons, dynamic tags, and clean margins.", isPremium: true },
-    { id: "toronto", name: "Toronto Corporate Pro 👑", desc: "Premium bold navy header style with structured alignment and clean margin layout.", isPremium: true },
-    { id: "aurora", name: "Aurora Holographic 👑", desc: "Modern portfolio-style resume featuring sleek glowing highlights and a cosmic edge.", isPremium: true },
-    { id: "monochrome", name: "Monochrome Ink 👑", desc: "An ultra-clean print-optimized template emphasizing high-contrast readability.", isPremium: true },
-    { id: "slate_pro", name: "Slate Pro Executive 👑", desc: "Beautiful deep-charcoal split sidebars presenting a modern executive presence.", isPremium: true },
-    { id: "gold_luxe", name: "Golden Luxury 👑", desc: "Elegant gold borders and typography on premium off-white cream paper styling.", isPremium: true },
-    { id: "royal", name: "Royal Heritage 👑", desc: "Regal burgundy accents, formal editorial headers, and classic serif elegance.", isPremium: true },
-    { id: "cyber", name: "Cybersecurity Terminal 👑", desc: "Green-on-black terminal design tailored for DevOps, security, and systems engineering.", isPremium: true },
-    { id: "vintage", name: "Vintage Press 👑", desc: "Features slab-serif typography and warm textures mimicking traditional typewriters.", isPremium: true },
-    { id: "amsterdam", name: "Amsterdam Creative 👑", desc: "Vibrant orange accent highlights with asymmetrical header placements.", isPremium: true },
-    { id: "vibrant", name: "Vibrant Violet 👑", desc: "Neon violet accents, stylish rounded badge tags, and creative layouts.", isPremium: true },
-    { id: "teal_grid", name: "Teal Matrix 👑", desc: "Advanced grid alignment presenting technical skills and stats in a structured list.", isPremium: true },
-    { id: "minimal_plus", name: "Minimal ATS Plus 👑", desc: "Optimized with generous white space and professional margins for senior roles.", isPremium: true },
-    { id: "milano", name: "Milano Editorial 👑", desc: "High-fashion aesthetic utilizing elegant italicized headers and luxury spacing.", isPremium: true },
-    { id: "chicago", name: "Chicago Legal 👑", desc: "Highly professional, authoritative double-divided borders for law & consulting.", isPremium: true },
-    { id: "boston", name: "Boston Medical 👑", desc: "A serene teal-toned medical template featuring professional structural grids.", isPremium: true },
-    { id: "austin", name: "Austin Indie Studio 👑", desc: "Warm desert sunrise accents, energetic headers, and highly expressive labels.", isPremium: true },
-    { id: "san_fran", name: "San Francisco SaaS 👑", desc: "Sleek, modern indigo-accented split sidebar tailored for startup career lines.", isPremium: true },
-    { id: "dublin", name: "Dublin Agency 👑", desc: "Creative emerald-tinted headings and spacious modern grid layouts.", isPremium: true },
-    { id: "seattle", name: "Seattle Cloud Architect 👑", desc: "High-impact tech design utilizing structured sky-blue highlights.", isPremium: true },
-    { id: "denver", name: "Rocky Mountain 👑", desc: "Rugged serif headings paired with warm natural forest tones.", isPremium: true },
-    { id: "miami", name: "Miami Sunset 👑", desc: "Vibrant gradient headers mimicking ocean sunsets, for lifestyle professionals.", isPremium: true },
-    { id: "singapore", name: "Singapore Venture 👑", desc: "Corporate red-gold highlights designed for venture capital & fintech leaders.", isPremium: true },
-    { id: "munich", name: "Munich Engineering 👑", desc: "Extremely structured layouts with precise division lines and high visual logic.", isPremium: true },
-    { id: "brussels", name: "Brussels Diplomat 👑", desc: "Highly formal, gold-accented headers for diplomacy, NGO, and government roles.", isPremium: true },
-    { id: "geneva", name: "Geneva Watchmaker 👑", desc: "Refined, ultra-thin grey line borders emphasizing master craftsmanship.", isPremium: true },
-    { id: "oslo", name: "Oslo Architect 👑", desc: "Ultra-minimalistic geometric layout utilizing subtle grey typography.", isPremium: true },
-    { id: "vienna", name: "Vienna Opera 👑", desc: "Classical editorial serif layout pairing deep crimson accents and cream paper.", isPremium: true },
-    { id: "copenhagen", name: "Copenhagen Hygge 👑", desc: "Warm grey backgrounds paired with soft charcoal typography and cozy spacing.", isPremium: true },
-    { id: "mumbai", name: "Mumbai Tech Hub 👑", desc: "Dynamic orange-blue developer split layout highlighting project portfolios.", isPremium: true },
-    { id: "shanghai", name: "Shanghai Executive 👑", desc: "Bold corporate layout pairing deep crimson highlights and structured sections.", isPremium: true },
-    { id: "sao_paulo", name: "São Paulo Creative 👑", desc: "Energetic green-yellow highlights and fresh asymmetrical heading styling.", isPremium: true }
+    { id: "tokyo", name: "Tokyo Minimalist", desc: "Japanese-inspired layout utilizing ultra-thin borders and a neat visual grid.", isPremium: false },
+    { id: "paris", name: "Paris Fashion House", desc: "Chic, high-contrast editorial layout utilizing gorgeous serif typography.", isPremium: false },
+    { id: "silicon", name: "Silicon Valley Developer", desc: "Tech-focused developer resume with monospace typography and modern tag highlights.", isPremium: false },
+    { id: "ny_firm", name: "Wall Street Analyst", desc: "Authoritative design optimized with compact spacing and elegant traditional serif.", isPremium: false },
+    { id: "berlin", name: "Berlin Brutalist", desc: "Stark structural borders and asymmetrical lines for modern creative professionals.", isPremium: false },
+    { id: "swiss", name: "Swiss Bauhaus", desc: "A clean, avant-garde design following functional typographic grids with red color accents.", isPremium: false },
+    { id: "london", name: "London Academic", desc: "Refined double border header ideal for researchers, professors, and scholars.", isPremium: false },
+    { id: "nordic", name: "Nordic Clean", desc: "A friendly, geometric sans format utilizing cozy grey backdrops and forest-green headings.", isPremium: false },
+    { id: "sydney", name: "Sydney Startup Founder", desc: "Features bright custom gradient accent buttons, dynamic tags, and clean margins.", isPremium: false },
+    { id: "toronto", name: "Toronto Corporate Pro", desc: "Premium bold navy header style with structured alignment and clean margin layout.", isPremium: false },
+    { id: "aurora", name: "Aurora Holographic", desc: "Modern portfolio-style resume featuring sleek glowing highlights and a cosmic edge.", isPremium: false },
+    { id: "monochrome", name: "Monochrome Ink", desc: "An ultra-clean print-optimized template emphasizing high-contrast readability.", isPremium: false },
+    { id: "slate_pro", name: "Slate Pro Executive", desc: "Beautiful deep-charcoal split sidebars presenting a modern executive presence.", isPremium: false },
+    { id: "gold_luxe", name: "Golden Luxury", desc: "Elegant gold borders and typography on premium off-white cream paper styling.", isPremium: false },
+    { id: "royal", name: "Royal Heritage", desc: "Regal burgundy accents, formal editorial headers, and classic serif elegance.", isPremium: false },
+    { id: "cyber", name: "Cybersecurity Terminal", desc: "Green-on-black terminal design tailored for DevOps, security, and systems engineering.", isPremium: false },
+    { id: "vintage", name: "Vintage Press", desc: "Features slab-serif typography and warm textures mimicking traditional typewriters.", isPremium: false },
+    { id: "amsterdam", name: "Amsterdam Creative", desc: "Vibrant orange accent highlights with asymmetrical header placements.", isPremium: false },
+    { id: "vibrant", name: "Vibrant Violet", desc: "Neon violet accents, stylish rounded badge tags, and creative layouts.", isPremium: false },
+    { id: "teal_grid", name: "Teal Matrix", desc: "Advanced grid alignment presenting technical skills and stats in a structured list.", isPremium: false },
+    { id: "minimal_plus", name: "Minimal ATS Plus", desc: "Optimized with generous white space and professional margins for senior roles.", isPremium: false },
+    { id: "milano", name: "Milano Editorial", desc: "High-fashion aesthetic utilizing elegant italicized headers and luxury spacing.", isPremium: false },
+    { id: "chicago", name: "Chicago Legal", desc: "Highly professional, authoritative double-divided borders for law & consulting.", isPremium: false },
+    { id: "boston", name: "Boston Medical", desc: "A serene teal-toned medical template featuring professional structural grids.", isPremium: false },
+    { id: "austin", name: "Austin Indie Studio", desc: "Warm desert sunrise accents, energetic headers, and highly expressive labels.", isPremium: false },
+    { id: "san_fran", name: "San Francisco SaaS", desc: "Sleek, modern indigo-accented split sidebar tailored for startup career lines.", isPremium: false },
+    { id: "dublin", name: "Dublin Agency", desc: "Creative emerald-tinted headings and spacious modern grid layouts.", isPremium: false },
+    { id: "seattle", name: "Seattle Cloud Architect", desc: "High-impact tech design utilizing structured sky-blue highlights.", isPremium: false },
+    { id: "denver", name: "Rocky Mountain", desc: "Rugged serif headings paired with warm natural forest tones.", isPremium: false },
+    { id: "miami", name: "Miami Sunset", desc: "Vibrant gradient headers mimicking ocean sunsets, for lifestyle professionals.", isPremium: false },
+    { id: "singapore", name: "Singapore Venture", desc: "Corporate red-gold highlights designed for venture capital & fintech leaders.", isPremium: false },
+    { id: "munich", name: "Munich Engineering", desc: "Extremely structured layouts with precise division lines and high visual logic.", isPremium: false },
+    { id: "brussels", name: "Brussels Diplomat", desc: "Highly formal, gold-accented headers for diplomacy, NGO, and government roles.", isPremium: false },
+    { id: "geneva", name: "Geneva Watchmaker", desc: "Refined, ultra-thin grey line borders emphasizing master craftsmanship.", isPremium: false },
+    { id: "oslo", name: "Oslo Architect", desc: "Ultra-minimalistic geometric layout utilizing subtle grey typography.", isPremium: false },
+    { id: "vienna", name: "Vienna Opera", desc: "Classical editorial serif layout pairing deep crimson accents and cream paper.", isPremium: false },
+    { id: "copenhagen", name: "Copenhagen Hygge", desc: "Warm grey backgrounds paired with soft charcoal typography and cozy spacing.", isPremium: false },
+    { id: "mumbai", name: "Mumbai Tech Hub", desc: "Dynamic orange-blue developer split layout highlighting project portfolios.", isPremium: false },
+    { id: "shanghai", name: "Shanghai Executive", desc: "Bold corporate layout pairing deep crimson highlights and structured sections.", isPremium: false },
+    { id: "sao_paulo", name: "São Paulo Creative", desc: "Energetic green-yellow highlights and fresh asymmetrical heading styling.", isPremium: false }
   ];
 
   return (
@@ -965,7 +963,7 @@ export default function ResumeBuilder({
                     <Sliders className="h-4 w-4 text-indigo-400" /> Pick Structural Template
                   </h4>
 
-                  {/* Search and Category Filters */}
+                  {/* Search bar */}
                   <div className="space-y-2">
                     <input
                       type="text"
@@ -974,30 +972,12 @@ export default function ResumeBuilder({
                       onChange={(e) => setTemplateSearch(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
                     />
-
-                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-900/40 rounded-xl border border-slate-800/60">
-                      {(["all", "free", "premium"] as const).map((type) => (
-                        <button
-                          key={type}
-                          onClick={() => setTemplateFilter(type)}
-                          className={`py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg transition ${
-                            templateFilter === type
-                              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
-                              : "text-slate-400 hover:text-white"
-                          }`}
-                        >
-                          {type}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   {/* Scrollable Templates List */}
                   <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-800">
                     {templatesList
                       .filter((tpl) => {
-                        if (templateFilter === "free" && tpl.isPremium) return false;
-                        if (templateFilter === "premium" && !tpl.isPremium) return false;
                         if (templateSearch.trim()) {
                           const query = templateSearch.toLowerCase();
                           return tpl.name.toLowerCase().includes(query) || tpl.desc.toLowerCase().includes(query);
@@ -1008,27 +988,14 @@ export default function ResumeBuilder({
                         <button
                           key={tpl.id}
                           onClick={() => {
-                            if (tpl.isPremium && !isPremium) {
-                              onUpgrade();
-                            } else {
-                              setResume((prev) => ({ ...prev, templateId: tpl.id }));
-                            }
+                            setResume((prev) => ({ ...prev, templateId: tpl.id }));
                           }}
                           className={`w-full text-left p-3 rounded-xl border transition relative overflow-hidden group ${
                             resume.templateId === tpl.id
                               ? "bg-indigo-600/10 border-indigo-500 shadow-md"
-                              : tpl.isPremium && !isPremium
-                              ? "bg-slate-950/30 border-slate-900 hover:border-amber-500/30"
                               : "bg-slate-900/50 border-slate-800 hover:bg-slate-900 hover:border-slate-700"
                           }`}
                         >
-                          {/* Premium indicator overlay for non-premium users */}
-                          {tpl.isPremium && !isPremium && (
-                            <div className="absolute top-0 right-0 bg-amber-500/10 border-l border-b border-amber-500/20 px-2 py-0.5 rounded-bl-lg text-[8px] font-mono font-bold tracking-widest text-amber-400 flex items-center gap-1">
-                              👑 PREMIUM
-                            </div>
-                          )}
-
                           <div className="flex items-center justify-between pr-12">
                             <span className="text-xs font-bold text-white group-hover:text-indigo-400 transition flex items-center gap-1.5">
                               {tpl.name}

@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Default catch-all deny rule for high-security zero-trust posture
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'isPremium', 'creationsCount', 'adViews', 'profilePhoto'])
+      );
+      allow delete: if false; // Profiles are permanent once created
+    }
+
+    // Resumes Sub-collection Rules
+    match /users/{userId}/resumes/{resumeId} {
+      allow read, list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(resumeId) && isValidResume(incoming());
+      allow update: if isOwner(userId) && isValidId(resumeId) && isValidResume(incoming());
+      allow delete: if isOwner(userId) && isValidId(resumeId);
+    }
+
+    // Cover Letters Sub-collection Rules
+    match /users/{userId}/letters/{letterId} {
+      allow read, list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(letterId) && isValidCoverLetter(incoming());
+      allow update: if isOwner(userId) && isValidId(letterId) && isValidCoverLetter(incoming());
+      allow delete: if isOwner(userId) && isValidId(letterId);
+    }
+
+    // Entity validation functions to prevent injection/shadow writes
+    function isValidUser(data) {
+      return data.email is string && data.email.size() <= 150 &&
+             data.displayName is string && data.displayName.size() <= 150 &&
+             data.isPremium is bool &&
+             (!('creationsCount' in data) || data.creationsCount is int) &&
+             (!('adViews' in data) || data.adViews is int) &&
+             (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 2048));
+    }
+
+    function isValidResume(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.personalInfo is map &&
+             data.updatedAt is string && data.updatedAt.size() <= 128 &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 128));
+    }
+
+    function isValidCoverLetter(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.recipientName is string && data.recipientName.size() <= 256 &&
+             data.recipientCompany is string && data.recipientCompany.size() <= 256 &&
+             data.content is string && data.content.size() <= 150000 &&
+             data.date is string && data.date.size() <= 128 &&
+             data.senderInfo is map &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 128)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 128));
+    }
+  }
+}

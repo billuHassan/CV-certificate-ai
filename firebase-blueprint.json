@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account registration and preferences",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's verified registration email"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name"
+        },
+        "isPremium": {
+          "type": "boolean",
+          "description": "Whether the user has complimentary premium access"
+        },
+        "creationsCount": {
+          "type": "integer",
+          "description": "Total number of resumes/letters created"
+        },
+        "adViews": {
+          "type": "integer",
+          "description": "Counter for system ads viewed"
+        },
+        "profilePhoto": {
+          "type": "string",
+          "description": "The image url of the profile picture to avoid storage size costs"
+        }
+      },
+      "required": ["email", "displayName", "isPremium"]
+    },
+    "Resume": {
+      "title": "Resume Data",
+      "description": "A comprehensive professional resume document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "personalInfo": { "type": "object" },
+        "summary": { "type": "string" },
+        "experience": { "type": "array" },
+        "education": { "type": "array" },
+        "projects": { "type": "array" },
+        "skills": { "type": "array" },
+        "languages": { "type": "array" },
+        "certifications": { "type": "array" },
+        "references": { "type": "array" },
+        "sectionsOrder": { "type": "array" },
+        "templateId": { "type": "string" },
+        "colorTheme": { "type": "string" },
+        "fontFamily": { "type": "string" },
+        "spacing": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "personalInfo", "updatedAt"]
+    },
+    "CoverLetter": {
+      "title": "Cover Letter Data",
+      "description": "A tailored cover letter document matched to a job target",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "recipientCompany": { "type": "string" },
+        "recipientAddress": { "type": "string" },
+        "jobTitle": { "type": "string" },
+        "jobDescription": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "senderInfo": { "type": "object" }
+      },
+      "required": ["id", "title", "recipientName", "recipientCompany", "content", "date", "senderInfo"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Top-level collection for user accounts keyed by their Firebase Auth UID"
+    },
+    "/users/{userId}/resumes/{resumeId}": {
+      "schema": "Resume",
+      "description": "Sub-collection of resumes belonging to a specific user profile"
+    },
+    "/users/{userId}/letters/{letterId}": {
+      "schema": "CoverLetter",
+      "description": "Sub-collection of cover letters belonging to a specific user profile"
+    }
+  }
+}
