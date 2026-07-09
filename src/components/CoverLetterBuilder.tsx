@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Sparkles, Printer, Copy, RefreshCw, Send, CheckCircle, ChevronLeft, Mail, Phone, MapPin } from "lucide-react";
+import { Sparkles, Printer, Copy, RefreshCw, Send, CheckCircle, ChevronLeft, Mail, Phone, MapPin, Download } from "lucide-react";
 import { CoverLetterData, ResumeData } from "../types";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 
@@ -100,6 +100,101 @@ export default function CoverLetterBuilder({
     });
   };
 
+  const handleDownloadHTML = () => {
+    const container = document.getElementById("letter-preview-container");
+    if (!container) {
+      alert("Letter preview not found.");
+      return;
+    }
+
+    const letterHtml = container.innerHTML;
+    const title = letter.title || "Cover_Letter";
+    const name = letter.senderInfo.name || "User";
+
+    const fullPageContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${name} - ${title}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..900;1,300..900&display=swap');
+    
+    body {
+      background-color: #0f172a;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 0;
+      font-family: "Inter", sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background-color: white !important;
+        color: black !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .print-shadow-none {
+        box-shadow: none !important;
+      }
+      .print-border-none {
+        border: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center py-8 print:p-0 print:bg-white print:text-black">
+  
+  <!-- Interactive instructions bar -->
+  <div class="no-print mb-8 max-w-[210mm] w-full bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div>
+      <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-widest">CVCraft AI • Export Assistant</h3>
+      <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+        This is a fully styled, offline-ready HTML version of your cover letter. Open this file in any browser and print (Ctrl+P) to save as a high-fidelity PDF document.
+      </p>
+    </div>
+    <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10 flex items-center gap-1.5 cursor-pointer shrink-0">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+
+  <!-- Main Letter Content Frame -->
+  <div class="w-full max-w-[210mm] bg-white text-slate-900 shadow-2xl print:shadow-none print-shadow-none border border-slate-800/20 print-border-none rounded-sm overflow-hidden p-16">
+    ${letterHtml}
+  </div>
+
+</body>
+</html>`;
+
+    const blob = new Blob([fullPageContent], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${name.replace(/\s+/g, "_")}_Cover_Letter.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadJSON = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(letter, null, 2));
+    const link = document.createElement("a");
+    link.setAttribute("href", dataStr);
+    link.setAttribute("download", `${(letter.senderInfo.name || "User").replace(/\s+/g, "_")}_Cover_Letter_Backup.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
       {/* Top action header */}
@@ -126,10 +221,25 @@ export default function CoverLetterBuilder({
             {copied ? "Copied" : "Copy Content"}
           </button>
           <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition"
+            onClick={handleDownloadHTML}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
+            title="Download fully styled offline-ready HTML. Best format for printing or converting to PDF!"
           >
-            <Printer className="h-3.5 w-3.5" /> Print Letter
+            <Download className="h-3.5 w-3.5" /> Download HTML (Get PDF)
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition border border-slate-700"
+            title="Open standard browser print dialog"
+          >
+            <Printer className="h-3.5 w-3.5" /> Print
+          </button>
+          <button
+            onClick={handleDownloadJSON}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg transition border border-slate-700"
+            title="Export raw cover letter data to a JSON backup file"
+          >
+            Backup JSON
           </button>
         </div>
       </div>
@@ -300,7 +410,7 @@ export default function CoverLetterBuilder({
 
         {/* Right Preview Pane */}
         <div className="flex-1 bg-slate-900 p-8 flex justify-center items-start overflow-y-auto print:bg-white print:p-0">
-          <div className="w-[210mm] min-h-[297mm] bg-white text-slate-900 shadow-2xl p-16 space-y-6 print:shadow-none print:w-full print:p-0 font-sans">
+          <div id="letter-preview-container" className="w-[210mm] min-h-[297mm] bg-white text-slate-900 shadow-2xl p-16 space-y-6 print:shadow-none print:w-full print:p-0 font-sans">
             
             {/* Header info */}
             <div className="border-b pb-6 flex justify-between items-start">

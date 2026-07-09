@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Sparkles, FileText, Activity, Settings as SettingsIcon, LogOut, LayoutDashboard,
-  Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X
+  Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X, Compass, MessageSquare
 } from "lucide-react";
 import { UserSession, ResumeData, CoverLetterData, ScoreReport } from "./types";
 import Onboarding from "./components/Onboarding";
@@ -10,9 +10,12 @@ import Dashboard from "./components/Dashboard";
 import ResumeBuilder from "./components/ResumeBuilder";
 import CoverLetterBuilder from "./components/CoverLetterBuilder";
 import ScoreAnalyzer from "./components/ScoreAnalyzer";
+import CareerRecommender from "./components/CareerRecommender";
 import Settings, { THEMES, WORLD_LANGUAGES } from "./components/Settings";
+import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
+import SupportFeedback from "./components/SupportFeedback";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc } from "firebase/firestore";
@@ -121,7 +124,44 @@ export default function App() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
   const [scoreReport, setScoreReport] = useState<ScoreReport | null>(null);
-  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career">("dashboard");
+
+  // Keep view states synced to sessionStorage so they survive page reloads (like language change save)
+  useEffect(() => {
+    if (user) {
+      if (selectedResumeId) {
+        sessionStorage.setItem(`cvcraft_${user.uid}_selectedResumeId`, selectedResumeId);
+      } else {
+        sessionStorage.removeItem(`cvcraft_${user.uid}_selectedResumeId`);
+      }
+    }
+  }, [selectedResumeId, user]);
+
+  useEffect(() => {
+    if (user) {
+      if (selectedLetterId) {
+        sessionStorage.setItem(`cvcraft_${user.uid}_selectedLetterId`, selectedLetterId);
+      } else {
+        sessionStorage.removeItem(`cvcraft_${user.uid}_selectedLetterId`);
+      }
+    }
+  }, [selectedLetterId, user]);
+
+  useEffect(() => {
+    if (user) {
+      if (scoreReport) {
+        sessionStorage.setItem(`cvcraft_${user.uid}_scoreReport`, JSON.stringify(scoreReport));
+      } else {
+        sessionStorage.removeItem(`cvcraft_${user.uid}_scoreReport`);
+      }
+    }
+  }, [scoreReport, user]);
+
+  useEffect(() => {
+    if (user) {
+      sessionStorage.setItem(`cvcraft_${user.uid}_currentView`, currentView);
+    }
+  }, [currentView, user]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("cvcraft_theme") || "obsidian");
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
@@ -138,13 +178,7 @@ export default function App() {
         const cookieValue = `/en/${langCode}`;
         
         if (!document.cookie.includes(`googtrans=${cookieValue}`)) {
-          document.cookie = `googtrans=${cookieValue}; path=/;`;
-          document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname};`;
-          const hostParts = window.location.hostname.split('.');
-          if (hostParts.length > 2) {
-            const mainDomain = hostParts.slice(-2).join('.');
-            document.cookie = `googtrans=${cookieValue}; path=/; domain=.${mainDomain};`;
-          }
+          setLanguageCookie(langCode);
         }
       }
     }
@@ -164,6 +198,34 @@ export default function App() {
       }
 
       if (firebaseUser) {
+        // Load user-specific active states on login
+        const savedResumeId = sessionStorage.getItem(`cvcraft_${firebaseUser.uid}_selectedResumeId`);
+        const savedLetterId = sessionStorage.getItem(`cvcraft_${firebaseUser.uid}_selectedLetterId`);
+        const savedScoreReport = sessionStorage.getItem(`cvcraft_${firebaseUser.uid}_scoreReport`);
+        const savedView = sessionStorage.getItem(`cvcraft_${firebaseUser.uid}_currentView`);
+
+        setSelectedResumeId(savedResumeId);
+        setSelectedLetterId(savedLetterId);
+        if (savedScoreReport) {
+          try {
+            setScoreReport(JSON.parse(savedScoreReport));
+          } catch {
+            setScoreReport(null);
+          }
+        } else {
+          setScoreReport(null);
+        }
+        setCurrentView((savedView as any) || "dashboard");
+
+        // Sync user-specific language choice instantly on login
+        const savedUserLang = localStorage.getItem(`cvcraft_${firebaseUser.uid}_lang`);
+        if (savedUserLang) {
+          const selectedLang = WORLD_LANGUAGES.find(l => l.name === savedUserLang || l.name.startsWith(savedUserLang));
+          if (selectedLang) {
+            setLanguageCookie(selectedLang.code);
+          }
+        }
+
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
           
@@ -257,6 +319,13 @@ export default function App() {
         setUser(null);
         setResumes([]);
         setLetters([]);
+        setSelectedResumeId(null);
+        setSelectedLetterId(null);
+        setScoreReport(null);
+        setCurrentView("dashboard");
+        
+        // Reset translation cookies back to English on signout so next login starts fresh
+        clearLanguageCookie();
         setIsAuthLoading(false);
       }
     });
@@ -280,6 +349,7 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
+      sessionStorage.clear();
       await firebaseSignOut(auth);
       setUser(null);
     } catch (err) {
@@ -594,6 +664,18 @@ export default function App() {
 
             <button
               onClick={() => {
+                setCurrentView("career");
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "career" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <Compass className="h-4.5 w-4.5" /> Career Recommender
+            </button>
+
+            <button
+              onClick={() => {
                 setCurrentView("settings");
                 setMobileMenuOpen(false);
               }}
@@ -602,6 +684,18 @@ export default function App() {
               }`}
             >
               <SettingsIcon className="h-4.5 w-4.5" /> Settings
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentView("support");
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "support" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <MessageSquare className="h-4.5 w-4.5" /> Support & Reviews
             </button>
 
             {user.email === "bilalhassanmussa@gmail.com" && (
@@ -675,6 +769,7 @@ export default function App() {
         {currentView === "resume-editor" && activeResume && (
           <ResumeBuilder
             initialResume={activeResume}
+            user={user}
             onSave={handleSaveActiveResume}
             onBackToDashboard={() => setCurrentView("dashboard")}
             isPremium={user.isPremium}
@@ -723,6 +818,12 @@ export default function App() {
           </div>
         )}
 
+        {currentView === "career" && user && (
+          <div className="p-4 sm:p-8">
+            <CareerRecommender user={user} resumes={resumes} />
+          </div>
+        )}
+
         {currentView === "settings" && (
           <Settings
             user={user}
@@ -744,6 +845,10 @@ export default function App() {
             user={user}
             onClose={() => setCurrentView("dashboard")}
           />
+        )}
+
+        {currentView === "support" && (
+          <SupportFeedback user={user} />
         )}
       </main>
 

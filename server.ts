@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import os from "os";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -636,10 +637,18 @@ app.post("/api/auth/validate-email", async (req, res) => {
 });
 
 // Initialize Google GenAI securely
+// To prevent the Google GenAI SDK from automatically using Google Cloud Application Default Credentials (ADC)
+// or Service Account metadata which causes ACCESS_TOKEN_TYPE_UNSUPPORTED errors in Cloud Run,
+// we override and clear the GCP metadata environment variables.
+process.env.GCP_METADATA_HOST = "127.0.0.1";
+delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+delete process.env.GOOGLE_GCLOUD_ADC_PATH;
+delete process.env.K_SERVICE; // Stops Cloud Run auto-detection in google-auth-library
+
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
 
-if (geminiApiKey) {
+if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") {
   ai = new GoogleGenAI({
     apiKey: geminiApiKey,
     httpOptions: {
@@ -649,7 +658,7 @@ if (geminiApiKey) {
     },
   });
 } else {
-  console.warn("WARNING: GEMINI_API_KEY environment variable is not set. AI features will fallback to offline mock responses.");
+  console.warn("WARNING: GEMINI_API_KEY environment variable is not set or invalid. AI features will fallback to offline mock responses.");
 }
 
 /**
@@ -1115,6 +1124,230 @@ app.post("/api/ai/analyze-resume", async (req, res) => {
   }
 });
 
+// 6.25 Analyze Resume for Career Recommendations & Job Matching
+app.post("/api/ai/career-recommendation", async (req, res) => {
+  try {
+    const { resume } = req.body;
+    if (!resume) {
+      return res.status(400).json({ error: "Resume data is required" });
+    }
+
+    const experienceText = (resume.experience || [])
+      .map((exp: any) => `${exp.position} at ${exp.company} (${exp.startDate} - ${exp.endDate}): ${exp.description}`)
+      .join("\n");
+    const educationText = (resume.education || [])
+      .map((edu: any) => `${edu.degree} in ${edu.fieldOfStudy} from ${edu.school}`)
+      .join("\n");
+    const projectsText = (resume.projects || [])
+      .map((proj: any) => `${proj.name} (Role: ${proj.role}): ${proj.description}`)
+      .join("\n");
+    const skillsText = (resume.skills || []).join(", ");
+    const certificationsText = (resume.certifications || []).map((c: any) => c.name).join(", ");
+
+    const analysisPrompt = `You are an elite executive career coach and job placement strategist.
+    Analyse the following resume content in detail and provide high-quality, actionable, highly-tailored career recommendations, job role matches, target companies/industry segments, and a concrete strategic path forward.
+
+    Requirements:
+    1. Target Professional Roles: Match the user with fitting career roles. For each role, list EXACTLY 5 REAL, active, specific companies globally (such as Google, Stripe, Microsoft, Netflix, etc.) that hire for this role, and recommend skills they should upgrade to standout from other candidates.
+    2. Recommended Countries: Recommend EXACTLY 10 countries in the world that have the highest demand and compensation standard for this career field, each with cities and salary details.
+
+    --- RESUME TITLE ---
+    ${resume.title || "Untitled Resume"}
+    
+    --- CURRENT ROLE ---
+    ${resume.personalInfo?.jobTitle || "Professional"}
+
+    --- PROFESSIONAL SUMMARY ---
+    ${resume.summary || "None provided"}
+
+    --- WORK EXPERIENCE ---
+    ${experienceText || "None listed"}
+
+    --- PROJECTS ---
+    ${projectsText || "None listed"}
+
+    --- EDUCATION ---
+    ${educationText || "None listed"}
+
+    --- SKILLS ---
+    ${skillsText || "None listed"}
+
+    --- CERTIFICATIONS ---
+    ${certificationsText || "None listed"}
+
+    Provide your findings in structured JSON matching the requested schema. Ensure the countries, companies, tips, and fit scores are calculated honestly and dynamically based on the resume's unique characteristics.`;
+
+    const result = await callGeminiWithFallback(
+      async (modelName) => {
+        const response = await ai!.models.generateContent({
+          model: modelName,
+          contents: analysisPrompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                overallFitSummary: { type: Type.STRING },
+                recommendedRoles: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      fitScore: { type: Type.INTEGER },
+                      rationale: { type: Type.STRING },
+                      expectedSalaryRange: { type: Type.STRING },
+                      skillsToAcquire: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                      },
+                      topCompanies: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                        description: "Exactly 5 real-world companies that actively hire for this role."
+                      },
+                      skillsToUpgrade: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            skillName: { type: Type.STRING },
+                            whyItStandsOut: { type: Type.STRING }
+                          },
+                          required: ["skillName", "whyItStandsOut"]
+                        },
+                        description: "Highly recommended skills to upgrade specifically to standout for this role."
+                      }
+                    },
+                    required: ["title", "fitScore", "rationale", "expectedSalaryRange", "skillsToAcquire", "topCompanies", "skillsToUpgrade"]
+                  }
+                },
+                recommendedCompanies: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      companyName: { type: Type.STRING },
+                      fitRationale: { type: Type.STRING },
+                      positionsToWatch: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                      },
+                      interviewTips: { type: Type.STRING }
+                    },
+                    required: ["companyName", "fitRationale", "positionsToWatch", "interviewTips"]
+                  }
+                },
+                recommendedCountries: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      country: { type: Type.STRING },
+                      rationale: { type: Type.STRING },
+                      topCities: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                      },
+                      averageSalaryLevel: { type: Type.STRING }
+                    },
+                    required: ["country", "rationale", "topCities", "averageSalaryLevel"]
+                  },
+                  description: "Exactly 10 recommended countries to work in based on this career field."
+                },
+                careerStrategy: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                }
+              },
+              required: ["overallFitSummary", "recommendedRoles", "recommendedCompanies", "recommendedCountries", "careerStrategy"]
+            }
+          }
+        });
+
+        const parsed = JSON.parse(response.text || "{}");
+        return parsed;
+      },
+      () => {
+        const jobTitle = resume.personalInfo?.jobTitle || "Professional";
+        return {
+          overallFitSummary: `Based on your profile as a ${jobTitle}, you demonstrate solid technical competencies and strong project ownership. This fallback review outlines standard roles and optimization recommendations to streamline your professional trajectory.`,
+          recommendedRoles: [
+            {
+              title: `Senior ${jobTitle || "Consultant"}`,
+              fitScore: 90,
+              rationale: `Given your demonstrated experience and skills list, advancing to a senior or team-lead role is the most natural next milestone.`,
+              expectedSalaryRange: "$115,000 - $140,000",
+              skillsToAcquire: ["System Design", "Technical Leadership", "Strategic Architecture"],
+              topCompanies: ["Google", "Microsoft", "Stripe", "Amazon", "Meta"],
+              skillsToUpgrade: [
+                {
+                  skillName: "Distributed Systems Architecture",
+                  whyItStandsOut: "Demonstrates capability to handle large-scale systems and design resilient enterprise-grade applications."
+                },
+                {
+                  skillName: "Team Mentorship & Leadership",
+                  whyItStandsOut: "Proves you are ready to lead project squads and foster talent, making you stand out from purely technical applicants."
+                }
+              ]
+            },
+            {
+              title: "Technical Product Manager",
+              fitScore: 78,
+              rationale: `Your combination of professional background and project execution aligns well with technical roadmap definition and vendor coordination.`,
+              expectedSalaryRange: "$110,000 - $135,000",
+              skillsToAcquire: ["Product Lifecycle Management", "Agile Roadmap Design", "Customer Discovery"],
+              topCompanies: ["Atlassian", "Salesforce", "Spotify", "Apple", "Uber"],
+              skillsToUpgrade: [
+                {
+                  skillName: "Data-Driven Strategy & Analytics",
+                  whyItStandsOut: "Enables you to justify roadmap priorities using real user metrics and growth data, showing business maturity."
+                }
+              ]
+            }
+          ],
+          recommendedCompanies: [
+            {
+              companyName: "Leading Tech Enterprises (Google, Stripe, Microsoft)",
+              fitRationale: "High-scale engineering environments value structured ownership, clean system architecture patterns, and solid communication.",
+              positionsToWatch: ["Senior Software Developer", "Technical Specialist", "Infrastructure Engineer"],
+              interviewTips: "Focus heavily on behavioral interview questions following the STAR method. Be prepared to talk about conflict resolution, architectural trade-offs, and mentoring younger developers."
+            },
+            {
+              companyName: "Fintech & SaaS Scale-ups",
+              fitRationale: "Fast-moving, medium-sized companies look for adaptive generalists who can wear multiple hats and drive features from design to deployment.",
+              positionsToWatch: ["Product Engineer", "Full-Stack Developer", "Platform Advocate"],
+              interviewTips: "Prepare for dynamic live-coding assessments and database architectural challenges. Highlight your agility and experience delivering high-quality client value quickly."
+            }
+          ],
+          recommendedCountries: [
+            { country: "United States", rationale: "The largest global tech ecosystem with peak compensations and high innovation density.", topCities: ["San Francisco, CA", "New York, NY", "Seattle, WA"], averageSalaryLevel: "$130,000 - $180,000" },
+            { country: "Germany", rationale: "Thriving European hub with stable work hours, high visa approval rates, and massive demand for talent.", topCities: ["Berlin", "Munich", "Frankfurt"], averageSalaryLevel: "€75,000 - €95,000" },
+            { country: "United Kingdom", rationale: "A powerful global financial and tech node with direct venture capital pipelines and high startup activity.", topCities: ["London", "Manchester", "Edinburgh"], averageSalaryLevel: "£80,000 - £110,000" },
+            { country: "Canada", rationale: "Excellent express entry visa streams and robust tech presence from global tech firms.", topCities: ["Toronto", "Vancouver", "Montreal"], averageSalaryLevel: "C$110,000 - C$145,000" },
+            { country: "Singapore", rationale: "Gateway to the Southeast Asian tech boom, offering very low tax rates and world-class digital infra.", topCities: ["Singapore"], averageSalaryLevel: "S$120,000 - S$160,000" },
+            { country: "Netherlands", rationale: "Highly progressive working culture, 30% ruling tax benefit for high-skilled migrants, and high English fluency.", topCities: ["Amsterdam", "Rotterdam", "Utrecht"], averageSalaryLevel: "€70,000 - €90,000" },
+            { country: "Australia", rationale: "Incredible lifestyle, high minimum standards of living, and thriving tech scenes in major hubs.", topCities: ["Sydney", "Melbourne", "Brisbane"], averageSalaryLevel: "A$120,000 - A$160,000" },
+            { country: "Switzerland", rationale: "Outstanding salaries, extremely low tax rates, and home to some of the world's premier research institutes.", topCities: ["Zurich", "Geneva"], averageSalaryLevel: "CHF 130,000 - CHF 160,000" },
+            { country: "Sweden", rationale: "Strong focus on work-life balance, sustainability, and home to unicorn giants like Spotify and Klarna.", topCities: ["Stockholm", "Gothenburg"], averageSalaryLevel: "SEK 650,000 - SEK 850,000" },
+            { country: "Japan", rationale: "Unique cultural ecosystem rapidly modernizing its digital space with special high-skilled professional visas.", topCities: ["Tokyo", "Osaka"], averageSalaryLevel: "¥8,000,000 - ¥12,000,000" }
+          ],
+          careerStrategy: [
+            "Actively pursue cloud-related certifications (e.g., AWS Solutions Architect or Google Cloud Engineer) to formalize your distributed infrastructure knowledge.",
+            "Establish a personal GitHub portfolio demonstrating production-grade features, test coverage, and documentation best practices.",
+            "Schedule informational interviews with professionals in target roles to refine your positioning and discover unlisted opportunities."
+          ]
+        };
+      }
+    );
+
+    res.json({ report: result });
+  } catch (error: any) {
+    console.error("AI Career Recommender Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to process request" });
+  }
+});
+
 // 6.5 Auto-apply ATS Audit Suggestions directly to Resume
 app.post("/api/ai/auto-apply-changes", async (req, res) => {
   try {
@@ -1281,6 +1514,76 @@ app.post("/api/ai/interview-prep", async (req, res) => {
   } catch (error: any) {
     console.error("AI Interview Prep Error:", error);
     res.status(500).json({ error: error?.message || "Failed to process request" });
+  }
+});
+
+// 8. Direct Feedback Email Dispatcher
+app.post("/api/feedback/send-email", async (req, res) => {
+  try {
+    const { rating, comment, email, displayName, userId } = req.body;
+    
+    if (!rating || !comment || !email) {
+      return res.status(400).json({ error: "Rating, comment, and email are required fields." });
+    }
+
+    console.log(`[Feedback Received] ${rating}/5 stars from ${email}. Comment: ${comment}`);
+
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const from = process.env.SMTP_FROM || "feedback@cvcraftai.com";
+
+    if (!host || !user || !pass) {
+      console.warn("SMTP credentials are not configured in AI Studio Secrets. Email dispatch skipped.");
+      return res.json({
+        success: true,
+        smtpConfigured: false,
+        message: "Your rating and feedback was saved to the database. Note: Programmatic email dispatch requires SMTP configuration in AI Studio Secrets."
+      });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: {
+        user,
+        pass,
+      },
+    });
+
+    const mailOptions = {
+      from,
+      to: "mwana1601@gmail.com",
+      subject: `[CVCraft AI] New Feedback Submitted (${rating}/5 Stars)`,
+      text: `Hello Bilal,\n\nA new user feedback review has been submitted on CVCraft AI.\n\nRating: ${rating} / 5 Stars\nComments:\n${comment}\n\n---\nUser Profile:\nName: ${displayName || "Anonymous"}\nEmail: ${email}\nUser ID: ${userId || "Not Provided"}\nSubmitted At: ${new Date().toLocaleString()}\n`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #fafafa;">
+          <h2 style="color: #4f46e5; margin-top: 0; font-size: 20px; font-weight: 700;">New Feedback & Rating Received!</h2>
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <p style="font-size: 18px; margin: 0 0 12px 0; font-weight: bold; color: #1e293b;">
+              Rating: ${"★".repeat(rating)}${"☆".repeat(5-rating)} <span style="font-size: 14px; color: #64748b; font-weight: normal;">(${rating}/5 Stars)</span>
+            </p>
+            <div style="font-size: 14px; line-height: 1.6; color: #334155; white-space: pre-wrap; background-color: #f8fafc; padding: 12px; border-radius: 8px;">${comment}</div>
+          </div>
+          <div style="font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+            <p style="margin: 3px 0;"><strong>Sender Name:</strong> ${displayName || "Anonymous User"}</p>
+            <p style="margin: 3px 0;"><strong>Sender Email:</strong> <a href="mailto:${email}" style="color: #4f46e5; text-decoration: none;">${email}</a></p>
+            <p style="margin: 3px 0;"><strong>User ID:</strong> <code style="background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: monospace;">${userId || "N/A"}</code></p>
+            <p style="margin: 3px 0;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+          </div>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Successfully dispatched feedback email to mwana1601@gmail.com`);
+    return res.json({ success: true, smtpConfigured: true });
+
+  } catch (error: any) {
+    console.error("Error dispatching feedback email:", error);
+    return res.status(500).json({ error: "Failed to dispatch feedback email over SMTP.", details: error?.message || error });
   }
 });
 

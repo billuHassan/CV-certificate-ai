@@ -30,11 +30,10 @@ service cloud.firestore {
 
     // User Profile Rules
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || (isSignedIn() && request.auth.token.email == "bilalhassanmussa@gmail.com");
+      allow list: if isSignedIn() && request.auth.token.email == "bilalhassanmussa@gmail.com";
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if isOwner(userId) && isValidUser(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'isPremium', 'creationsCount', 'adViews', 'profilePhoto'])
-      );
+      allow update: if (isOwner(userId) || (isSignedIn() && request.auth.token.email == "bilalhassanmussa@gmail.com")) && isValidUser(incoming());
       allow delete: if false; // Profiles are permanent once created
     }
 
@@ -54,14 +53,67 @@ service cloud.firestore {
       allow delete: if isOwner(userId) && isValidId(letterId);
     }
 
+    // Career Recommendations Sub-collection Rules
+    match /users/{userId}/career_recommendations/{recId} {
+      allow read, list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(recId) && isValidCareerRec(incoming());
+      allow delete: if isOwner(userId) && isValidId(recId);
+      allow update: if false; // Recommendations are read-only once generated
+    }
+
+    // Reviews Global Collection Rules
+    match /reviews/{reviewId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidReview(incoming());
+    }
+
+    // Admin Chats Global Collection Rules
+    match /admin_chats/{msgId} {
+      allow read, list: if isSignedIn() && (request.auth.token.email == "bilalhassanmussa@gmail.com" || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && (
+        (request.auth.token.email == "bilalhassanmussa@gmail.com" && isValidAdminChat(incoming())) ||
+        (incoming().userId == request.auth.uid && incoming().senderId == request.auth.uid && isValidAdminChat(incoming()))
+      );
+    }
+
     // Entity validation functions to prevent injection/shadow writes
     function isValidUser(data) {
-      return data.email is string && data.email.size() <= 150 &&
-             data.displayName is string && data.displayName.size() <= 150 &&
-             data.isPremium is bool &&
+      return (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 150)) &&
+             (!('isPremium' in data) || data.isPremium is bool) &&
              (!('creationsCount' in data) || data.creationsCount is int) &&
              (!('adViews' in data) || data.adViews is int) &&
-             (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 2048));
+             (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 1000000));
+    }
+
+    function isValidReview(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.userEmail is string && data.userEmail.size() <= 150 &&
+             data.userName is string && data.userName.size() <= 150 &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() <= 5000 &&
+             data.createdAt is string && data.createdAt.size() <= 128;
+    }
+
+    function isValidAdminChat(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.senderId is string && data.senderId.size() <= 128 &&
+             data.senderEmail is string && data.senderEmail.size() <= 150 &&
+             data.senderName is string && data.senderName.size() <= 150 &&
+             data.message is string && data.message.size() <= 5000 &&
+             data.createdAt is string && data.createdAt.size() <= 128 &&
+             (!('read' in data) || data.read is bool);
+    }
+
+    function isValidCareerRec(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.resumeId is string && data.resumeId.size() <= 128 &&
+             data.resumeTitle is string && data.resumeTitle.size() <= 256 &&
+             data.overallFitSummary is string && data.overallFitSummary.size() <= 10000 &&
+             data.recommendedRoles is list &&
+             data.recommendedCompanies is list &&
+             data.careerStrategy is list &&
+             data.createdAt is string && data.createdAt.size() <= 128;
     }
 
     function isValidResume(data) {

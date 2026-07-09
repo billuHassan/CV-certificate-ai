@@ -23,6 +23,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
     colorTheme = "#3b82f6", // Default blue
     fontFamily = "font-sans",
     spacing = "comfortable",
+    layoutMode = "auto",
   } = data;
 
   // Spacing unit mapping
@@ -62,11 +63,19 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       "berlin"
     ];
 
-    const isSplit = splitLayouts.includes(templateId);
+    let isSplit = splitLayouts.includes(templateId);
+    if (layoutMode === "single") {
+      isSplit = false;
+    } else if (layoutMode === "split") {
+      isSplit = true;
+    }
     
     let font = fontFamily;
-    if (serifLayouts.includes(templateId)) font = "font-serif";
-    else if (monoLayouts.includes(templateId)) font = "font-mono";
+    if (fontFamily === "auto" || !fontFamily) {
+      if (serifLayouts.includes(templateId)) font = "font-serif";
+      else if (monoLayouts.includes(templateId)) font = "font-mono";
+      else font = "font-sans";
+    }
 
     let theme = "light";
     if (darkThemes.includes(templateId)) theme = "dark";

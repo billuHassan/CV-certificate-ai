@@ -4,6 +4,8 @@ import {
   CheckCircle, Globe, Bell, Moon, Mail, User, ShieldAlert, Camera, CreditCard, Check, Trash2, Landmark, RefreshCw
 } from "lucide-react";
 import { UserSession, ResumeData, CoverLetterData } from "../types";
+import { compressImage } from "../lib/imageUtils";
+import { setLanguageCookie } from "../lib/languageUtils";
 
 export interface ThemeDefinition {
   id: string;
@@ -215,16 +217,37 @@ export default function Settings({
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Language & Regional fields
-  const [lang, setLang] = useState(() => localStorage.getItem("cvcraft_lang") || "English (US)");
-  const [region, setRegion] = useState(() => localStorage.getItem("cvcraft_region") || "United States (EST/PST)");
-  const [currency, setCurrency] = useState(() => localStorage.getItem("cvcraft_currency") || "USD ($)");
+  const [lang, setLang] = useState(() => {
+    const userKey = user ? `cvcraft_${user.uid}_lang` : "cvcraft_lang";
+    return localStorage.getItem(userKey) || localStorage.getItem("cvcraft_lang") || "English (US)";
+  });
+  const [region, setRegion] = useState(() => {
+    const userKey = user ? `cvcraft_${user.uid}_region` : "cvcraft_region";
+    return localStorage.getItem(userKey) || localStorage.getItem("cvcraft_region") || "United States (EST/PST)";
+  });
+  const [currency, setCurrency] = useState(() => {
+    const userKey = user ? `cvcraft_${user.uid}_currency` : "cvcraft_currency";
+    return localStorage.getItem(userKey) || localStorage.getItem("cvcraft_currency") || "USD ($)";
+  });
   const [langSuccess, setLangSuccess] = useState(false);
 
   // Detailed Notification switches
-  const [notifsEmailAlerts, setNotifsEmailAlerts] = useState(() => localStorage.getItem("cvcraft_notif_email") !== "false");
-  const [notifsAtsResults, setNotifsAtsResults] = useState(() => localStorage.getItem("cvcraft_notif_ats") !== "false");
-  const [notifsViews, setNotifsViews] = useState(() => localStorage.getItem("cvcraft_notif_views") !== "false");
-  const [notifsUpdates, setNotifsUpdates] = useState(() => localStorage.getItem("cvcraft_notif_updates") !== "false");
+  const [notifsEmailAlerts, setNotifsEmailAlerts] = useState(() => {
+    const userKey = user ? `cvcraft_${user.uid}_notif_email` : "cvcraft_notif_email";
+    return localStorage.getItem(userKey) !== "false";
+  });
+  const [notifsAtsResults, setNotifsAtsResults] = useState(() => {
+    const userKey = user ? `cvcraft_${user.uid}_notif_ats` : "cvcraft_notif_ats";
+    return localStorage.getItem(userKey) !== "false";
+  });
+  const [notifsViews, setNotifsViews] = useState(() => {
+    const userKey = user ? `cvcraft_${user.uid}_notif_views` : "cvcraft_notif_views";
+    return localStorage.getItem(userKey) !== "false";
+  });
+  const [notifsUpdates, setNotifsUpdates] = useState(() => {
+    const userKey = user ? `cvcraft_${user.uid}_notif_updates` : "cvcraft_notif_updates";
+    return localStorage.getItem(userKey) !== "false";
+  });
   const [notifSuccess, setNotifSuccess] = useState(false);
 
   // Backup file upload states
@@ -233,22 +256,19 @@ export default function Settings({
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Profile Picture uploading
-  const handlePhotoUpload = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      alert("Please upload a valid image file.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64String = reader.result as string;
+  const handlePhotoUpload = async (file: File) => {
+    try {
+      const base64String = await compressImage(file, 160, 160, 0.75);
       onUpdateUser({
         ...user,
         profilePhoto: base64String
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Image processing error:", err);
+      alert("Failed to process image. Please try another file.");
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -303,6 +323,11 @@ export default function Settings({
 
   // Language saving
   const handleSaveLanguage = () => {
+    if (user) {
+      localStorage.setItem(`cvcraft_${user.uid}_lang`, lang);
+      localStorage.setItem(`cvcraft_${user.uid}_region`, region);
+      localStorage.setItem(`cvcraft_${user.uid}_currency`, currency);
+    }
     localStorage.setItem("cvcraft_lang", lang);
     localStorage.setItem("cvcraft_region", region);
     localStorage.setItem("cvcraft_currency", currency);
@@ -310,20 +335,9 @@ export default function Settings({
     // Find the language code
     const selectedLang = WORLD_LANGUAGES.find(l => l.name === lang || l.name.startsWith(lang)) || WORLD_LANGUAGES[0];
     const langCode = selectedLang.code;
-    const cookieValue = `/en/${langCode}`;
 
-    // Clear and set googtrans cookies
-    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
-    
-    document.cookie = `googtrans=${cookieValue}; path=/;`;
-    document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname};`;
-    
-    const hostParts = window.location.hostname.split('.');
-    if (hostParts.length > 2) {
-      const mainDomain = hostParts.slice(-2).join('.');
-      document.cookie = `googtrans=${cookieValue}; path=/; domain=.${mainDomain};`;
-    }
+    // Use clean cookie setter
+    setLanguageCookie(langCode);
 
     setLangSuccess(true);
     setTimeout(() => {
@@ -334,6 +348,12 @@ export default function Settings({
 
   // Notifications saving
   const handleSaveNotifications = () => {
+    if (user) {
+      localStorage.setItem(`cvcraft_${user.uid}_notif_email`, String(notifsEmailAlerts));
+      localStorage.setItem(`cvcraft_${user.uid}_notif_ats`, String(notifsAtsResults));
+      localStorage.setItem(`cvcraft_${user.uid}_notif_views`, String(notifsViews));
+      localStorage.setItem(`cvcraft_${user.uid}_notif_updates`, String(notifsUpdates));
+    }
     localStorage.setItem("cvcraft_notif_email", String(notifsEmailAlerts));
     localStorage.setItem("cvcraft_notif_ats", String(notifsAtsResults));
     localStorage.setItem("cvcraft_notif_views", String(notifsViews));

@@ -50,12 +50,29 @@ export default function ScoreAnalyzer({
       });
       const data = await response.json();
       if (data.summary || data.skills || data.experience || data.projects) {
+        // Safe mapping to preserve all user-defined fixed fields (e.g. position, company, startDate, endDate, name, url)
+        const mergedExperience = (resume.experience || []).map((origExp) => {
+          const matchedExp = (data.experience || []).find((newExp: any) => newExp.id === origExp.id);
+          return {
+            ...origExp,
+            description: matchedExp ? matchedExp.description : origExp.description,
+          };
+        });
+
+        const mergedProjects = (resume.projects || []).map((origProj) => {
+          const matchedProj = (data.projects || []).find((newProj: any) => newProj.id === origProj.id);
+          return {
+            ...origProj,
+            description: matchedProj ? matchedProj.description : origProj.description,
+          };
+        });
+
         const updatedResume: ResumeData = {
           ...resume,
           summary: data.summary || resume.summary,
           skills: data.skills || resume.skills,
-          experience: data.experience || resume.experience,
-          projects: data.projects || resume.projects,
+          experience: mergedExperience,
+          projects: mergedProjects,
           updatedAt: new Date().toISOString(),
         };
         onUpdateResume(updatedResume);

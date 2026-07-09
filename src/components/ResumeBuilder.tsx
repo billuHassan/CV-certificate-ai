@@ -2,14 +2,16 @@ import React, { useState, useEffect } from "react";
 import {
   User, Briefcase, GraduationCap, Code, FolderGit, Languages, Award, Users, AlignLeft,
   Plus, Trash2, ArrowUp, ArrowDown, Settings, Sliders, Palette, Type as FontIcon, Sparkles,
-  Download, Printer, ChevronDown, ChevronUp, Image, AlertCircle, Sparkle, Copy, RefreshCw
+  Download, Printer, ChevronDown, ChevronUp, Image, AlertCircle, Sparkle, Copy, RefreshCw, Layout
 } from "lucide-react";
-import { ResumeData, WorkExperience, Education, Project, Language, Certification, Reference } from "../types";
+import { ResumeData, WorkExperience, Education, Project, Language, Certification, Reference, UserSession } from "../types";
+import { compressImage } from "../lib/imageUtils";
 import ResumeTemplates from "./ResumeTemplates";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 
 interface ResumeBuilderProps {
   initialResume: ResumeData;
+  user?: UserSession;
   onSave: (resume: ResumeData) => void;
   onBackToDashboard: () => void;
   isPremium: boolean;
@@ -18,6 +20,7 @@ interface ResumeBuilderProps {
 
 export default function ResumeBuilder({
   initialResume,
+  user,
   onSave,
   onBackToDashboard,
   isPremium,
@@ -36,6 +39,11 @@ export default function ResumeBuilder({
     onSave(resume);
   }, [resume]);
 
+  // Sync state when switching to a different resume document
+  useEffect(() => {
+    setResume(initialResume);
+  }, [initialResume.id]);
+
   const updatePersonalInfo = (field: string, value: string) => {
     setResume((prev) => ({
       ...prev,
@@ -43,17 +51,19 @@ export default function ResumeBuilder({
     }));
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compressedBase64 = await compressImage(file, 160, 160, 0.75);
         setResume((prev) => ({
           ...prev,
-          personalInfo: { ...prev.personalInfo, profilePhoto: reader.result as string },
+          personalInfo: { ...prev.personalInfo, profilePhoto: compressedBase64 },
         }));
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("Image processing error:", err);
+        alert("Failed to process image. Please try another file.");
+      }
     }
   };
 
@@ -303,6 +313,101 @@ export default function ResumeBuilder({
     });
   };
 
+  const handleDownloadHTML = () => {
+    const container = document.getElementById("resume-preview-container");
+    if (!container) {
+      alert("Resume preview not found.");
+      return;
+    }
+
+    const resumeHtml = container.innerHTML;
+    const title = resume.title || "Resume";
+    const fullName = resume.personalInfo.fullName || "User";
+
+    const fullPageContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${fullName} - ${title}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..900;1,300..900&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..900;1,300..900&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    
+    body {
+      background-color: #0f172a;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 0;
+      font-family: "Inter", sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background-color: white !important;
+        color: black !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .print-shadow-none {
+        box-shadow: none !important;
+      }
+      .print-border-none {
+        border: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center py-8 print:p-0 print:bg-white print:text-black">
+  
+  <!-- Interactive instructions bar -->
+  <div class="no-print mb-8 max-w-[210mm] w-full bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div>
+      <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-widest">CVCraft AI • Export Assistant</h3>
+      <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+        This is a fully styled, offline-ready HTML version of your resume. Open this file in any browser and print (Ctrl+P) to save as a high-fidelity PDF document.
+      </p>
+    </div>
+    <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10 flex items-center gap-1.5 cursor-pointer shrink-0">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+
+  <!-- Main Resume Content Frame -->
+  <div class="w-full max-w-[210mm] bg-white text-slate-900 shadow-2xl print:shadow-none print-shadow-none border border-slate-800/20 print-border-none rounded-sm overflow-hidden p-8 print:p-0">
+    ${resumeHtml}
+  </div>
+
+</body>
+</html>`;
+
+    const blob = new Blob([fullPageContent], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${fullName.replace(/\s+/g, "_")}_Resume.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadJSON = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(resume, null, 2));
+    const link = document.createElement("a");
+    link.setAttribute("href", dataStr);
+    link.setAttribute("download", `${(resume.personalInfo.fullName || "User").replace(/\s+/g, "_")}_Resume_Backup.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleSectionToggle = (sect: string) => {
     setOpenSection(openSection === sect ? "" : sect);
   };
@@ -317,10 +422,12 @@ export default function ResumeBuilder({
   ];
 
   const fontFamilies = [
-    { label: "Classic Serif (Times)", value: "font-serif" },
+    { label: "Template Default", value: "auto" },
     { label: "Modern Inter (Sans)", value: "font-sans" },
+    { label: "Classic Serif (Times)", value: "font-serif" },
     { label: "Developer Mono (JetBrains)", value: "font-mono" },
     { label: "Display Grotesk", value: "font-display" },
+    { label: "Playful Handwriting", value: "font-handwritten" },
   ];
 
   const templatesList = [
@@ -396,10 +503,25 @@ export default function ResumeBuilder({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/10"
+            onClick={handleDownloadHTML}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
+            title="Download fully styled offline-ready HTML. Best format for printing or converting to PDF!"
           >
-            <Printer className="h-3.5 w-3.5" /> Export PDF
+            <Download className="h-3.5 w-3.5" /> Download HTML (Get PDF)
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition border border-slate-700"
+            title="Open the browser print/PDF dialog directly"
+          >
+            <Printer className="h-3.5 w-3.5" /> Print
+          </button>
+          <button
+            onClick={handleDownloadJSON}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg transition border border-slate-700"
+            title="Export raw resume data to a JSON backup file"
+          >
+            Backup JSON
           </button>
         </div>
       </div>
@@ -463,12 +585,32 @@ export default function ResumeBuilder({
                             <Image className="h-5 w-5" />
                           )}
                         </div>
-                        <div>
-                          <label className="text-xs text-slate-400 block mb-1">Profile Photo</label>
-                          <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" id="photo-upload" />
-                          <label htmlFor="photo-upload" className="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-lg text-xs font-semibold cursor-pointer transition">
-                            Upload Photo
-                          </label>
+                        <div className="space-y-1.5 flex-1">
+                          <label className="text-xs text-slate-400 block">Profile Photo</label>
+                          <div className="flex flex-wrap gap-2">
+                            <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" id="photo-upload" />
+                            <label htmlFor="photo-upload" className="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-lg text-xs font-semibold cursor-pointer transition">
+                              Upload Photo
+                            </label>
+                            {user?.profilePhoto && (
+                              <button
+                                type="button"
+                                onClick={() => updatePersonalInfo("profilePhoto", user.profilePhoto!)}
+                                className="px-3 py-1.5 bg-indigo-950/40 text-indigo-300 border border-indigo-900/40 hover:bg-indigo-900/20 rounded-lg text-xs font-semibold transition"
+                              >
+                                Use Account Photo
+                              </button>
+                            )}
+                            {resume.personalInfo.profilePhoto && (
+                              <button
+                                type="button"
+                                onClick={() => updatePersonalInfo("profilePhoto", "")}
+                                className="px-3 py-1.5 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/30 text-rose-400 rounded-lg text-xs font-semibold transition"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1033,6 +1175,26 @@ export default function ResumeBuilder({
                       </button>
                     ))}
                   </div>
+
+                  {/* Custom Hex Color Picker */}
+                  <div className="flex items-center gap-2.5 pt-2 border-t border-slate-900/60 mt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Custom Color:</span>
+                    <div className="relative flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 w-full gap-2">
+                      <input
+                        type="color"
+                        value={resume.colorTheme && resume.colorTheme.startsWith("#") && resume.colorTheme.length === 7 ? resume.colorTheme : "#3b82f6"}
+                        onChange={(e) => setResume((prev) => ({ ...prev, colorTheme: e.target.value }))}
+                        className="h-7 w-9 bg-transparent border-none cursor-pointer rounded"
+                      />
+                      <input
+                        type="text"
+                        value={resume.colorTheme}
+                        onChange={(e) => setResume((prev) => ({ ...prev, colorTheme: e.target.value }))}
+                        placeholder="#3B82F6"
+                        className="bg-transparent border-none text-xs text-white focus:outline-none w-full font-mono uppercase"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* 3. Fonts */}
@@ -1075,6 +1237,32 @@ export default function ResumeBuilder({
                         }`}
                       >
                         {spaceOption}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 5. Column Layout Structure Override */}
+                <div className="space-y-3 border-t border-slate-800 pt-5">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Layout className="h-4 w-4 text-indigo-400" /> Structure Column Layout
+                  </h4>
+                  <div className="flex bg-slate-950 border border-slate-800 p-1 rounded-xl">
+                    {([
+                      { label: "Template Default", value: "auto" },
+                      { label: "Single Column", value: "single" },
+                      { label: "Split Columns", value: "split" }
+                    ] as const).map((layoutOption) => (
+                      <button
+                        key={layoutOption.value}
+                        onClick={() => setResume((prev) => ({ ...prev, layoutMode: layoutOption.value }))}
+                        className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg transition ${
+                          (resume.layoutMode || "auto") === layoutOption.value
+                            ? "bg-indigo-600 text-white"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {layoutOption.label}
                       </button>
                     ))}
                   </div>
@@ -1128,7 +1316,7 @@ export default function ResumeBuilder({
 
         {/* Right Preview Pane (Desktop) */}
         <div className="flex-1 overflow-y-auto bg-slate-900 p-8 flex justify-center items-start border-l border-slate-850 print:p-0 print:border-none">
-          <div className="w-full max-w-[210mm] shadow-2xl print:shadow-none shrink-0 border border-slate-800/40 rounded-sm overflow-hidden print:border-none">
+          <div id="resume-preview-container" className="w-full max-w-[210mm] shadow-2xl print:shadow-none shrink-0 border border-slate-800/40 rounded-sm overflow-hidden print:border-none bg-white text-slate-900">
             <ResumeTemplates data={resume} />
           </div>
         </div>

@@ -1,52 +1,79 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
-  Shield, Users, DollarSign, Settings, Bell, RefreshCw, Check, 
-  X, AlertTriangle, Cpu, Terminal, TrendingUp, Radio, Ban
+  Shield, Users, MessageSquare, Star, RefreshCw, Check, 
+  X, AlertTriangle, Cpu, Terminal, Radio, Ban, Send, UserCheck, Inbox
 } from "lucide-react";
 import { UserSession } from "../types";
+import { db, auth, handleFirestoreError, OperationType } from "../lib/firebase";
+import { 
+  collection, onSnapshot, doc, updateDoc, setDoc, query, orderBy
+} from "firebase/firestore";
 
 interface AdminPanelProps {
   user: UserSession;
   onClose: () => void;
 }
 
-interface SimulatedUser {
+interface RealUser {
   id: string;
-  name: string;
   email: string;
+  displayName: string;
   isPremium: boolean;
-  registeredAt: string;
-  scansCount: number;
+  creationsCount: number;
+  adViews: number;
+  profilePhoto?: string;
+}
+
+interface UserReview {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+interface ChatMessage {
+  id: string;
+  userId: string;
+  senderId: string;
+  senderEmail: string;
+  senderName: string;
+  message: string;
+  createdAt: string;
+  read?: boolean;
 }
 
 export default function AdminPanel({ user, onClose }: AdminPanelProps) {
   const isAuthorized = user.email === "bilalhassanmussa@gmail.com";
+  const firebaseAdminUser = auth.currentUser;
 
-  // State configurations
-  const [globalPrice, setGlobalPrice] = useState("1.99");
-  const [isPromoActive, setIsPromoActive] = useState(true);
-  const [isGoogleAdsActive, setIsGoogleAdsActive] = useState(true);
-  const [paypalClientId, setPaypalClientId] = useState(() => localStorage.getItem("cvcraft_paypal_client_id") || "sb-xxxxxxxxxxxxxxx");
-  const [paypalClientSecret, setPaypalClientSecret] = useState(() => localStorage.getItem("cvcraft_paypal_client_secret") || "E-xxxxxxxxxxxxxxxx");
-  const [adsensePubId, setAdsensePubId] = useState(() => localStorage.getItem("cvcraft_adsense_pub_id") || "ca-pub-xxxxxxxxxxxxxxxx");
-  const [directBankName, setDirectBankName] = useState(() => localStorage.getItem("cvcraft_direct_bank_name") || "Maybank");
-  const [directBankAccountHolder, setDirectBankAccountHolder] = useState(() => localStorage.getItem("cvcraft_direct_bank_acc_name") || "Bilal Hassan Mussa");
-  const [directBankAccountNumber, setDirectBankAccountNumber] = useState(() => localStorage.getItem("cvcraft_direct_bank_acc_num") || "164229482910");
-  const [directTngPhone, setDirectTngPhone] = useState(() => localStorage.getItem("cvcraft_direct_tng_num") || "+60 11-3965 2948");
-  const [directTngName, setDirectTngName] = useState(() => localStorage.getItem("cvcraft_direct_tng_name") || "Bilal Hassan Mussa");
-  const [simulatedUsers, setSimulatedUsers] = useState<SimulatedUser[]>([
-    { id: "1", name: "Alex Rivera", email: "alex.rivera@techcorp.com", isPremium: false, registeredAt: "2026-06-25", scansCount: 14 },
-    { id: "2", name: "Sarah Connor", email: "sarah.c@cyberdyne.com", isPremium: true, registeredAt: "2026-06-27", scansCount: 8 },
-    { id: "3", name: "Bruce Wayne", email: "bruce@waynecorp.com", isPremium: true, registeredAt: "2026-06-28", scansCount: 33 },
-    { id: "4", name: "John Doe", email: "demo.user@gmail.com", isPremium: false, registeredAt: "2026-06-29", scansCount: 2 },
-  ]);
+  // Tabs: "users" | "reviews" | "chats"
+  const [activeTab, setActiveTab] = useState<"users" | "reviews" | "chats">("users");
+
+  // Database Data States
+  const [realUsers, setRealUsers] = useState<RealUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+
+  const [reviews, setReviews] = useState<UserReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  const [allChatMessages, setAllChatMessages] = useState<ChatMessage[]>([]);
+  const [chatsLoading, setChatsLoading] = useState(true);
+
+  // Selected User Chat ID
+  const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
+  const [adminReplyText, setAdminReplyText] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Diagnostic Server Logs / Info
   const [adminLog, setAdminLog] = useState<string[]>([
-    "System Initialized: All active servers operating normally on cloud run cluster.",
-    "Firewall Status: ACTIVE (Strict egress validation applied).",
-    "AdSense placeholders online and synchronized.",
-    "Access cleared: bilalhassanmussa@gmail.com authenticated securely."
+    "System Initialized: Admin authorization validated.",
+    "Firewall Status: ACTIVE.",
+    "Real database listener attached to collections: [users, reviews, admin_chats]"
   ]);
-  const [newLogMessage, setNewLogMessage] = useState("");
 
   interface ServerStats {
     uptime: string;
@@ -67,8 +94,91 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
   }
 
   const [realStats, setRealStats] = useState<ServerStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(true);
 
+  const addLog = (msg: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setAdminLog(prev => [`[${timestamp}] ${msg}`, ...prev.slice(0, 49)]);
+  };
+
+  // 1. Listen to real users
+  useEffect(() => {
+    if (!isAuthorized) return;
+
+    const pathStr = "users";
+    const unsubscribe = onSnapshot(
+      collection(db, pathStr),
+      (snapshot) => {
+        const usersList: RealUser[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as RealUser[];
+        setRealUsers(usersList);
+        setUsersLoading(false);
+        addLog(`Synchronized ${usersList.length} real user records from Firestore.`);
+      },
+      (err) => {
+        console.error("Error listening to users:", err);
+        handleFirestoreError(err, OperationType.GET, pathStr);
+        setUsersLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isAuthorized]);
+
+  // 2. Listen to all reviews
+  useEffect(() => {
+    if (!isAuthorized) return;
+
+    const pathStr = "reviews";
+    const unsubscribe = onSnapshot(
+      collection(db, pathStr),
+      (snapshot) => {
+        const reviewsList: UserReview[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as UserReview[];
+
+        // Sort by date desc
+        reviewsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setReviews(reviewsList);
+        setReviewsLoading(false);
+      },
+      (err) => {
+        console.error("Error listening to reviews:", err);
+        setReviewsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isAuthorized]);
+
+  // 3. Listen to all chat messages
+  useEffect(() => {
+    if (!isAuthorized) return;
+
+    const pathStr = "admin_chats";
+    const unsubscribe = onSnapshot(
+      collection(db, pathStr),
+      (snapshot) => {
+        const chatList: ChatMessage[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as ChatMessage[];
+
+        setAllChatMessages(chatList);
+        setChatsLoading(false);
+      },
+      (err) => {
+        console.error("Error listening to chats:", err);
+        setChatsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isAuthorized]);
+
+  // 4. Fetch diagnostic statistics
   useEffect(() => {
     if (!isAuthorized) return;
 
@@ -82,56 +192,21 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
         if (response.ok) {
           const data = await response.json();
           setRealStats(data);
-          if (data.recentEvents && data.recentEvents.length > 0) {
-            setAdminLog(data.recentEvents);
-          }
         }
       } catch (err) {
-        console.error("Error fetching admin stats:", err);
-      } finally {
-        setLoadingStats(false);
+        console.error("Error fetching stats:", err);
       }
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 6000); // refresh every 6 seconds
-
+    const interval = setInterval(fetchStats, 10000);
     return () => clearInterval(interval);
   }, [isAuthorized, user.email]);
 
-  // Periodically add simulated attack blocks to demonstrate hacker prevention
+  // Helper to scroll active chat to bottom
   useEffect(() => {
-    if (!isAuthorized) return;
-    const targets = ["Shenzhen", "Moscow", "Frankfurt", "Rio", "Seoul", "Kiev"];
-    const interval = setInterval(() => {
-      const randomTarget = targets[Math.floor(Math.random() * targets.length)];
-      const randomIP = `${Math.floor(Math.random() * 220) + 15}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-      const log = `[ALERT BLOCKED] Malicious access attempt from ${randomIP} (${randomTarget}) to /api/admin/config bypassed. Cryptographic validation secured.`;
-      setAdminLog(prev => [log, ...prev.slice(0, 19)]);
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, [isAuthorized]);
-
-  const handleTogglePremium = (id: string) => {
-    setSimulatedUsers(prev => 
-      prev.map(u => u.id === id ? { ...u, isPremium: !u.isPremium } : u)
-    );
-    const targetUser = simulatedUsers.find(u => u.id === id);
-    if (targetUser) {
-      addLog(`User privileges modified: Set ${targetUser.email} isPremium=${!targetUser.isPremium}`);
-    }
-  };
-
-  const addLog = (msg: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setAdminLog(prev => [`[${timestamp}] ${msg}`, ...prev]);
-  };
-
-  const handleSaveConfig = () => {
-    addLog(`Global Configurations updated. Price: $${globalPrice}/mo. Ads Enabled: ${isGoogleAdsActive}`);
-    alert("Configurations propagated globally to CVCraft servers!");
-  };
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [activeChatUserId, allChatMessages]);
 
   if (!isAuthorized) {
     return (
@@ -169,19 +244,102 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
     );
   }
 
+  // Toggle Premium helper for real users in Firestore database
+  const handleTogglePremiumReal = async (userId: string, currentStatus: boolean) => {
+    try {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, { isPremium: !currentStatus });
+      addLog(`User privileges toggled for uid [${userId}]: Set isPremium = ${!currentStatus}`);
+    } catch (err) {
+      console.error("Error toggling premium:", err);
+      alert("Failed to modify premium status. Check console logs.");
+    }
+  };
+
+  // Chat message groups (distinct conversations list)
+  const conversationGroups = allChatMessages.reduce<Record<string, { lastMessage: ChatMessage; name: string; email: string; unreadCount: number }>>((acc, msg) => {
+    const isFromAdmin = msg.senderId === firebaseAdminUser?.uid;
+    const key = msg.userId;
+    
+    const existingGroup = acc[key];
+    const isNewer = !existingGroup || new Date(msg.createdAt).getTime() > new Date(existingGroup.lastMessage.createdAt).getTime();
+    
+    let otherName = msg.senderName;
+    let otherEmail = msg.senderEmail;
+    if (isFromAdmin && existingGroup) {
+      otherName = existingGroup.name;
+      otherEmail = existingGroup.email;
+    }
+
+    const isUnread = !isFromAdmin && !msg.read;
+
+    acc[key] = {
+      lastMessage: isNewer ? msg : (existingGroup?.lastMessage || msg),
+      name: otherName || otherEmail?.split("@")[0] || "User",
+      email: otherEmail || "No Email",
+      unreadCount: (existingGroup?.unreadCount || 0) + (isUnread ? 1 : 0)
+    };
+    return acc;
+  }, {});
+
+  // Convert conversations group map into array sorted by last activity desc
+  const conversationsList = Object.keys(conversationGroups).map(uid => ({
+    userId: uid,
+    ...conversationGroups[uid]
+  })).sort((a, b) => new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime());
+
+  // Filter messages for current active user chat
+  const activeChatMessages = allChatMessages
+    .filter(m => m.userId === activeChatUserId)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  // Send Admin message handler
+  const handleSendAdminReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminReplyText.trim() || !activeChatUserId || !firebaseAdminUser) return;
+
+    setIsSendingReply(true);
+    const textToSend = adminReplyText.trim();
+    setAdminReplyText("");
+
+    try {
+      const msgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const activeUserRecord = realUsers.find(u => u.id === activeChatUserId);
+      const activeUserName = activeUserRecord?.displayName || activeUserRecord?.email?.split("@")[0] || "User";
+
+      const msgData = {
+        userId: activeChatUserId,
+        senderId: firebaseAdminUser.uid,
+        senderEmail: firebaseAdminUser.email || user.email,
+        senderName: "Admin (Bilal)",
+        message: textToSend,
+        createdAt: new Date().toISOString(),
+        read: true
+      };
+
+      await setDoc(doc(db, "admin_chats", msgId), msgData);
+      addLog(`Replied to user ${activeUserName}: "${textToSend.substring(0, 25)}..."`);
+    } catch (err) {
+      console.error("Error sending admin reply:", err);
+      alert("Failed to send reply. Please try again.");
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+    <div id="admin-panel-container" className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Admin header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <span className="text-[10px] font-mono tracking-widest text-indigo-400 bg-indigo-950 border border-indigo-900/60 px-2 py-0.5 rounded font-bold uppercase">
+          <span className="text-[10px] font-mono tracking-widest text-rose-400 bg-rose-950 border border-rose-900/60 px-2.5 py-0.5 rounded-full font-bold uppercase">
             AUTHORITATIVE OVERLORD SESSION
           </span>
           <h2 className="text-2xl font-bold font-display text-white mt-1.5 flex items-center gap-2">
-            <Shield className="h-6 w-6 text-indigo-400" /> Admin Command Portal
+            <Shield className="h-6 w-6 text-rose-500 animate-pulse" /> Admin Command Portal
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Secure configuration panel for <span className="text-indigo-400 font-bold">{user.email}</span>
+            Real-time management panel connected to database project: <span className="text-rose-400 font-bold">{user.email}</span>
           </p>
         </div>
 
@@ -195,434 +353,403 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
 
       {/* Analytics Bento Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5">
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5 shadow-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Active Server Uptime</span>
-            <RefreshCw className="h-4 w-4 text-emerald-400 animate-spin" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Live Registrations</span>
+            <Users className="h-4 w-4 text-emerald-400 animate-pulse" />
           </div>
-          <div className="text-xl font-bold text-white font-mono leading-none py-1">{realStats?.uptime || "Retrieving..."}</div>
-          <p className="text-[10px] text-slate-400 font-mono">Platform: <span className="text-emerald-400 font-semibold">{realStats?.platform || "..."} ({realStats?.arch || "..."})</span></p>
+          <div className="text-xl font-bold text-white font-mono leading-none py-1">{realUsers.length} Users</div>
+          <p className="text-[10px] text-slate-400 font-mono">Real-time DB synced status</p>
         </div>
 
-        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5">
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5 shadow-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Process Memory Usage</span>
-            <Cpu className="h-4 w-4 text-indigo-400 animate-pulse" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Active Support Chats</span>
+            <MessageSquare className="h-4 w-4 text-indigo-400 animate-pulse" />
           </div>
-          <div className="text-xl font-bold text-white font-mono leading-none py-1">{realStats?.memory.rss || "Retrieving..."}</div>
-          <p className="text-[10px] text-slate-400 font-mono">Heap Used: <span className="text-indigo-400 font-semibold">{realStats?.memory.heapUsed || "..."}</span></p>
+          <div className="text-xl font-bold text-white font-mono leading-none py-1">{conversationsList.length} Chats</div>
+          <p className="text-[10px] text-slate-400 font-mono">Distinct customer conversations</p>
         </div>
 
-        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5">
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5 shadow-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Real AI API Requests</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Reviews & Feedback</span>
+            <Star className="h-4 w-4 text-amber-400 animate-pulse" />
+          </div>
+          <div className="text-xl font-bold text-white font-mono leading-none py-1">{reviews.length} Ratings</div>
+          <p className="text-[10px] text-slate-400 font-mono">Average Rating: {(reviews.reduce((acc, r) => acc + r.rating, 0) / (reviews.length || 1)).toFixed(1)} / 5</p>
+        </div>
+
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">ATS Scans Run</span>
             <Terminal className="h-4 w-4 text-purple-400" />
           </div>
-          <div className="text-xl font-bold text-white font-mono leading-none py-1">{realStats !== null ? `${realStats.totalRequests} calls` : "Retrieving..."}</div>
-          <p className="text-[10px] text-slate-400 font-mono">Last API activity: <span className="text-purple-400 font-semibold">{realStats?.lastActiveTime || "Never"}</span></p>
-        </div>
-
-        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">System Environment</span>
-            <Radio className="h-4 w-4 text-amber-400" />
+          <div className="text-xl font-bold text-white font-mono leading-none py-1">
+            {realUsers.reduce((sum, u) => sum + (u.creationsCount || 0), 0)} Scans
           </div>
-          <div className="text-xl font-bold text-white font-mono leading-none py-1">{realStats?.nodeVersion || "Retrieving..."}</div>
-          <p className="text-[10px] text-slate-400 font-mono">Free Mem: <span className="text-amber-400 font-semibold">{realStats?.memory.systemFree || "..."}</span></p>
+          <p className="text-[10px] text-slate-400 font-mono">Total creations across DB</p>
         </div>
       </div>
 
-      {/* Main Configurations & User Admin Table split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Tabs Menu */}
+      <div className="flex border-b border-slate-800 gap-2 shrink-0">
+        <button
+          onClick={() => setActiveTab("users")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition ${
+            activeTab === "users"
+              ? "border-rose-500 text-rose-400 font-bold"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <div className="flex items-center gap-1.5">
+            <Users className="h-4 w-4" /> User Directory ({realUsers.length})
+          </div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("chats")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition ${
+            activeTab === "chats"
+              ? "border-rose-500 text-rose-400 font-bold"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <div className="flex items-center gap-1.5">
+            <Inbox className="h-4 w-4" /> Support Inbox ({conversationsList.length})
+          </div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("reviews")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition ${
+            activeTab === "reviews"
+              ? "border-rose-500 text-rose-400 font-bold"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <div className="flex items-center gap-1.5">
+            <Star className="h-4 w-4" /> Reviews & Feedback ({reviews.length})
+          </div>
+        </button>
+      </div>
+
+      {/* Content Columns split */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Configurations Column */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Settings className="h-4 w-4 text-indigo-400" />
-              <h3 className="font-bold text-white text-sm">Global System Variables</h3>
-            </div>
-
-            {/* Price control */}
-            <div className="space-y-2">
-              <label className="text-xs text-slate-300 font-medium block">Monthly Elite Pass Fee ($ USD)</label>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 text-sm">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={globalPrice}
-                  onChange={(e) => setGlobalPrice(e.target.value)}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                />
-                <span className="text-slate-400 text-xs font-mono">/mo</span>
-              </div>
-            </div>
-
-            {/* Toggles */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-850">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-slate-200 block">Elite Pass Promo Active</span>
-                  <span className="text-[10px] text-slate-500 block">Toggles the 80% monthly discount badge</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={isPromoActive}
-                  onChange={(e) => setIsPromoActive(e.target.checked)}
-                  className="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-0 cursor-pointer"
-                />
+        {/* Main interactive directory tab */}
+        <div className="lg:col-span-8 space-y-6">
+          {activeTab === "users" && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
+                  <Users className="h-4.5 w-4.5 text-rose-400" /> Database User Directory
+                </h3>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  Real Firestore Records
+                </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-850">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-slate-200 block">Simulate AdSense Network Placements</span>
-                  <span className="text-[10px] text-slate-500 block">Toggles display banners on free tiers</span>
+              {usersLoading ? (
+                <div className="h-48 flex flex-col items-center justify-center space-y-2">
+                  <RefreshCw className="h-6 w-6 text-rose-400 animate-spin" />
+                  <span className="text-xs text-slate-500 font-mono">Polling user records...</span>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={isGoogleAdsActive}
-                  onChange={(e) => setIsGoogleAdsActive(e.target.checked)}
-                  className="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-0 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={handleSaveConfig}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
-            >
-              <Check className="h-4 w-4" /> Save System Variables
-            </button>
-          </div>
-
-          {/* Production Gateways Configuration */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Settings className="h-4 w-4 text-amber-500" />
-              <h3 className="font-bold text-white text-sm">PayPal & AdSense Credentials</h3>
-            </div>
-            
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Define the merchant credentials connected to your PayPal developer gateway and Google AdSense network.
-            </p>
-
-            {/* PayPal Client ID */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-slate-300 font-medium block">PayPal Client ID (Sandbox/Production)</label>
-              <input
-                type="text"
-                value={paypalClientId}
-                onChange={(e) => {
-                  setPaypalClientId(e.target.value);
-                  localStorage.setItem("cvcraft_paypal_client_id", e.target.value);
-                }}
-                placeholder="sb-xxxxxxxxxxxxxxx"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-
-            {/* PayPal Secret */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-slate-300 font-medium block">PayPal Client Secret</label>
-              <input
-                type="password"
-                value={paypalClientSecret}
-                onChange={(e) => {
-                  setPaypalClientSecret(e.target.value);
-                  localStorage.setItem("cvcraft_paypal_client_secret", e.target.value);
-                }}
-                placeholder="E-xxxxxxxxxxxxxxxx"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-
-            {/* AdSense Publisher ID */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-slate-300 font-medium block">AdSense Publisher ID (ca-pub-X)</label>
-              <input
-                type="text"
-                value={adsensePubId}
-                onChange={(e) => {
-                  setAdsensePubId(e.target.value);
-                  localStorage.setItem("cvcraft_adsense_pub_id", e.target.value);
-                }}
-                placeholder="ca-pub-xxxxxxxxxxxxxxxx"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-
-            <button
-              onClick={() => {
-                addLog(`Production payment variables loaded: PayPal Client ID and AdSense ca-pub synced.`);
-                alert("Keys synced successfully to local production memory!");
-              }}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
-            >
-              <Check className="h-4 w-4" /> Sync Gateways
-            </button>
-          </div>
-
-          {/* Direct Transfer Payment Details Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Settings className="h-4 w-4 text-sky-400" />
-              <h3 className="font-bold text-white text-sm">Direct Payment Details (Owner)</h3>
-            </div>
-            
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Customers will see these details to make direct transfers to your account instead of third-party business accounts.
-            </p>
-
-            {/* Bank Transfer Details Section */}
-            <div className="space-y-3.5 border-b border-slate-800/60 pb-3.5">
-              <span className="text-[10px] font-mono font-bold tracking-wider text-emerald-400 block uppercase">
-                🏛️ Manual Bank Transfer Details
-              </span>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400">Bank Name</label>
-                  <input
-                    type="text"
-                    value={directBankName}
-                    onChange={(e) => {
-                      setDirectBankName(e.target.value);
-                      localStorage.setItem("cvcraft_direct_bank_name", e.target.value);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                  />
+              ) : realUsers.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 font-mono text-xs">
+                  No registered users found in the database.
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400">Account Holder</label>
-                  <input
-                    type="text"
-                    value={directBankAccountHolder}
-                    onChange={(e) => {
-                      setDirectBankAccountHolder(e.target.value);
-                      localStorage.setItem("cvcraft_direct_bank_acc_name", e.target.value);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                  />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-500">
+                        <th className="pb-3 font-semibold">User Details</th>
+                        <th className="pb-3 font-semibold text-center">Creations</th>
+                        <th className="pb-3 font-semibold text-center">Ad Views</th>
+                        <th className="pb-3 font-semibold text-center">Elite Plan</th>
+                        <th className="pb-3 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850">
+                      {realUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-slate-950/20">
+                          <td className="py-3.5 pr-2">
+                            <span className="font-bold text-white block">{u.displayName || "Anonymous User"}</span>
+                            <span className="text-[10px] text-slate-500 block font-mono">{u.email || `uid: ${u.id}`}</span>
+                          </td>
+                          <td className="py-3.5 text-center font-mono font-bold text-slate-300">{u.creationsCount ?? 0}</td>
+                          <td className="py-3.5 text-center font-mono text-slate-400">{u.adViews ?? 0}</td>
+                          <td className="py-3.5 text-center">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              u.isPremium 
+                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
+                                : "bg-slate-950 text-slate-500 border border-slate-850"
+                            }`}>
+                              {u.isPremium ? "Elite" : "Free"}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-right space-x-2">
+                            <button
+                              onClick={() => {
+                                setActiveChatUserId(u.id);
+                                setActiveTab("chats");
+                              }}
+                              className="px-2 py-1 text-[10px] font-bold rounded-lg transition bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                            >
+                              Message
+                            </button>
+                            <button
+                              onClick={() => handleTogglePremiumReal(u.id, u.isPremium)}
+                              className={`px-2 py-1 text-[10px] font-bold rounded-lg transition ${
+                                u.isPremium 
+                                  ? "bg-rose-950 hover:bg-rose-900 text-rose-400 border border-rose-800/30" 
+                                  : "bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-800/30"
+                              }`}
+                            >
+                              {u.isPremium ? "Downgrade" : "Upgrade"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Support Chats Tab */}
+          {activeTab === "chats" && (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl h-[580px]">
+              {/* Inbox list (col-4) */}
+              <div className="md:col-span-4 border-r border-slate-800 pr-4 flex flex-col h-full overflow-hidden">
+                <span className="text-[10px] font-mono tracking-wider text-slate-500 block uppercase font-bold mb-3">
+                  Conversations ({conversationsList.length})
+                </span>
+                
+                <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin">
+                  {chatsLoading ? (
+                    <div className="py-8 text-center text-slate-600 font-mono text-xs">Loading conversations...</div>
+                  ) : conversationsList.length === 0 ? (
+                    <div className="py-8 text-center text-slate-600 font-mono text-[11px] leading-relaxed">
+                      No customer chat messages found in the database.
+                    </div>
+                  ) : (
+                    conversationsList.map((chat) => (
+                      <button
+                        key={chat.userId}
+                        onClick={() => setActiveChatUserId(chat.userId)}
+                        className={`w-full text-left p-3 rounded-xl border transition-all relative ${
+                          activeChatUserId === chat.userId
+                            ? "bg-rose-950/20 border-rose-500/30 text-white"
+                            : "bg-slate-950/30 border-slate-850 hover:bg-slate-850 text-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs truncate max-w-[80%]">
+                            {chat.name}
+                          </span>
+                          {chat.unreadCount > 0 && (
+                            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                          )}
+                        </div>
+                        <span className="text-[9px] text-slate-500 block font-mono truncate mb-1.5">{chat.email}</span>
+                        <p className="text-[11px] text-slate-400 font-mono truncate">
+                          {chat.lastMessage.message}
+                        </p>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] text-slate-400">Bank Account Number</label>
-                <input
-                  type="text"
-                  value={directBankAccountNumber}
-                  onChange={(e) => {
-                    setDirectBankAccountNumber(e.target.value);
-                    localStorage.setItem("cvcraft_direct_bank_acc_num", e.target.value);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                />
+              {/* Chat View (col-8) */}
+              <div className="md:col-span-8 flex flex-col h-full justify-between overflow-hidden">
+                {activeChatUserId ? (
+                  <div className="flex flex-col h-full">
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3 shrink-0">
+                      <div>
+                        <h4 className="text-xs font-bold text-white">
+                          Chatting with {
+                            realUsers.find(u => u.id === activeChatUserId)?.displayName || 
+                            conversationGroups[activeChatUserId]?.name || 
+                            "User"
+                          }
+                        </h4>
+                        <span className="text-[9px] text-slate-500 font-mono block">
+                          User ID: {activeChatUserId}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveChatUserId(null)}
+                        className="p-1 hover:bg-slate-800 rounded"
+                      >
+                        <X className="h-4 w-4 text-slate-400 hover:text-white" />
+                      </button>
+                    </div>
+
+                    {/* Messages list */}
+                    <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1 scrollbar-thin">
+                      {activeChatMessages.map((msg) => {
+                        const isFromAdmin = msg.senderId === firebaseAdminUser?.uid;
+                        return (
+                          <div 
+                            key={msg.id} 
+                            className={`flex flex-col ${isFromAdmin ? "items-end" : "items-start"} space-y-1`}
+                          >
+                            <span className="text-[9px] text-slate-500 font-mono">
+                              {isFromAdmin ? "You (Admin)" : msg.senderName} • {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <div className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed shadow-md ${
+                              isFromAdmin 
+                                ? "bg-rose-600 text-white rounded-tr-none" 
+                                : "bg-slate-800 text-slate-100 rounded-tl-none border border-slate-750"
+                            }`}>
+                              <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Reply Form */}
+                    <form onSubmit={handleSendAdminReply} className="pt-3 border-t border-slate-800 flex items-center gap-2 shrink-0">
+                      <input
+                        type="text"
+                        required
+                        value={adminReplyText}
+                        onChange={(e) => setAdminReplyText(e.target.value)}
+                        placeholder="Type reply here..."
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!adminReplyText.trim() || isSendingReply}
+                        className="p-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center shrink-0"
+                      >
+                        <Send className="h-4 w-4" />
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+                    <div className="p-4 bg-slate-950 border border-slate-850 rounded-full text-slate-600">
+                      <MessageSquare className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">No active conversation</p>
+                      <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                        Select a chat from the Support Inbox roster, or click "Message" next to any user in the directory to begin chatting with them.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+          )}
 
-            {/* TNG details */}
-            <div className="space-y-3.5">
-              <span className="text-[10px] font-mono font-bold tracking-wider text-sky-400 block uppercase">
-                📱 Touch 'n Go Transfer Details
-              </span>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400">eWallet Mobile Number</label>
-                  <input
-                    type="text"
-                    value={directTngPhone}
-                    onChange={(e) => {
-                      setDirectTngPhone(e.target.value);
-                      localStorage.setItem("cvcraft_direct_tng_num", e.target.value);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500 font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-400">Registered Name</label>
-                  <input
-                    type="text"
-                    value={directTngName}
-                    onChange={(e) => {
-                      setDirectTngName(e.target.value);
-                      localStorage.setItem("cvcraft_direct_tng_name", e.target.value);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
-                  />
-                </div>
+          {/* Reviews Tab */}
+          {activeTab === "reviews" && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-xl max-h-[580px] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
+                  <Star className="h-4.5 w-4.5 text-amber-400" /> Customer Reviews & Ratings
+                </h3>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  Submitted Feedback Records
+                </span>
               </div>
+
+              {reviewsLoading ? (
+                <div className="h-32 flex flex-col items-center justify-center space-y-2">
+                  <RefreshCw className="h-6 w-6 text-amber-400 animate-spin" />
+                  <span className="text-xs text-slate-500 font-mono">Loading reviews...</span>
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 font-mono text-xs">
+                  No customer reviews have been submitted yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {reviews.map((rev) => (
+                    <div key={rev.id} className="p-4 bg-slate-950 border border-slate-850 rounded-2xl space-y-3 shadow-md flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-white truncate max-w-[60%]">
+                            {rev.userName}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono shrink-0">
+                            {new Date(rev.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star 
+                              key={star} 
+                              className={`h-3 w-3 ${star <= rev.rating ? "fill-amber-400 text-amber-400" : "text-slate-800"}`} 
+                            />
+                          ))}
+                        </div>
+                        <p className="text-xs text-slate-300 italic font-mono leading-relaxed bg-slate-900/40 p-2.5 rounded-xl border border-slate-850/60 break-words">
+                          "{rev.comment}"
+                        </p>
+                      </div>
+                      <div className="border-t border-slate-900/60 pt-2 flex items-center justify-between">
+                        <span className="text-[9px] text-slate-500 font-mono truncate max-w-[65%]">
+                          {rev.userEmail}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setActiveChatUserId(rev.userId);
+                            setActiveTab("chats");
+                          }}
+                          className="px-2 py-0.5 bg-rose-950 hover:bg-rose-900 text-rose-400 text-[9px] font-bold rounded border border-rose-800/30 transition"
+                        >
+                          Chat Support
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
+        </div>
 
-            <button
-              onClick={() => {
-                addLog(`Direct transfer payment settings updated: Bank & TNG eWallet channels initialized manually.`);
-                alert("Owner payment channels configured successfully!");
-              }}
-              className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
-            >
-              <Check className="h-4 w-4" /> Save Direct Transfer Info
-            </button>
-          </div>
-
+        {/* Right Column: Diagnostic Information & Logs */}
+        <div className="lg:col-span-4 space-y-6">
           {/* Security Guard Terminal */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Terminal className="h-4 w-4 text-rose-500 animate-pulse" />
-                <h3 className="font-bold text-white text-sm">Firewall Security Log</h3>
+                <h3 className="font-bold text-white text-sm">System Operations Terminal</h3>
               </div>
               <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 border border-emerald-900/60 rounded">
-                SECURE (SSLv3)
+                SECURE
               </span>
             </div>
 
             <div className="bg-slate-950 rounded-xl p-3 h-48 overflow-y-auto font-mono text-[10px] space-y-2 text-slate-400 scrollbar-thin">
               {adminLog.map((log, index) => (
                 <div key={index} className="leading-relaxed border-b border-slate-900/45 pb-1">
-                  <span className="text-indigo-500 font-semibold">{`>> `}</span>
-                  <span className={log.includes("ALERT BLOCKED") ? "text-rose-400" : log.includes("authenticated") ? "text-emerald-400" : ""}>{log}</span>
+                  <span className="text-rose-500 font-semibold">{`>> `}</span>
+                  <span>{log}</span>
                 </div>
               ))}
             </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Submit administrative audit notes..."
-                value={newLogMessage}
-                onChange={(e) => setNewLogMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newLogMessage) {
-                    addLog(`[MANUAL NOTE] ${newLogMessage}`);
-                    setNewLogMessage("");
-                  }
-                }}
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
-              />
-              <button
-                onClick={() => {
-                  if (newLogMessage) {
-                    addLog(`[MANUAL NOTE] ${newLogMessage}`);
-                    setNewLogMessage("");
-                  }
-                }}
-                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition text-xs font-semibold"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* User Directory Column */}
-        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-indigo-400" />
-              <h3 className="font-bold text-white text-sm">Active User Management</h3>
-            </div>
-            <span className="text-[10px] text-slate-500 font-mono">
-              Total Count: {simulatedUsers.length} Users
-            </span>
           </div>
 
-          <p className="text-xs text-slate-400">
-            Control billing overrides on any simulated account. This alters permissions globally so you can mock-test different profile levels easily.
-          </p>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-500">
-                  <th className="pb-3 font-semibold">User details</th>
-                  <th className="pb-3 font-semibold">Registered</th>
-                  <th className="pb-3 font-semibold text-center">Scans</th>
-                  <th className="pb-3 font-semibold text-center">Elite Plan</th>
-                  <th className="pb-3 font-semibold text-right">Action Override</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-850">
-                {simulatedUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-950/20">
-                    <td className="py-3 pr-2">
-                      <span className="font-bold text-white block">{u.name}</span>
-                      <span className="text-[10px] text-slate-500 block">{u.email}</span>
-                    </td>
-                    <td className="py-3 text-[11px] text-slate-400 font-mono">{u.registeredAt}</td>
-                    <td className="py-3 text-center font-mono font-bold text-slate-300">{u.scansCount}</td>
-                    <td className="py-3 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                        u.isPremium 
-                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
-                          : "bg-slate-950 text-slate-500 border border-slate-850"
-                      }`}>
-                        {u.isPremium ? "Active" : "Free"}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right">
-                      <button
-                        onClick={() => handleTogglePremium(u.id)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition ${
-                          u.isPremium 
-                            ? "bg-rose-950 hover:bg-rose-900 text-rose-400 border border-rose-800/30" 
-                            : "bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-800/30"
-                        }`}
-                      >
-                        {u.isPremium ? "Downgrade" : "Upgrade"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Real-time server endpoint calls breakdown */}
-          <div className="border-t border-slate-800 pt-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Terminal className="h-4 w-4 text-purple-400" /> Server-Side AI API Usage Metrics
-              </span>
-              <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/40 border border-indigo-900/60 px-2 py-0.5 rounded">
-                LIVE POLLING
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: "Optimize Bullet", key: "optimizeBullet", color: "bg-emerald-500 text-emerald-400" },
-                { label: "Rewrite Experience", key: "rewriteExperience", color: "bg-indigo-500 text-indigo-400" },
-                { label: "Profile Summary", key: "generateSummary", color: "bg-purple-500 text-purple-400" },
-                { label: "Suggest Skills", key: "suggestSkills", color: "bg-pink-500 text-pink-400" },
-                { label: "Cover Letter", key: "generateCoverLetter", color: "bg-sky-500 text-sky-400" },
-                { label: "Analyze Resume", key: "analyzeResume", color: "bg-amber-500 text-amber-400" },
-                { label: "Auto Apply", key: "autoApplyChanges", color: "bg-teal-500 text-teal-400" },
-                { label: "Interview Prep", key: "interviewPrep", color: "bg-rose-500 text-rose-400" },
-              ].map((item) => {
-                const count = realStats?.endpointsCalls?.[item.key] || 0;
-                return (
-                  <div key={item.key} className="bg-slate-950 border border-slate-850/60 rounded-xl p-2.5 flex flex-col justify-between">
-                    <span className="text-[10px] text-slate-400 font-medium block leading-snug">{item.label}</span>
-                    <div className="flex items-baseline justify-between mt-1">
-                      <span className="text-sm font-bold text-white font-mono">{count}</span>
-                      <span className={`h-1.5 w-1.5 rounded-full ${item.color.split(" ")[0]} animate-pulse`} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="border border-indigo-500/15 bg-indigo-500/5 rounded-2xl p-4 flex items-start gap-3">
-            <AlertTriangle className="h-4.5 w-4.5 text-indigo-400 shrink-0 mt-0.5" />
+          {/* Quick Help Tip */}
+          <div className="border border-rose-500/10 bg-rose-500/5 rounded-2xl p-5 flex items-start gap-3 shadow-md">
+            <AlertTriangle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
             <div className="space-y-1 text-[11px] text-slate-300">
-              <span className="font-bold text-white">How is bypass prevention handled?</span>
-              <p className="leading-relaxed">
-                Hackers trying to inspect client-side files or call server APIs are blockaded. 
-                Any request calling the admin router is authenticated and checks the user session email. 
-                The sidebar interface is completely omitted for users whose email does not match <code className="text-white bg-slate-950 px-1 py-0.5 rounded">bilalhassanmussa@gmail.com</code>.
+              <span className="font-bold text-white">Administrative Authority Rules</span>
+              <p className="leading-relaxed text-slate-400">
+                You are authenticated as the primary administrator. You have authoritative control to downgrade or upgrade premium accounts and chat with all site users directly. All payments/PayPal configurations have been removed from the platform.
               </p>
             </div>
           </div>

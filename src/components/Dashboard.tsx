@@ -81,9 +81,13 @@ export default function Dashboard({
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="flex items-center gap-4 text-center md:text-left">
-          <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-lg">
-            <User className="h-7 w-7" />
-          </div>
+          {user.profilePhoto ? (
+            <img src={user.profilePhoto} alt="Profile" className="h-14 w-14 rounded-2xl object-cover border border-slate-700 shrink-0 shadow-lg" />
+          ) : (
+            <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-lg">
+              <User className="h-7 w-7" />
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2 justify-center md:justify-start">
               <h2 className="text-xl font-bold text-white font-display">Hello, {user.displayName}</h2>

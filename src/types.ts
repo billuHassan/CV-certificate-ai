@@ -83,6 +83,7 @@ export interface ResumeData {
   colorTheme: string; // primary hex
   fontFamily: string; // font class/family name
   spacing: 'compact' | 'comfortable' | 'spacious';
+  layoutMode?: 'auto' | 'single' | 'split';
   createdAt?: string;
   updatedAt: string;
 }
@@ -133,4 +134,37 @@ export interface UserSession {
   creationsCount?: number;
   adViews?: number;
   profilePhoto?: string;
+}
+
+export interface CareerRecommendation {
+  id: string;
+  resumeId: string;
+  resumeTitle: string;
+  overallFitSummary: string;
+  recommendedRoles: {
+    title: string;
+    fitScore: number;
+    rationale: string;
+    expectedSalaryRange: string;
+    skillsToAcquire: string[];
+    topCompanies?: string[];
+    skillsToUpgrade?: {
+      skillName: string;
+      whyItStandsOut: string;
+    }[];
+  }[];
+  recommendedCompanies: {
+    companyName: string;
+    fitRationale: string;
+    positionsToWatch: string[];
+    interviewTips: string;
+  }[];
+  recommendedCountries?: {
+    country: string;
+    rationale: string;
+    topCities: string[];
+    averageSalaryLevel: string;
+  }[];
+  careerStrategy: string[];
+  createdAt: string;
 }

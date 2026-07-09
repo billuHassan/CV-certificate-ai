@@ -78,6 +78,51 @@
         "senderInfo": { "type": "object" }
       },
       "required": ["id", "title", "recipientName", "recipientCompany", "content", "date", "senderInfo"]
+    },
+    "CareerRecommendation": {
+      "title": "Career Recommendation Report",
+      "description": "An AI-generated analysis matching the user's resume with career roles and companies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "resumeId": { "type": "string" },
+        "resumeTitle": { "type": "string" },
+        "overallFitSummary": { "type": "string" },
+        "recommendedRoles": { "type": "array" },
+        "recommendedCompanies": { "type": "array" },
+        "careerStrategy": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "resumeId", "resumeTitle", "overallFitSummary", "recommendedRoles", "recommendedCompanies", "careerStrategy", "createdAt"]
+    },
+    "Review": {
+      "title": "Review Feedback",
+      "description": "Feedback and rating submitted by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "userEmail", "userName", "rating", "comment", "createdAt"]
+    },
+    "AdminChat": {
+      "title": "Admin Chat Message",
+      "description": "Chat message exchanged between a user and the admin",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The normal user's UID involved in this conversation" },
+        "senderId": { "type": "string", "description": "The UID of the person who sent this specific message" },
+        "senderEmail": { "type": "string" },
+        "senderName": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["userId", "senderId", "senderEmail", "senderName", "message", "createdAt"]
     }
   },
   "firestore": {
@@ -92,6 +137,18 @@
     "/users/{userId}/letters/{letterId}": {
       "schema": "CoverLetter",
       "description": "Sub-collection of cover letters belonging to a specific user profile"
+    },
+    "/users/{userId}/career_recommendations/{recId}": {
+      "schema": "CareerRecommendation",
+      "description": "Sub-collection for storing user-specific AI career guidance logs and recommendations"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Global collection for user reviews and feedback"
+    },
+    "/admin_chats/{msgId}": {
+      "schema": "AdminChat",
+      "description": "Global collection for user-to-admin message history"
     }
   }
 }

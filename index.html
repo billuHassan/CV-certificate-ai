@@ -4,6 +4,47 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CVCraft AI - Elite Resume Builder</title>
+    <style>
+      /* High-priority override styles to completely hide Google Translate elements & prevent shifting */
+      html, html[style] {
+        top: 0px !important;
+        margin-top: 0px !important;
+        padding-top: 0px !important;
+      }
+      body, body[style] {
+        top: 0px !important;
+        margin-top: 0px !important;
+        padding-top: 0px !important;
+        position: static !important;
+      }
+      .skiptranslate,
+      .goog-te-banner-frame,
+      .goog-te-banner,
+      .goog-te-balloon-frame,
+      .goog-tooltip,
+      .goog-tooltip-back,
+      #goog-gt-tt,
+      #goog-gt-tt.skiptranslate {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0px !important;
+        width: 0px !important;
+      }
+      /* Hide modern Google Translate classes and any related iframes */
+      iframe[class*="goog-te"],
+      iframe[id*="goog-te"],
+      iframe[src*="translate"],
+      [class*="VIpgJd-yDnbZ"],
+      .goog-te-gadget,
+      .goog-te-gadget-simple {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0px !important;
+        width: 0px !important;
+        opacity: 0 !important;
+      }
+    </style>
     <!-- Google AdSense Live Script Auto-Loader -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1642294829104829" crossorigin="anonymous"></script>
     <script>
@@ -33,6 +74,83 @@
           autoDisplay: false
         }, 'google_translate_element');
       }
+
+      // Proactively and aggressively hide the Google Translate top bar & restore spacing in the DOM
+      (function() {
+        function cleanGoogleTranslate() {
+          try {
+            // Find all Google Translate elements, iframes, and widgets
+            var translateClasses = ['skiptranslate', 'goog-te-banner-frame', 'goog-te-banner', 'goog-te-balloon-frame', 'goog-tooltip', 'goog-tooltip-back'];
+            for (var c = 0; c < translateClasses.length; c++) {
+              var elms = document.getElementsByClassName(translateClasses[c]);
+              for (var i = 0; i < elms.length; i++) {
+                var el = elms[i];
+                if (el.id !== 'google_translate_element') {
+                  el.style.setProperty('display', 'none', 'important');
+                  el.style.setProperty('visibility', 'hidden', 'important');
+                  el.style.setProperty('height', '0px', 'important');
+                  el.style.setProperty('opacity', '0', 'important');
+                }
+              }
+            }
+
+            // Find any iframes matching Google Translate selectors
+            var iframes = document.getElementsByTagName('iframe');
+            for (var j = 0; j < iframes.length; j++) {
+              var iframe = iframes[j];
+              if (iframe.className.indexOf('goog-te-banner') > -1 || 
+                  iframe.className.indexOf('skiptranslate') > -1 || 
+                  iframe.id.indexOf('goog-te') > -1 ||
+                  (iframe.src && iframe.src.indexOf('translate') > -1)) {
+                iframe.style.setProperty('display', 'none', 'important');
+                iframe.style.setProperty('visibility', 'hidden', 'important');
+                iframe.style.setProperty('height', '0px', 'important');
+                iframe.style.setProperty('opacity', '0', 'important');
+              }
+            }
+
+            // Reset body/html positioning styles that Google Translate pushes down
+            if (document.body) {
+              if (document.body.style.top !== '0px' && document.body.style.top !== '') {
+                document.body.style.setProperty('top', '0px', 'important');
+              }
+              if (document.body.style.marginTop !== '0px' && document.body.style.marginTop !== '') {
+                document.body.style.setProperty('margin-top', '0px', 'important');
+              }
+              if (document.body.style.paddingTop !== '0px' && document.body.style.paddingTop !== '') {
+                document.body.style.setProperty('padding-top', '0px', 'important');
+              }
+            }
+            if (document.documentElement) {
+              if (document.documentElement.style.top !== '0px' && document.documentElement.style.top !== '') {
+                document.documentElement.style.setProperty('top', '0px', 'important');
+              }
+              if (document.documentElement.style.marginTop !== '0px' && document.documentElement.style.marginTop !== '') {
+                document.documentElement.style.setProperty('margin-top', '0px', 'important');
+              }
+              if (document.documentElement.style.paddingTop !== '0px' && document.documentElement.style.paddingTop !== '') {
+                document.documentElement.style.setProperty('padding-top', '0px', 'important');
+              }
+            }
+          } catch (e) {
+            // Silently absorb any errors in cleaner loop
+          }
+        }
+
+        // Periodically run clean up
+        setInterval(cleanGoogleTranslate, 100);
+
+        // Run instantly when content or attributes change
+        if (typeof MutationObserver !== 'undefined') {
+          var observer = new MutationObserver(cleanGoogleTranslate);
+          observer.observe(document.documentElement, {
+            attributes: true,
+            childList: true,
+            subtree: true,
+            attributeFilter: ['style', 'class']
+          });
+        }
+      })();
     </script>
     <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <div id="root"></div>
