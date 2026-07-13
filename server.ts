@@ -1517,6 +1517,82 @@ app.post("/api/ai/interview-prep", async (req, res) => {
   }
 });
 
+// AI General Career Coach Chat Endpoint
+app.post("/api/ai/chat", async (req, res) => {
+  try {
+    const { messages, resumeContext, jobTitleContext } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: "Messages array is required" });
+    }
+
+    // Format the conversation history for Gemini API
+    const formattedContents = messages.map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    }));
+
+    // Inject system instructions as the very first content block
+    const systemPrompt = `You are "CVCraft AI Coach", a brilliant, supportive, and world-class career strategist and resume consultant.
+Your mission is to provide outstanding, context-aware advice to candidates on resume optimization, ATS keywords, career changes, cover letters, mock interviews, or salary negotiations.
+
+Context about the candidate:
+${resumeContext ? `- Resume Summary/Data: ${resumeContext}` : "- No resume created yet."}
+${jobTitleContext ? `- Current or Target Job Title: ${jobTitleContext}` : ""}
+
+Ensure your response is detailed, professional, encouraging, and written in elegant markdown (bolding key concepts, using lists, etc.).
+Also, provide 3 highly relevant, action-oriented next-step short prompt suggestion options (under 40 characters each) that the user can click next.
+
+You MUST return a JSON object with this schema:
+{
+  "reply": "The detailed markdown response addressing the candidate's question/topic.",
+  "suggestions": ["suggested click 1", "suggested click 2", "suggested click 3"]
+}`;
+
+    const result = await callGeminiWithFallback(
+      async (modelName) => {
+        if (!ai) {
+          throw new Error("AI client is offline.");
+        }
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: [
+            { role: "user", parts: [{ text: systemPrompt }] },
+            ...formattedContents
+          ],
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                reply: { type: Type.STRING },
+                suggestions: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                }
+              },
+              required: ["reply", "suggestions"]
+            }
+          }
+        });
+        return JSON.parse(response.text || "{}");
+      },
+      () => ({
+        reply: "Hello! I am your CVCraft AI Career Coach. I'm currently running in high-fidelity offline mode to ensure instant response times. Feel free to ask me anything about your resume, career goals, cover letters, or interview preparations!",
+        suggestions: [
+          "Suggest high-impact action verbs",
+          "How do I highlight leadership?",
+          "Review my job summary details"
+        ]
+      })
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("AI Coach Chat Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to process chat session" });
+  }
+});
+
 // 8. Direct Feedback Email Dispatcher
 app.post("/api/feedback/send-email", async (req, res) => {
   try {

@@ -168,3 +168,19 @@ export interface CareerRecommendation {
   careerStrategy: string[];
   createdAt: string;
 }
+
+export interface DirectMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  senderEmail: string;
+  senderName: string;
+  recipientId: string;
+  recipientEmail: string;
+  recipientName: string;
+  message: string;
+  mediaUrl?: string;
+  mediaType?: string; // "image" | "video" | "none"
+  createdAt: string;
+  read: boolean;
+}

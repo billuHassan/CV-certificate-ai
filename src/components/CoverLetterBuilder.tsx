@@ -354,16 +354,11 @@ export default function CoverLetterBuilder({
                 >
                   <option value="">-- No Resume Context (General Template) --</option>
                   {resumes.map((r) => (
-                    <option key={r.id} value={r.id} disabled={!isPremium}>
-                      {r.title || "Untitled Resume"} {!isPremium && "🔒 (Premium)"}
+                    <option key={r.id} value={r.id}>
+                      {r.title || "Untitled Resume"}
                     </option>
                   ))}
                 </select>
-                {!isPremium && (
-                  <p className="text-[10px] text-amber-400/80 mt-1 leading-normal">
-                    Upgrade to Elite Pass to refer to your full custom resume details while writing!
-                  </p>
-                )}
               </div>
             )}
 

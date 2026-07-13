@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles, FileText, Activity, Settings as SettingsIcon, LogOut, LayoutDashboard,
-  Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X, Compass, MessageSquare
+  Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X, Compass, MessageSquare,
+  Brain
 } from "lucide-react";
 import { UserSession, ResumeData, CoverLetterData, ScoreReport } from "./types";
 import Onboarding from "./components/Onboarding";
@@ -16,9 +17,11 @@ import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
+import AIChat from "./components/AIChat";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
-import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, query, where } from "firebase/firestore";
+import { motion, AnimatePresence } from "motion/react";
 
 // Mock Sample Resume Data for Seeding
 const SAMPLE_RESUME: ResumeData = {
@@ -124,7 +127,24 @@ export default function App() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
   const [scoreReport, setScoreReport] = useState<ScoreReport | null>(null);
-  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat">("dashboard");
+  const [userUnreadCount, setUserUnreadCount] = useState<number>(0);
+  const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
+  const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" } | null>(null);
+
+  const seenMessagesRef = useRef<Set<string>>(new Set());
+  const isUserChatsFirstLoad = useRef(true);
+  const isDirectMsgFirstLoad = useRef(true);
+  const isAdminChatsFirstLoad = useRef(true);
+
+  // Auto-hide toast after 4.5 seconds
+  useEffect(() => {
+    if (!activeToast) return;
+    const timer = setTimeout(() => {
+      setActiveToast(null);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [activeToast]);
 
   // Keep view states synced to sessionStorage so they survive page reloads (like language change save)
   useEffect(() => {
@@ -255,7 +275,7 @@ export default function App() {
               uid: firebaseUser.uid,
               email: profileData.email,
               displayName: profileData.displayName,
-              isPremium: profileData.isPremium,
+              isPremium: true,
               creationsCount: profileData.creationsCount,
               adViews: profileData.adViews,
               profilePhoto: profileData.profilePhoto
@@ -342,6 +362,111 @@ export default function App() {
     setIsOnboarded(true);
     localStorage.setItem("cvcraft_onboarded", "true");
   };
+
+  // Listen to unread messages for normal users and admin
+  useEffect(() => {
+    if (!user) {
+      setUserUnreadCount(0);
+      return;
+    }
+
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return;
+
+    let adminUnread = 0;
+    let directUnread = 0;
+
+    // 1. Listen to user-specific Admin chat messages in real time to count unread admin replies
+    const q1 = query(collection(db, "admin_chats"), where("userId", "==", firebaseUser.uid));
+    const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as any);
+      adminUnread = docs.filter(m => m.senderId !== firebaseUser.uid && !m.read).length;
+      
+      if (!isUserChatsFirstLoad.current) {
+        docs.forEach(m => {
+          if (m.senderId !== firebaseUser.uid && !m.read && !seenMessagesRef.current.has(m.id)) {
+            setActiveToast({
+              id: m.id,
+              title: `Support Reply from ${m.senderName || "Admin"}`,
+              body: m.message || "Sent an attachment",
+              view: "support"
+            });
+          }
+        });
+      }
+      
+      docs.forEach(m => seenMessagesRef.current.add(m.id));
+      isUserChatsFirstLoad.current = false;
+      setUserUnreadCount(adminUnread + directUnread);
+    }, (err) => console.error("Error user admin_chats listener:", err));
+
+    // 2. Listen to direct_messages sent to this user
+    const q2 = query(collection(db, "direct_messages"), where("recipientId", "==", firebaseUser.uid));
+    const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as any);
+      directUnread = docs.filter(m => !m.read).length;
+      
+      if (!isDirectMsgFirstLoad.current) {
+        docs.forEach(m => {
+          if (!m.read && !seenMessagesRef.current.has(m.id)) {
+            setActiveToast({
+              id: m.id,
+              title: `New Direct Message from ${m.senderName || "User"}`,
+              body: m.message || "Sent an attachment",
+              view: "support"
+            });
+          }
+        });
+      }
+      
+      docs.forEach(m => seenMessagesRef.current.add(m.id));
+      isDirectMsgFirstLoad.current = false;
+      setUserUnreadCount(adminUnread + directUnread);
+    }, (err) => console.error("Error user direct_messages listener:", err));
+
+    return () => {
+      unsubscribe1();
+      unsubscribe2();
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || user.email !== "bilalhassanmussa@gmail.com") {
+      setAdminUnreadCount(0);
+      return;
+    }
+
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return;
+
+    // Listen to all admin_chats to count unread user messages for the admin
+    const q = collection(db, "admin_chats");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as any);
+      const unreadCount = docs.filter(m => m.senderId !== firebaseUser.uid && !m.read).length;
+      
+      if (!isAdminChatsFirstLoad.current) {
+        docs.forEach(m => {
+          if (m.senderId !== firebaseUser.uid && !m.read && !seenMessagesRef.current.has(m.id)) {
+            setActiveToast({
+              id: m.id,
+              title: `Support Request from ${m.senderName || "User"}`,
+              body: m.message || "Sent an attachment",
+              view: "admin"
+            });
+          }
+        });
+      }
+      
+      docs.forEach(m => seenMessagesRef.current.add(m.id));
+      isAdminChatsFirstLoad.current = false;
+      setAdminUnreadCount(unreadCount);
+    }, (err) => console.error("Error admin admin_chats listener:", err));
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user]);
 
   const handleAuthSuccess = (u: { email: string; displayName: string }) => {
     // Session is handled automatically by onAuthStateChanged subscription
@@ -676,6 +801,18 @@ export default function App() {
 
             <button
               onClick={() => {
+                setCurrentView("ai-chat");
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "ai-chat" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <Brain className="h-4.5 w-4.5 text-indigo-400 animate-pulse" /> AI Career Coach
+            </button>
+
+            <button
+              onClick={() => {
                 setCurrentView("settings");
                 setMobileMenuOpen(false);
               }}
@@ -691,11 +828,19 @@ export default function App() {
                 setCurrentView("support");
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
                 currentView === "support" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
               }`}
             >
-              <MessageSquare className="h-4.5 w-4.5" /> Support & Reviews
+              <div className="flex items-center gap-2.5">
+                <MessageSquare className="h-4.5 w-4.5" />
+                <span>Support & Reviews</span>
+              </div>
+              {userUnreadCount > 0 && (
+                <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-bounce">
+                  {userUnreadCount}
+                </span>
+              )}
             </button>
 
             {user.email === "bilalhassanmussa@gmail.com" && (
@@ -704,13 +849,21 @@ export default function App() {
                   setCurrentView("admin");
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide border border-dashed transition ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide border border-dashed transition ${
                   currentView === "admin" 
                     ? "bg-rose-950 text-rose-200 border-rose-500/40 shadow-lg" 
                     : "text-rose-400 hover:text-rose-350 hover:bg-rose-950/20 border-rose-900/30"
                 }`}
               >
-                <Shield className="h-4.5 w-4.5 text-rose-500 animate-pulse" /> Admin Panel
+                <div className="flex items-center gap-2.5">
+                  <Shield className="h-4.5 w-4.5 text-rose-500 animate-pulse" />
+                  <span>Admin Panel</span>
+                </div>
+                {adminUnreadCount > 0 && (
+                  <span className="bg-rose-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-pulse">
+                    {adminUnreadCount}
+                  </span>
+                )}
               </button>
             )}
           </nav>
@@ -850,6 +1003,10 @@ export default function App() {
         {currentView === "support" && (
           <SupportFeedback user={user} />
         )}
+
+        {currentView === "ai-chat" && user && (
+          <AIChat user={user} resumes={resumes} />
+        )}
       </main>
 
       <PremiumModal
@@ -864,6 +1021,47 @@ export default function App() {
           }
         }}
       />
+
+      {/* Real-time Toast Notification */}
+      <AnimatePresence>
+        {activeToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            onClick={() => {
+              setCurrentView(activeToast.view);
+              setActiveToast(null);
+            }}
+            className="fixed bottom-6 right-6 z-50 max-w-sm bg-slate-900 border border-indigo-500/30 rounded-2xl p-4 shadow-2xl shadow-indigo-500/10 cursor-pointer flex items-start gap-3 hover:border-indigo-500 transition"
+          >
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl shrink-0 mt-0.5 animate-pulse">
+              <Bell className="h-5 w-5" />
+            </div>
+            <div className="flex-1 space-y-0.5 text-left">
+              <span className="text-[10px] font-mono tracking-wider text-indigo-400 block font-bold uppercase">
+                {activeToast.title}
+              </span>
+              <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed">
+                {activeToast.body}
+              </p>
+              <span className="text-[9px] text-slate-500 block font-mono pt-1">
+                Click here to view messages instantly
+              </span>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveToast(null);
+              }}
+              className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded-lg shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

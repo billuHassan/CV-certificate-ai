@@ -27,7 +27,7 @@ export default function CareerRecommender({ user, resumes }: CareerRecommenderPr
     const steps = [
       "Analyzing professional resume vectors...",
       "Mapping skillset onto market opportunities...",
-      "Sifting elite employer profiles and SaaS scaleups...",
+      "Sifting top-tier employer profiles and SaaS scaleups...",
       "Compiling interview frameworks and tactical recommendations...",
       "Structuring long-term strategic pathing..."
     ];

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
   Shield, Users, MessageSquare, Star, RefreshCw, Check, 
-  X, AlertTriangle, Cpu, Terminal, Radio, Ban, Send, UserCheck, Inbox
+  X, AlertTriangle, Cpu, Terminal, Radio, Ban, Send, UserCheck, Inbox,
+  Paperclip, Image, Video, Download
 } from "lucide-react";
 import { UserSession } from "../types";
 import { db, auth, handleFirestoreError, OperationType } from "../lib/firebase";
@@ -43,6 +44,8 @@ interface ChatMessage {
   message: string;
   createdAt: string;
   read?: boolean;
+  mediaUrl?: string;
+  mediaType?: string;
 }
 
 export default function AdminPanel({ user, onClose }: AdminPanelProps) {
@@ -67,6 +70,36 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
   const [adminReplyText, setAdminReplyText] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Attachment & Lightbox States for Admin Chat
+  const [adminAttachedFile, setAdminAttachedFile] = useState<{ name: string; size: number; type: string; dataUrl: string } | null>(null);
+  const adminFileInputRef = useRef<HTMLInputElement>(null);
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+  const handleAdminFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 720 * 1024) {
+      alert(`Attachment size too large (${(file.size / 1024).toFixed(0)} KB). Please compress or select an image/video under 700 KB.`);
+      if (e.target) e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAdminAttachedFile({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl: reader.result as string
+      });
+    };
+    reader.onerror = () => {
+      alert("Failed to read media file. Please try another file.");
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Diagnostic Server Logs / Info
   const [adminLog, setAdminLog] = useState<string[]>([
@@ -208,6 +241,20 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeChatUserId, allChatMessages]);
 
+  // Mark messages as read when admin activeChatUserId is active or receives new unread messages
+  useEffect(() => {
+    if (!activeChatUserId || !firebaseAdminUser) return;
+    const unreadMessages = allChatMessages.filter(
+      msg => msg.userId === activeChatUserId && msg.senderId !== firebaseAdminUser.uid && !msg.read
+    );
+
+    unreadMessages.forEach(msg => {
+      updateDoc(doc(db, "admin_chats", msg.id), { read: true }).catch(err => 
+        console.error("Failed to mark chat as read by admin:", err)
+      );
+    });
+  }, [activeChatUserId, allChatMessages, firebaseAdminUser]);
+
   if (!isAuthorized) {
     return (
       <div className="p-8 max-w-4xl mx-auto my-12 bg-slate-900 border-2 border-rose-600 rounded-3xl shadow-2xl relative overflow-hidden">
@@ -296,29 +343,37 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
   // Send Admin message handler
   const handleSendAdminReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminReplyText.trim() || !activeChatUserId || !firebaseAdminUser) return;
+    if (!adminReplyText.trim() && !adminAttachedFile) return;
+    if (!activeChatUserId || !firebaseAdminUser) return;
 
     setIsSendingReply(true);
     const textToSend = adminReplyText.trim();
+    const mediaToUpload = adminAttachedFile;
     setAdminReplyText("");
+    setAdminAttachedFile(null);
 
     try {
       const msgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const activeUserRecord = realUsers.find(u => u.id === activeChatUserId);
       const activeUserName = activeUserRecord?.displayName || activeUserRecord?.email?.split("@")[0] || "User";
+      const isVideo = mediaToUpload?.type.startsWith("video/");
 
       const msgData = {
         userId: activeChatUserId,
         senderId: firebaseAdminUser.uid,
         senderEmail: firebaseAdminUser.email || user.email,
         senderName: "Admin (Bilal)",
-        message: textToSend,
+        message: textToSend || (mediaToUpload ? `Sent a ${isVideo ? "video" : "photo"}` : ""),
         createdAt: new Date().toISOString(),
-        read: true
+        read: false,
+        ...(mediaToUpload ? {
+          mediaUrl: mediaToUpload.dataUrl,
+          mediaType: isVideo ? "video" : "image"
+        } : {})
       };
 
       await setDoc(doc(db, "admin_chats", msgId), msgData);
-      addLog(`Replied to user ${activeUserName}: "${textToSend.substring(0, 25)}..."`);
+      addLog(`Replied to user ${activeUserName}: "${(textToSend || "Sent media").substring(0, 25)}..."`);
     } catch (err) {
       console.error("Error sending admin reply:", err);
       alert("Failed to send reply. Please try again.");
@@ -329,6 +384,25 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
 
   return (
     <div id="admin-panel-container" className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+      {/* Lightbox Modal */}
+      {lightboxImg && (
+        <div 
+          onClick={() => setLightboxImg(null)}
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <button 
+            className="absolute top-4 right-4 p-2 bg-slate-900 border border-slate-800 rounded-full text-slate-400 hover:text-white"
+            onClick={() => setLightboxImg(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img 
+            src={lightboxImg} 
+            alt="Expanded Attachment Preview" 
+            className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-slate-800"
+          />
+        </div>
+      )}
       {/* Admin header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
@@ -467,7 +541,7 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
                         <th className="pb-3 font-semibold">User Details</th>
                         <th className="pb-3 font-semibold text-center">Creations</th>
                         <th className="pb-3 font-semibold text-center">Ad Views</th>
-                        <th className="pb-3 font-semibold text-center">Elite Plan</th>
+                        <th className="pb-3 font-semibold text-center">Premium Plan</th>
                         <th className="pb-3 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
@@ -483,10 +557,10 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
                           <td className="py-3.5 text-center">
                             <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
                               u.isPremium 
-                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
+                                ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
                                 : "bg-slate-950 text-slate-500 border border-slate-850"
                             }`}>
-                              {u.isPremium ? "Elite" : "Free"}
+                              {u.isPremium ? "Premium" : "Free"}
                             </span>
                           </td>
                           <td className="py-3.5 text-right space-x-2">
@@ -608,6 +682,33 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
                                 : "bg-slate-800 text-slate-100 rounded-tl-none border border-slate-750"
                             }`}>
                               <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                              
+                              {msg.mediaUrl && (
+                                <div className="mt-2.5 rounded-xl overflow-hidden border border-slate-950 shadow-inner bg-slate-950/40 p-1 relative group/attachment">
+                                  {msg.mediaType === "video" ? (
+                                    <video src={msg.mediaUrl} controls className="max-h-56 max-w-full rounded-lg" />
+                                  ) : (
+                                    <img 
+                                      src={msg.mediaUrl} 
+                                      alt="Attachment" 
+                                      onClick={() => setLightboxImg(msg.mediaUrl || null)}
+                                      className="max-h-56 max-w-full rounded-lg object-cover cursor-zoom-in hover:opacity-90 transition" 
+                                    />
+                                  )}
+                                  <div className="absolute top-2.5 right-2.5 opacity-0 group-hover/attachment:opacity-100 transition-opacity flex gap-1 bg-black/70 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-2xl">
+                                    <a 
+                                      href={msg.mediaUrl} 
+                                      download={`admin_media_${msg.id}.${msg.mediaType === "video" ? "mp4" : "png"}`}
+                                      className="p-1.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                      title="Download this attachment"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Download className="h-4 w-4" />
+                                      <span className="text-[10px] font-bold font-mono px-0.5">DL</span>
+                                    </a>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -615,20 +716,63 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
                       <div ref={chatEndRef} />
                     </div>
 
+                    {/* Thumbnail preview of Attached Admin File */}
+                    {adminAttachedFile && (
+                      <div className="p-2.5 bg-slate-950 border border-rose-900/30 rounded-xl mb-2 flex items-center justify-between gap-3 animate-fade-in shrink-0">
+                        <div className="flex items-center gap-2.5 overflow-hidden">
+                          {adminAttachedFile.type.startsWith("video/") ? (
+                            <div className="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg shrink-0">
+                              <Video className="h-4 w-4" />
+                            </div>
+                          ) : (
+                            <img src={adminAttachedFile.dataUrl} className="h-8 w-8 object-cover rounded-lg border border-slate-800 shrink-0" />
+                          )}
+                          <div className="truncate text-left">
+                            <p className="text-[11px] font-bold text-white truncate max-w-[200px]">{adminAttachedFile.name}</p>
+                            <p className="text-[9px] text-slate-500 font-mono">{(adminAttachedFile.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setAdminAttachedFile(null)}
+                          className="p-1 hover:bg-slate-900 rounded-lg text-slate-500 hover:text-rose-300 animate-pulse"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
                     {/* Reply Form */}
                     <form onSubmit={handleSendAdminReply} className="pt-3 border-t border-slate-800 flex items-center gap-2 shrink-0">
+                      <input 
+                        type="file"
+                        ref={adminFileInputRef}
+                        accept="image/*,video/*"
+                        className="hidden"
+                        onChange={handleAdminFileChange}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => adminFileInputRef.current?.click()}
+                        disabled={isSendingReply}
+                        className="p-2.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer"
+                        title="Attach Photo or Video (<700KB)"
+                      >
+                        <Paperclip className="h-4.5 w-4.5" />
+                      </button>
+
                       <input
                         type="text"
-                        required
+                        required={!adminAttachedFile}
                         value={adminReplyText}
                         onChange={(e) => setAdminReplyText(e.target.value)}
-                        placeholder="Type reply here..."
+                        placeholder={adminAttachedFile ? "Add a caption, or send now..." : "Type reply here..."}
                         className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500"
                       />
                       <button
                         type="submit"
-                        disabled={!adminReplyText.trim() || isSendingReply}
-                        className="p-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center shrink-0"
+                        disabled={(!adminReplyText.trim() && !adminAttachedFile) || isSendingReply}
+                        className="p-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer"
                       >
                         <Send className="h-4 w-4" />
                       </button>

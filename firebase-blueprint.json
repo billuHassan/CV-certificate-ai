@@ -123,6 +123,26 @@
         "read": { "type": "boolean" }
       },
       "required": ["userId", "senderId", "senderEmail", "senderName", "message", "createdAt"]
+    },
+    "DirectMessage": {
+      "title": "User to User Direct Message",
+      "description": "Chat message exchanged between two users",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string", "description": "The composite ID of the two users involved" },
+        "senderId": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "senderName": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "recipientEmail": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "message": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["chatId", "senderId", "senderEmail", "senderName", "recipientId", "recipientEmail", "recipientName", "message", "createdAt", "read"]
     }
   },
   "firestore": {
@@ -149,6 +169,10 @@
     "/admin_chats/{msgId}": {
       "schema": "AdminChat",
       "description": "Global collection for user-to-admin message history"
+    },
+    "/direct_messages/{msgId}": {
+      "schema": "DirectMessage",
+      "description": "Global collection for peer-to-peer user direct messages with optional media attachments"
     }
   }
 }

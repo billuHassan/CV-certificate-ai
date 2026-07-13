@@ -572,65 +572,45 @@ export default function Settings({
                 </div>
               </form>
 
-              {/* Secure Elite Club Subscription Gateway Card */}
+              {/* Secure Premium Account Gateway Card */}
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative overflow-hidden">
-                <div className="absolute top-0 right-0 h-32 w-32 bg-amber-500/5 blur-3xl rounded-full" />
+                <div className="absolute top-0 right-0 h-32 w-32 bg-indigo-500/5 blur-3xl rounded-full" />
                 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-850">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-mono font-black tracking-widest text-amber-400 uppercase bg-amber-950/40 border border-amber-900/50 px-2.5 py-0.5 rounded">
-                      CVCraft Elite Club
+                    <span className="text-[10px] font-mono font-black tracking-widest text-indigo-400 uppercase bg-indigo-950/40 border border-indigo-900/50 px-2.5 py-0.5 rounded">
+                      CVCraft Premium Account
                     </span>
                     <h3 className="text-base font-extrabold text-white font-display mt-2">Active Membership Tier</h3>
                   </div>
 
                   <div>
-                    {user.isPremium ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-950 text-amber-300 font-mono font-bold text-xs rounded-xl border border-amber-500/20">
-                        <Shield className="h-4 w-4 text-amber-400" /> ELITE USER (UNLIMITED ACCESS)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 text-slate-400 font-mono font-bold text-xs rounded-xl border border-slate-850">
-                        STANDARD FREE PLAN
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-950 text-indigo-300 font-mono font-bold text-xs rounded-xl border border-indigo-500/20">
+                      <Shield className="h-4 w-4 text-indigo-400" /> PREMIUM USER (LIFETIME ACCESS)
+                    </span>
                   </div>
                 </div>
 
-                {!user.isPremium && (
-                  <div className="pt-4 space-y-4">
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Upgrade to the <strong>Elite Tier</strong> to unlock advanced AI capabilities, bypass Google AdSense listings, and download ATS-optimized templates instantly.
-                    </p>
+                <div className="pt-4 space-y-4">
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Your account has been fully upgraded to the <strong>Premium Tier</strong>. Enjoy unlimited advanced AI diagnostics, ad-free cover letter builders, priority PDF/doc template exports, and continuous resume scanning permanently.
+                  </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                      <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 block">AI GENERATION</span>
-                        <span className="text-xs font-semibold text-slate-200">Unlimited Cover Letters</span>
-                      </div>
-                      <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 block">ATS METRICS</span>
-                        <span className="text-xs font-semibold text-slate-200">Deep Resume Audits</span>
-                      </div>
-                      <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 block">PRO FILES</span>
-                        <span className="text-xs font-semibold text-slate-200">100% Ad-Free Canvas</span>
-                      </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 block">AI GENERATION</span>
+                      <span className="text-xs font-semibold text-slate-200">Unlimited Cover Letters</span>
                     </div>
-
-                    <div className="pt-3 flex flex-col sm:flex-row items-center gap-3">
-                      <button
-                        onClick={onUpgrade}
-                        className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg"
-                      >
-                        <CreditCard className="h-4 w-4" /> Subscribe Securely for $1.99
-                      </button>
-                      <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
-                        <Shield className="h-3 w-3 text-emerald-400" /> Secure checkout encrypted by PayPal
-                      </span>
+                    <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 block">ATS METRICS</span>
+                      <span className="text-xs font-semibold text-slate-200">Deep Resume Audits</span>
+                    </div>
+                    <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 block">PRO FILES</span>
+                      <span className="text-xs font-semibold text-slate-200">100% Ad-Free Canvas</span>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}

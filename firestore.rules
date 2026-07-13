@@ -11,6 +11,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == "BbtNPUbF62SNCzBIPNtiIjMHejF3" ||
+        (request.auth.token.email != null && request.auth.token.email == "bilalhassanmussa@gmail.com")
+      );
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -23,23 +30,18 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Default catch-all deny rule for high-security zero-trust posture
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // User Profile Rules
     match /users/{userId} {
-      allow read: if isOwner(userId) || (isSignedIn() && request.auth.token.email == "bilalhassanmussa@gmail.com");
-      allow list: if isSignedIn() && request.auth.token.email == "bilalhassanmussa@gmail.com";
+      allow read, write: if isAdmin();
+      allow read, list: if isSignedIn();
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if (isOwner(userId) || (isSignedIn() && request.auth.token.email == "bilalhassanmussa@gmail.com")) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming());
       allow delete: if false; // Profiles are permanent once created
     }
 
     // Resumes Sub-collection Rules
     match /users/{userId}/resumes/{resumeId} {
-      allow read, list: if isOwner(userId);
+      allow read, list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidId(resumeId) && isValidResume(incoming());
       allow update: if isOwner(userId) && isValidId(resumeId) && isValidResume(incoming());
       allow delete: if isOwner(userId) && isValidId(resumeId);
@@ -47,7 +49,7 @@ service cloud.firestore {
 
     // Cover Letters Sub-collection Rules
     match /users/{userId}/letters/{letterId} {
-      allow read, list: if isOwner(userId);
+      allow read, list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidId(letterId) && isValidCoverLetter(incoming());
       allow update: if isOwner(userId) && isValidId(letterId) && isValidCoverLetter(incoming());
       allow delete: if isOwner(userId) && isValidId(letterId);
@@ -55,7 +57,7 @@ service cloud.firestore {
 
     // Career Recommendations Sub-collection Rules
     match /users/{userId}/career_recommendations/{recId} {
-      allow read, list: if isOwner(userId);
+      allow read, list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidId(recId) && isValidCareerRec(incoming());
       allow delete: if isOwner(userId) && isValidId(recId);
       allow update: if false; // Recommendations are read-only once generated
@@ -63,16 +65,28 @@ service cloud.firestore {
 
     // Reviews Global Collection Rules
     match /reviews/{reviewId} {
+      allow read, write: if isAdmin();
       allow read, list: if isSignedIn();
       allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidReview(incoming());
     }
 
     // Admin Chats Global Collection Rules
     match /admin_chats/{msgId} {
-      allow read, list: if isSignedIn() && (request.auth.token.email == "bilalhassanmussa@gmail.com" || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && (
-        (request.auth.token.email == "bilalhassanmussa@gmail.com" && isValidAdminChat(incoming())) ||
-        (incoming().userId == request.auth.uid && incoming().senderId == request.auth.uid && isValidAdminChat(incoming()))
+      allow read, write: if isAdmin();
+      allow read, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().senderId == request.auth.uid && isValidAdminChat(incoming());
+    }
+
+    // Direct Messages Global Collection Rules
+    match /direct_messages/{msgId} {
+      allow get: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.senderId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && (incoming().senderId == request.auth.uid && isValidDirectMessage(incoming()));
+      allow update: if isSignedIn() && (
+        (resource.data.recipientId == request.auth.uid && incoming().read == true && incoming().message == resource.data.message) ||
+        isAdmin()
       );
     }
 
@@ -81,8 +95,8 @@ service cloud.firestore {
       return (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 150)) &&
              (!('isPremium' in data) || data.isPremium is bool) &&
-             (!('creationsCount' in data) || data.creationsCount is int) &&
-             (!('adViews' in data) || data.adViews is int) &&
+             (!('creationsCount' in data) || data.creationsCount is number) &&
+             (!('adViews' in data) || data.adViews is number) &&
              (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 1000000));
     }
 
@@ -90,7 +104,7 @@ service cloud.firestore {
       return data.userId is string && data.userId.size() <= 128 &&
              data.userEmail is string && data.userEmail.size() <= 150 &&
              data.userName is string && data.userName.size() <= 150 &&
-             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
              data.comment is string && data.comment.size() <= 5000 &&
              data.createdAt is string && data.createdAt.size() <= 128;
     }
@@ -100,9 +114,26 @@ service cloud.firestore {
              data.senderId is string && data.senderId.size() <= 128 &&
              data.senderEmail is string && data.senderEmail.size() <= 150 &&
              data.senderName is string && data.senderName.size() <= 150 &&
-             data.message is string && data.message.size() <= 5000 &&
+             data.message is string && data.message.size() <= 50000 &&
              data.createdAt is string && data.createdAt.size() <= 128 &&
+             (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 1500000)) &&
+             (!('mediaType' in data) || (data.mediaType is string && data.mediaType.size() <= 100)) &&
              (!('read' in data) || data.read is bool);
+    }
+
+    function isValidDirectMessage(data) {
+      return data.chatId is string && data.chatId.size() <= 256 &&
+             data.senderId is string && data.senderId.size() <= 128 &&
+             data.senderEmail is string && data.senderEmail.size() <= 150 &&
+             data.senderName is string && data.senderName.size() <= 150 &&
+             data.recipientId is string && data.recipientId.size() <= 128 &&
+             data.recipientEmail is string && data.recipientEmail.size() <= 150 &&
+             data.recipientName is string && data.recipientName.size() <= 150 &&
+             data.message is string && data.message.size() <= 50000 &&
+             (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 1500000)) &&
+             (!('mediaType' in data) || (data.mediaType is string && data.mediaType.size() <= 100)) &&
+             data.createdAt is string && data.createdAt.size() <= 128 &&
+             data.read is bool;
     }
 
     function isValidCareerRec(data) {
