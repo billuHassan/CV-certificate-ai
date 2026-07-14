@@ -23,63 +23,63 @@ export interface ThemeDefinition {
 export const THEMES: ThemeDefinition[] = [
   {
     id: "obsidian",
-    name: "Carbon Pro (Linear)",
+    name: "Cyber Obsidian (Carbon & Emerald)",
     isDark: true,
-    bgClass: "bg-zinc-950 text-zinc-100",
-    sidebarClass: "bg-zinc-900 border-zinc-800",
-    cardClass: "bg-zinc-900/60 border-zinc-800/80 backdrop-blur-md shadow-xl shadow-black/10",
-    borderClass: "border-zinc-800",
-    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/15",
-    textClass: "text-zinc-100",
-    dotColors: ["#09090b", "#4f46e5"]
+    bgClass: "bg-zinc-950 text-emerald-50",
+    sidebarClass: "bg-zinc-900 border-emerald-950/40",
+    cardClass: "bg-zinc-900/60 border-emerald-950/30 backdrop-blur-md shadow-xl shadow-black/15",
+    borderClass: "border-emerald-950/30",
+    accentClass: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/15",
+    textClass: "text-emerald-50",
+    dotColors: ["#09090b", "#10b981"]
   },
   {
     id: "minimal",
-    name: "Slate Executive (Corporate)",
+    name: "Classic Sapphire (Navy & Indigo)",
     isDark: true,
     bgClass: "bg-slate-950 text-slate-100",
     sidebarClass: "bg-slate-900 border-slate-800",
     cardClass: "bg-slate-900/50 border-slate-800/80 backdrop-blur-md shadow-xl shadow-black/10",
     borderClass: "border-slate-800",
-    accentClass: "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/15",
+    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/15",
     textClass: "text-slate-100",
-    dotColors: ["#0f172a", "#2563eb"]
+    dotColors: ["#0f172a", "#4f46e5"]
   },
   {
     id: "midnight",
-    name: "Midnight Violet (Aesthetic)",
+    name: "Cosmic Orchid (Purple & Amethyst)",
     isDark: true,
-    bgClass: "bg-[#0c071a] text-purple-100",
-    sidebarClass: "bg-[#130d29] border-purple-950/80",
-    cardClass: "bg-[#130d29]/50 border-purple-950/80 backdrop-blur-md shadow-xl shadow-black/20",
-    borderClass: "border-purple-950/80",
-    accentClass: "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/15",
+    bgClass: "bg-[#0b0314] text-purple-100",
+    sidebarClass: "bg-[#140822] border-fuchsia-950/80",
+    cardClass: "bg-[#140822]/50 border-fuchsia-950/80 backdrop-blur-md shadow-xl shadow-black/25",
+    borderClass: "border-fuchsia-950/80",
+    accentClass: "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-600/15",
     textClass: "text-purple-100",
-    dotColors: ["#0c071a", "#8b5cf6"]
+    dotColors: ["#0b0314", "#d946ef"]
   },
   {
     id: "nordic",
-    name: "Snow Light (Stripe Premium)",
+    name: "Nordic Clean (Snow & Azure)",
     isDark: false,
     bgClass: "bg-slate-50 text-slate-900",
     sidebarClass: "bg-white border-slate-200/80 shadow-sm",
     cardClass: "bg-white/80 border-slate-200/80 backdrop-blur-md shadow-lg shadow-slate-100/50",
     borderClass: "border-slate-200",
-    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/15",
+    accentClass: "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/15",
     textClass: "text-slate-900",
-    dotColors: ["#f8fafc", "#4f46e5"]
+    dotColors: ["#f8fafc", "#2563eb"]
   },
   {
     id: "vintage",
-    name: "Warm Ivory (Notion Studio)",
+    name: "Amber Editorial (Sepia & Terracotta)",
     isDark: false,
-    bgClass: "bg-[#fbf9f4] text-stone-900",
-    sidebarClass: "bg-[#f5f2eb] border-[#e4dfd0] shadow-sm",
-    cardClass: "bg-[#f5f2eb]/70 border-[#e4dfd0] backdrop-blur-md shadow-lg shadow-stone-200/30",
-    borderClass: "border-[#e4dfd0]",
-    accentClass: "bg-stone-800 hover:bg-stone-700 text-white shadow-lg shadow-stone-800/15",
+    bgClass: "bg-[#faf5ec] text-stone-900",
+    sidebarClass: "bg-[#f1e9d9] border-[#dfd4bd] shadow-sm",
+    cardClass: "bg-[#f1e9d9]/70 border-[#dfd4bd] backdrop-blur-md shadow-lg shadow-stone-200/30",
+    borderClass: "border-[#dfd4bd]",
+    accentClass: "bg-amber-700 hover:bg-amber-600 text-white shadow-lg shadow-amber-800/15",
     textClass: "text-stone-900",
-    dotColors: ["#fbf9f4", "#292524"]
+    dotColors: ["#faf5ec", "#b45309"]
   }
 ];
 
@@ -149,7 +149,7 @@ export default function Settings({
   currentTheme,
   onThemeChange
 }: SettingsProps) {
-  const [activeTab, setActiveTab] = useState<"profile" | "language" | "display">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "language" | "display" | "notifications">("profile");
 
   // Profile Edit fields
   const [displayName, setDisplayName] = useState(user.displayName);
@@ -379,6 +379,15 @@ export default function Settings({
             }`}
           >
             <Moon className="h-4 w-4" /> Display Themes (5)
+          </button>
+
+          <button
+            onClick={() => setActiveTab("notifications")}
+            className={`w-full text-left p-3 rounded-xl font-semibold text-xs transition flex items-center gap-2.5 ${
+              activeTab === "notifications" ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/20" : "text-slate-400 hover:text-white hover:bg-slate-900/40"
+            }`}
+          >
+            <Bell className="h-4 w-4" /> Notification Alerts
           </button>
         </div>
 
@@ -697,6 +706,117 @@ export default function Settings({
                 <span className="text-[10px] text-slate-400 leading-normal">
                   Changing the theme instantly adjusts your outer workspace wrapper, navigation headers, side elements, and background parameters.
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: Notifications */}
+          {activeTab === "notifications" && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
+              <h3 className="text-sm font-bold text-slate-200 font-display flex items-center gap-2 pb-3 border-b border-slate-850">
+                <Bell className="h-4.5 w-4.5 text-indigo-400" /> Notification Preferences
+              </h3>
+              
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Configure when and how you receive alerts from CVCraft AI regarding your applications, ATS scores, and recruiter interactions.
+              </p>
+
+              <div className="space-y-4 pt-2">
+                {/* Email Alerts */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200">Email Alerts</h4>
+                    <p className="text-[10px] text-slate-500">Receive weekly summaries, profile optimization tips, and platform updates.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifsEmailAlerts(!notifsEmailAlerts)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      notifsEmailAlerts ? "bg-emerald-600" : "bg-slate-800"
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      notifsEmailAlerts ? "translate-x-4" : "translate-x-0"
+                    }`} />
+                  </button>
+                </div>
+
+                {/* ATS Results */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200">ATS Optimization Alerts</h4>
+                    <p className="text-[10px] text-slate-500">Instant feedback when your resume completes scanning and ATS calculation scoring.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifsAtsResults(!notifsAtsResults)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      notifsAtsResults ? "bg-emerald-600" : "bg-slate-800"
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      notifsAtsResults ? "translate-x-4" : "translate-x-0"
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Views */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200">Recruiter Profile Views</h4>
+                    <p className="text-[10px] text-slate-500">Get notified when employers view or download your shared live resume portfolios.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifsViews(!notifsViews)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      notifsViews ? "bg-emerald-600" : "bg-slate-800"
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      notifsViews ? "translate-x-4" : "translate-x-0"
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Updates */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-850 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200">AI Model & Feature Updates</h4>
+                    <p className="text-[10px] text-slate-500">Stay informed about new AI features, model enhancements, and design layouts.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifsUpdates(!notifsUpdates)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      notifsUpdates ? "bg-emerald-600" : "bg-slate-800"
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      notifsUpdates ? "translate-x-4" : "translate-x-0"
+                    }`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-850">
+                {notifSuccess ? (
+                  <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Notification preferences updated successfully!
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-500">Changes apply instantly to your browser container state.</span>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={handleSaveNotifications}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-xl shadow-lg shadow-indigo-600/15 transition flex items-center gap-1.5"
+                >
+                  Save Alerts
+                </button>
               </div>
             </div>
           )}
