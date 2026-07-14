@@ -194,6 +194,7 @@ export default function Dashboard({
                       <BarChart2 className="h-4 w-4" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         if (confirm("Are you sure you want to delete this resume?")) {
                           onDeleteResume(res.id);
@@ -246,6 +247,7 @@ export default function Dashboard({
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         if (confirm("Are you sure you want to delete this cover letter?")) {
                           onDeleteLetter(letItem.id);
