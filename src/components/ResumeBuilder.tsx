@@ -788,7 +788,6 @@ export default function ResumeBuilder({
                       {resume.experience.map((exp, idx) => (
                         <div key={exp.id} className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3 relative group">
                           <button
-                            type="button"
                             onClick={() => deleteExperience(exp.id)}
                             className="absolute top-2 right-2 text-slate-600 hover:text-rose-400 transition"
                           >
@@ -909,7 +908,6 @@ export default function ResumeBuilder({
                       {resume.education.map((edu, idx) => (
                         <div key={edu.id} className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3 relative group">
                           <button
-                            type="button"
                             onClick={() => deleteEducation(edu.id)}
                             className="absolute top-2 right-2 text-slate-600 hover:text-rose-400 transition"
                           >
@@ -1006,7 +1004,6 @@ export default function ResumeBuilder({
                       {resume.projects.map((proj) => (
                         <div key={proj.id} className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3 relative group">
                           <button
-                            type="button"
                             onClick={() => deleteProject(proj.id)}
                             className="absolute top-2 right-2 text-slate-600 hover:text-rose-400 transition"
                           >
