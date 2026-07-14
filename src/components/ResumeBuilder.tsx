@@ -691,6 +691,39 @@ export default function ResumeBuilder({
                           placeholder="San Francisco, CA"
                         />
                       </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-slate-400">Website</label>
+                          <input
+                            type="text"
+                            value={resume.personalInfo.website}
+                            onChange={(e) => updatePersonalInfo("website", e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                            placeholder="https://yourportfolio.com"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-slate-400">LinkedIn</label>
+                          <input
+                            type="text"
+                            value={resume.personalInfo.linkedin}
+                            onChange={(e) => updatePersonalInfo("linkedin", e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                            placeholder="linkedin.com/in/username"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-slate-400">GitHub</label>
+                          <input
+                            type="text"
+                            value={resume.personalInfo.github}
+                            onChange={(e) => updatePersonalInfo("github", e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                            placeholder="github.com/username"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -795,6 +828,16 @@ export default function ResumeBuilder({
                               onChange={(e) => updateExperience(exp.id, "endDate", e.target.value)}
                               placeholder="End Date (or Present)"
                               className="bg-slate-950 border border-slate-850 rounded p-2 text-xs disabled:opacity-40"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2">
+                            <input
+                              type="text"
+                              value={exp.location || ""}
+                              onChange={(e) => updateExperience(exp.id, "location", e.target.value)}
+                              placeholder="Job Location (e.g. Austin, TX)"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
                             />
                           </div>
 
@@ -919,6 +962,16 @@ export default function ResumeBuilder({
                               onChange={(e) => updateEducation(edu.id, "endDate", e.target.value)}
                               placeholder="End Date"
                               className="bg-slate-950 border border-slate-850 rounded p-2 text-xs"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2">
+                            <input
+                              type="text"
+                              value={edu.location || ""}
+                              onChange={(e) => updateEducation(edu.id, "location", e.target.value)}
+                              placeholder="School Location (e.g. Austin, TX)"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
                             />
                           </div>
                         </div>

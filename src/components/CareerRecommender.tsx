@@ -18,7 +18,6 @@ export default function CareerRecommender({ user, resumes }: CareerRecommenderPr
   const [loadingStep, setLoadingStep] = useState<string>("");
   const [recommendations, setRecommendations] = useState<CareerRecommendation[]>([]);
   const [activeReport, setActiveReport] = useState<CareerRecommendation | null>(null);
-  const [activeTab, setActiveTab] = useState<"roles" | "companies" | "countries" | "strategy">("roles");
   const [error, setError] = useState<string | null>(null);
 
   // Synchronous loader stage rotation
@@ -293,10 +292,9 @@ export default function CareerRecommender({ user, resumes }: CareerRecommenderPr
                 {recommendations.map((rec) => (
                   <button
                     key={rec.id}
-                    onClick={() => {
-                      setActiveReport(rec);
-                      setActiveTab("roles");
-                    }}
+            onClick={() => {
+              setActiveReport(rec);
+            }}
                     className={`w-full text-left p-3 rounded-xl border text-xs transition relative group flex flex-col gap-1 ${
                       activeReport?.id === rec.id
                         ? "bg-indigo-600/15 border-indigo-500 text-white"
@@ -354,204 +352,80 @@ export default function CareerRecommender({ user, resumes }: CareerRecommenderPr
                   </p>
                 </div>
 
-                {/* Sub-tabs Selection */}
-                <div className="flex border-b border-slate-850 bg-slate-950/20 p-1.5 gap-1 overflow-x-auto">
-                  {(["roles", "companies", "countries", "strategy"] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`flex-1 sm:flex-initial px-5 py-2 rounded-xl text-xs font-semibold tracking-wide transition flex items-center justify-center gap-1.5 shrink-0 ${
-                        activeTab === tab
-                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
-                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
-                      }`}
-                    >
-                      {tab === "roles" && <Briefcase className="h-4 w-4" />}
-                      {tab === "companies" && <Building className="h-4 w-4" />}
-                      {tab === "countries" && <Globe className="h-4 w-4" />}
-                      {tab === "strategy" && <TrendingUp className="h-4 w-4" />}
-                      <span className="capitalize">
-                        {tab === "roles" && "Target Roles"}
-                        {tab === "companies" && "Target Cohorts"}
-                        {tab === "countries" && "Global Options (Top 10)"}
-                        {tab === "strategy" && "Action Roadmap"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                {/* Job Matches List */}
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center gap-2 border-b border-slate-850 pb-3 mb-4">
+                    <Briefcase className="h-4.5 w-4.5 text-indigo-400" />
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Top 5 Tailored Job Matches</h4>
+                  </div>
 
-                {/* Tab Contents */}
-                <div className="p-6">
-                  {activeTab === "roles" && (
-                    <div className="space-y-6">
-                      {activeReport.recommendedRoles.map((role, i) => (
-                        <div key={i} className="bg-slate-950/30 border border-slate-850/80 rounded-xl p-5 hover:border-slate-700/60 transition group space-y-4">
-                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-850/40 pb-3">
-                            <div className="space-y-1">
-                              <h5 className="text-sm font-bold text-white group-hover:text-indigo-400 transition flex items-center gap-2">
-                                {role.title}
-                              </h5>
-                              <p className="text-[11px] text-slate-500 font-medium">
-                                Expected Compensation: <span className="text-emerald-400 font-bold">{role.expectedSalaryRange}</span>
-                              </p>
-                            </div>
-
-                            <div className="shrink-0 flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-900/60 px-2.5 py-1 rounded-lg">
-                              <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Fit Index:</span>
-                              <span className="text-xs font-black text-indigo-300 font-mono">{role.fitScore}%</span>
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-slate-400 leading-relaxed mt-3 border-l-2 border-slate-800 pl-3">
-                            {role.rationale}
-                          </p>
-
-                          {role.skillsToAcquire && role.skillsToAcquire.length > 0 && (
-                            <div className="pt-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Recommended Upskilling</span>
-                              <div className="flex flex-wrap gap-1.5">
-                                {role.skillsToAcquire.map((skill, sIdx) => (
-                                  <span key={sIdx} className="px-2 py-0.5 rounded-lg text-[9px] bg-slate-900 text-indigo-300 border border-slate-800/80 font-mono">
-                                    {skill}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Top 5 Target Companies */}
-                          {role.topCompanies && role.topCompanies.length > 0 && (
-                            <div className="pt-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Top 5 Target Employers (Real Values)</span>
-                              <div className="flex flex-wrap gap-2">
-                                {role.topCompanies.map((company, cIdx) => (
-                                  <span key={cIdx} className="px-2.5 py-1 rounded-lg text-[10px] bg-indigo-950/30 text-indigo-300 border border-indigo-900/40 font-semibold shadow-sm">
-                                    {company}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Standout Skill Upgrades */}
-                          {role.skillsToUpgrade && role.skillsToUpgrade.length > 0 && (
-                            <div className="pt-2 space-y-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Recommended Skill Upgrades (To Stand Out)</span>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {role.skillsToUpgrade.map((item, suIdx) => (
-                                  <div key={suIdx} className="bg-slate-950/40 border border-slate-850/60 p-3 rounded-xl space-y-1 hover:border-slate-800 transition">
-                                    <span className="text-xs font-bold text-indigo-300 block">{item.skillName}</span>
-                                    <span className="text-[10px] text-slate-400 leading-relaxed block">{item.whyItStandsOut}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeTab === "countries" && (
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-2 border-b border-slate-850 pb-3 mb-2">
-                        <Globe className="h-5 w-5 text-indigo-400" />
-                        <h5 className="text-xs font-bold text-white uppercase tracking-wider">Top 10 Global Job Markets & Relocation Options</h5>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {(activeReport.recommendedCountries || []).map((c, i) => (
-                          <div key={i} className="bg-slate-950/30 border border-slate-850/80 rounded-xl p-4 space-y-3 hover:border-slate-700/65 transition flex flex-col justify-between">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between border-b border-slate-850 pb-2">
-                                <h6 className="text-sm font-bold text-white flex items-center gap-2">
-                                  <span className="text-xs font-mono text-slate-500">#{i + 1}</span>
-                                  {c.country}
-                                </h6>
-                                <span className="text-[10px] bg-indigo-950/40 border border-indigo-900/60 text-indigo-300 font-bold px-2 py-0.5 rounded-lg">
-                                  {c.averageSalaryLevel}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-400 leading-relaxed">
-                                {c.rationale}
-                              </p>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-850/40">
-                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Top Cities to Watch</span>
-                              <div className="flex flex-wrap gap-1">
-                                {c.topCities.map((city, cIdx) => (
-                                  <span key={cIdx} className="px-1.5 py-0.5 rounded text-[9px] bg-slate-900 text-slate-300 border border-slate-800 font-mono">
-                                    {city}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "companies" && (
-                    <div className="space-y-6">
-                      {activeReport.recommendedCompanies.map((comp, i) => (
-                        <div key={i} className="bg-slate-950/30 border border-slate-850/80 rounded-xl p-5 hover:border-slate-700/60 transition space-y-4">
-                          <div className="border-b border-slate-850/60 pb-3">
-                            <h5 className="text-sm font-bold text-white flex items-center gap-2">
-                              <Building className="h-4 w-4 text-indigo-400" />
-                              {comp.companyName}
+                  <div className="space-y-6">
+                    {activeReport.recommendedRoles.slice(0, 5).map((role, i) => (
+                      <div key={i} className="bg-slate-950/30 border border-slate-850/80 rounded-xl p-5 hover:border-slate-700/60 transition group space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-850/40 pb-3">
+                          <div className="space-y-1">
+                            <h5 className="text-sm font-bold text-white group-hover:text-indigo-400 transition flex items-center gap-2">
+                              <span className="text-xs font-mono text-indigo-500">#{i + 1}</span> {role.title}
                             </h5>
-                            <p className="text-xs text-slate-400 leading-relaxed mt-2 pl-6">
-                              {comp.fitRationale}
+                            <p className="text-[11px] text-slate-500 font-medium">
+                              Expected Compensation: <span className="text-emerald-400 font-bold">{role.expectedSalaryRange}</span>
                             </p>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2 bg-slate-900/40 p-3 rounded-lg border border-slate-850/40">
-                              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest block">Roles to Target</span>
-                              <ul className="space-y-1">
-                                {comp.positionsToWatch.map((pos, pIdx) => (
-                                  <li key={pIdx} className="text-xs text-slate-300 flex items-center gap-1.5">
-                                    <ChevronRight className="h-3 w-3 text-indigo-500" /> {pos}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-
-                            <div className="space-y-1.5 bg-slate-900/40 p-3 rounded-lg border border-slate-850/40">
-                              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest block">Interview Playbook</span>
-                              <p className="text-[11px] text-slate-400 leading-relaxed">
-                                {comp.interviewTips}
-                              </p>
-                            </div>
+                          <div className="shrink-0 flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-900/60 px-2.5 py-1 rounded-lg">
+                            <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Fit Index:</span>
+                            <span className="text-xs font-black text-indigo-300 font-mono">{role.fitScore}%</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
 
-                  {activeTab === "strategy" && (
-                    <div className="bg-slate-950/20 border border-slate-850/60 rounded-xl p-6 space-y-4">
-                      <div className="flex items-center gap-2 mb-2 border-b border-slate-850 pb-3">
-                        <TrendingUp className="h-5 w-5 text-indigo-400" />
-                        <h5 className="text-xs font-bold text-white uppercase tracking-wider">Milestones & Actionable Tactics</h5>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        {activeReport.careerStrategy.map((step, sIdx) => (
-                          <div key={sIdx} className="flex gap-3 items-start bg-slate-900/30 border border-slate-850/40 p-3.5 rounded-xl hover:bg-slate-900/50 transition">
-                            <div className="h-5 w-5 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-900/40 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
-                              {sIdx + 1}
-                            </div>
-                            <div className="space-y-0.5">
-                              <p className="text-xs text-slate-300 leading-relaxed font-medium">{step}</p>
+                        <p className="text-xs text-slate-400 leading-relaxed mt-3 border-l-2 border-slate-800 pl-3">
+                          {role.rationale}
+                        </p>
+
+                        {role.skillsToAcquire && role.skillsToAcquire.length > 0 && (
+                          <div className="pt-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Recommended Upskilling</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {role.skillsToAcquire.map((skill, sIdx) => (
+                                <span key={sIdx} className="px-2 py-0.5 rounded-lg text-[9px] bg-slate-900 text-indigo-300 border border-slate-800/80 font-mono">
+                                  {skill}
+                                </span>
+                              ))}
                             </div>
                           </div>
-                        ))}
+                        )}
+
+                        {/* Top 5 Target Companies */}
+                        {role.topCompanies && role.topCompanies.length > 0 && (
+                          <div className="pt-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Target Employers (Real Companies)</span>
+                            <div className="flex flex-wrap gap-2">
+                              {role.topCompanies.slice(0, 5).map((company, cIdx) => (
+                                <span key={cIdx} className="px-2.5 py-1 rounded-lg text-[10px] bg-indigo-950/30 text-indigo-300 border border-indigo-900/40 font-semibold shadow-sm">
+                                  {company}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Standout Skill Upgrades */}
+                        {role.skillsToUpgrade && role.skillsToUpgrade.length > 0 && (
+                          <div className="pt-1 space-y-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Recommended Skill Upgrades (To Stand Out)</span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {role.skillsToUpgrade.map((item, suIdx) => (
+                                <div key={suIdx} className="bg-slate-950/40 border border-slate-850/60 p-3 rounded-xl space-y-1 hover:border-slate-800 transition">
+                                  <span className="text-xs font-bold text-indigo-300 block">{item.skillName}</span>
+                                  <span className="text-[10px] text-slate-400 leading-relaxed block">{item.whyItStandsOut}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (

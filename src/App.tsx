@@ -240,10 +240,10 @@ export default function App() {
         try {
           setResumes(JSON.parse(localResumes));
         } catch {
-          setResumes([SAMPLE_RESUME]);
+          setResumes([]);
         }
       } else {
-        setResumes([SAMPLE_RESUME]);
+        setResumes([]);
       }
       
       // Load local letters
@@ -252,10 +252,10 @@ export default function App() {
         try {
           setLetters(JSON.parse(localLetters));
         } catch {
-          setLetters([SAMPLE_LETTER]);
+          setLetters([]);
         }
       } else {
-        setLetters([SAMPLE_LETTER]);
+        setLetters([]);
       }
       return;
     }
@@ -351,8 +351,7 @@ export default function App() {
               loadedResumes.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
               
               if (loadedResumes.length === 0) {
-                const seedResume = { ...SAMPLE_RESUME, id: crypto.randomUUID(), updatedAt: new Date().toISOString() };
-                setDoc(doc(db, "users", firebaseUser.uid, "resumes", seedResume.id), seedResume).catch(console.error);
+                setResumes([]);
               } else {
                 setResumes(loadedResumes);
               }
@@ -375,8 +374,7 @@ export default function App() {
               loadedLetters.sort((a, b) => (b.updatedAt || b.date).localeCompare(a.updatedAt || a.date));
               
               if (loadedLetters.length === 0) {
-                const seedLetter = { ...SAMPLE_LETTER, id: crypto.randomUUID(), updatedAt: new Date().toISOString() };
-                setDoc(doc(db, "users", firebaseUser.uid, "letters", seedLetter.id), seedLetter).catch(console.error);
+                setLetters([]);
               } else {
                 setLetters(loadedLetters);
               }

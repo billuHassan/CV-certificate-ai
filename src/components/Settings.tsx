@@ -46,6 +46,18 @@ export const THEMES: ThemeDefinition[] = [
     dotColors: ["#0f172a", "#2563eb"]
   },
   {
+    id: "midnight",
+    name: "Midnight Violet (Aesthetic)",
+    isDark: true,
+    bgClass: "bg-[#0c071a] text-purple-100",
+    sidebarClass: "bg-[#130d29] border-purple-950/80",
+    cardClass: "bg-[#130d29]/50 border-purple-950/80 backdrop-blur-md shadow-xl shadow-black/20",
+    borderClass: "border-purple-950/80",
+    accentClass: "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/15",
+    textClass: "text-purple-100",
+    dotColors: ["#0c071a", "#8b5cf6"]
+  },
+  {
     id: "nordic",
     name: "Snow Light (Stripe Premium)",
     isDark: false,
@@ -137,7 +149,7 @@ export default function Settings({
   currentTheme,
   onThemeChange
 }: SettingsProps) {
-  const [activeTab, setActiveTab] = useState<"profile" | "language" | "notifications" | "display">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "language" | "display">("profile");
 
   // Profile Edit fields
   const [displayName, setDisplayName] = useState(user.displayName);
@@ -361,21 +373,12 @@ export default function Settings({
           </button>
 
           <button
-            onClick={() => setActiveTab("notifications")}
-            className={`w-full text-left p-3 rounded-xl font-semibold text-xs transition flex items-center gap-2.5 ${
-              activeTab === "notifications" ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/20" : "text-slate-400 hover:text-white hover:bg-slate-900/40"
-            }`}
-          >
-            <Bell className="h-4 w-4" /> Notifications Settings
-          </button>
-
-          <button
             onClick={() => setActiveTab("display")}
             className={`w-full text-left p-3 rounded-xl font-semibold text-xs transition flex items-center gap-2.5 ${
               activeTab === "display" ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/20" : "text-slate-400 hover:text-white hover:bg-slate-900/40"
             }`}
           >
-            <Moon className="h-4 w-4" /> Display Themes (10)
+            <Moon className="h-4 w-4" /> Display Themes (5)
           </button>
         </div>
 
@@ -639,124 +642,15 @@ export default function Settings({
             </div>
           )}
 
-          {/* TAB 3: Notifications */}
-          {activeTab === "notifications" && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
-              <h3 className="text-sm font-bold text-slate-200 font-display flex items-center gap-2 pb-3 border-b border-slate-850">
-                <Bell className="h-4.5 w-4.5 text-indigo-400" /> Push Notifications
-              </h3>
-              
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Select your preferred channels and alert frequency for candidate updates, system logs, and cover letter analysis outputs.
-              </p>
-
-              <div className="space-y-4 pt-2">
-                
-                {/* Switch 1: Email job matching */}
-                <div className="flex items-center justify-between py-3 border-b border-slate-850">
-                  <div className="max-w-[80%]">
-                    <span className="text-xs font-bold text-slate-200 block">Job Matches Alert</span>
-                    <span className="text-slate-500 text-[10px] mt-1 block leading-normal">
-                      Receive tailored emails when new postings matching your resume summary go live on major job boards.
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifsEmailAlerts}
-                      onChange={(e) => setNotifsEmailAlerts(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-950 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-gray-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:bg-white"></div>
-                  </label>
-                </div>
-
-                {/* Switch 2: ATS Scores */}
-                <div className="flex items-center justify-between py-3 border-b border-slate-850">
-                  <div className="max-w-[80%]">
-                    <span className="text-xs font-bold text-slate-200 block">Email copy of ATS Scan metrics</span>
-                    <span className="text-slate-500 text-[10px] mt-1 block leading-normal">
-                      Automatically dispatch a detailed PDF/JSON copy of ATS compatibility reports to your mailbox post-audit.
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifsAtsResults}
-                      onChange={(e) => setNotifsAtsResults(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-950 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-gray-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:bg-white"></div>
-                  </label>
-                </div>
-
-                {/* Switch 3: recruiter views */}
-                <div className="flex items-center justify-between py-3 border-b border-slate-850">
-                  <div className="max-w-[80%]">
-                    <span className="text-xs font-bold text-slate-200 block">Candidate Tracking telemetry views</span>
-                    <span className="text-slate-500 text-[10px] mt-1 block leading-normal">
-                      Get real-time browser alerts when a recruiter previews or opens your shared resume link.
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifsViews}
-                      onChange={(e) => setNotifsViews(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-950 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-gray-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:bg-white"></div>
-                  </label>
-                </div>
-
-                {/* Switch 4: Product newsletter */}
-                <div className="flex items-center justify-between py-3">
-                  <div className="max-w-[80%]">
-                    <span className="text-xs font-bold text-slate-200 block">System updates and feature releases</span>
-                    <span className="text-slate-500 text-[10px] mt-1 block leading-normal">
-                      Stay informed about monthly premium upgrades, platform status notifications, and tips from recruiters.
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifsUpdates}
-                      onChange={(e) => setNotifsUpdates(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-950 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-gray-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:bg-white"></div>
-                  </label>
-                </div>
-
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-slate-850">
-                <button
-                  type="button"
-                  onClick={handleSaveNotifications}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5"
-                >
-                  <Check className="h-4 w-4" /> Save Alerts Layout
-                </button>
-
-                {notifSuccess && (
-                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5 animate-pulse">
-                    <CheckCircle className="h-3.5 w-3.5" /> Notification priorities saved!
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* TAB 4: Display & Theme */}
           {activeTab === "display" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
               <h3 className="text-sm font-bold text-slate-200 font-display flex items-center gap-2 pb-3 border-b border-slate-850">
-                <Moon className="h-4.5 w-4.5 text-indigo-400" /> Global Application Display Themes (10 Choices)
+                <Moon className="h-4.5 w-4.5 text-indigo-400" /> Global Application Display Themes (5 Choices)
               </h3>
               
               <p className="text-xs text-slate-400 leading-relaxed">
-                Personalize your workspace aesthetics. Select one of our 10 beautiful, responsive design systems tailored for low-eye fatigue, high accessibility, and stunning layout contrast.
+                Personalize your workspace aesthetics. Select one of our 5 beautiful, responsive design systems tailored for low-eye fatigue, high accessibility, and stunning layout contrast.
               </p>
 
               {/* Theme Selector Grid */}
