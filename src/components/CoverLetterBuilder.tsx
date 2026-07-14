@@ -185,16 +185,6 @@ export default function CoverLetterBuilder({
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(letter, null, 2));
-    const link = document.createElement("a");
-    link.setAttribute("href", dataStr);
-    link.setAttribute("download", `${(letter.senderInfo.name || "User").replace(/\s+/g, "_")}_Cover_Letter_Backup.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
       {/* Top action header */}
@@ -233,13 +223,6 @@ export default function CoverLetterBuilder({
             title="Open standard browser print dialog"
           >
             <Printer className="h-3.5 w-3.5" /> Print
-          </button>
-          <button
-            onClick={handleDownloadJSON}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg transition border border-slate-700"
-            title="Export raw cover letter data to a JSON backup file"
-          >
-            Backup JSON
           </button>
         </div>
       </div>

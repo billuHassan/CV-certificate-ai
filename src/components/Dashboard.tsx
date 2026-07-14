@@ -65,11 +65,11 @@ export default function Dashboard({
   };
 
   const templatesPreview = [
-    { id: "minimal", name: "Minimalist ATS", badge: "Unlocked" },
-    { id: "professional", name: "Professional Corporate", badge: "Unlocked" },
-    { id: "modern", name: "Modern Developer", badge: "Unlocked" },
-    { id: "creative", name: "Creative Art/Designer", badge: "Unlocked" },
-    { id: "executive", name: "Executive Split", badge: "Unlocked" },
+    { id: "minimal", name: "Minimalist ATS Pro", badge: "Unlocked" },
+    { id: "executive", name: "Executive Split Slate", badge: "Unlocked" },
+    { id: "elegant", name: "Warm Editorial Cream", badge: "Unlocked" },
+    { id: "cyber", name: "Cyberpunk Terminal", badge: "Premium" },
+    { id: "berlin", name: "Berlin Neo-Brutalist", badge: "Premium" },
   ];
 
   return (

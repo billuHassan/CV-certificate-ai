@@ -23,123 +23,51 @@ export interface ThemeDefinition {
 export const THEMES: ThemeDefinition[] = [
   {
     id: "obsidian",
-    name: "Obsidian Dark",
+    name: "Carbon Pro (Linear)",
     isDark: true,
-    bgClass: "bg-slate-950 text-slate-100",
-    sidebarClass: "bg-slate-900 border-slate-800",
-    cardClass: "bg-slate-900/60 border-slate-800/80",
-    borderClass: "border-slate-800",
-    accentClass: "bg-indigo-600 hover:bg-indigo-500",
-    textClass: "text-slate-100",
-    dotColors: ["#090d16", "#4f46e5"]
-  },
-  {
-    id: "midnight",
-    name: "Midnight Ocean",
-    isDark: true,
-    bgClass: "bg-gray-950 text-slate-100",
-    sidebarClass: "bg-slate-900 border-slate-800/80",
-    cardClass: "bg-slate-900/50 border-slate-800/80",
-    borderClass: "border-slate-800",
-    accentClass: "bg-blue-600 hover:bg-blue-500",
-    textClass: "text-slate-100",
-    dotColors: ["#030712", "#2563eb"]
-  },
-  {
-    id: "emerald",
-    name: "Emerald Forest",
-    isDark: true,
-    bgClass: "bg-[#022c22] text-emerald-50",
-    sidebarClass: "bg-[#043e31] border-emerald-900/50",
-    cardClass: "bg-[#043e31]/40 border-emerald-900/40",
-    borderClass: "border-emerald-900/30",
-    accentClass: "bg-emerald-600 hover:bg-emerald-500",
-    textClass: "text-emerald-50",
-    dotColors: ["#022c22", "#059669"]
-  },
-  {
-    id: "cosmic",
-    name: "Cosmic Violet",
-    isDark: true,
-    bgClass: "bg-[#0d0118] text-purple-100",
-    sidebarClass: "bg-[#160228] border-purple-950/80",
-    cardClass: "bg-[#160228]/40 border-purple-950/60",
-    borderClass: "border-purple-950/40",
-    accentClass: "bg-purple-600 hover:bg-purple-500",
-    textClass: "text-purple-100",
-    dotColors: ["#0d0118", "#9333ea"]
-  },
-  {
-    id: "crimson",
-    name: "Crimson Sunset",
-    isDark: true,
-    bgClass: "bg-[#1a050d] text-rose-100",
-    sidebarClass: "bg-[#280a18] border-rose-950/80",
-    cardClass: "bg-[#280a18]/40 border-rose-950/60",
-    borderClass: "border-rose-950/40",
-    accentClass: "bg-rose-600 hover:bg-rose-500",
-    textClass: "text-rose-100",
-    dotColors: ["#1a050d", "#e11d48"]
-  },
-  {
-    id: "amber",
-    name: "Amber Gold",
-    isDark: true,
-    bgClass: "bg-[#1c1917] text-amber-50",
-    sidebarClass: "bg-[#292524] border-stone-800",
-    cardClass: "bg-[#292524]/50 border-stone-800/80",
-    borderClass: "border-stone-800",
-    accentClass: "bg-amber-600 hover:bg-amber-500 text-slate-950",
-    textClass: "text-amber-50",
-    dotColors: ["#1c1917", "#d97706"]
-  },
-  {
-    id: "cyberpunk",
-    name: "Cyberpunk Neon",
-    isDark: true,
-    bgClass: "bg-black text-zinc-100",
-    sidebarClass: "bg-zinc-950 border-pink-500/30",
-    cardClass: "bg-zinc-900/40 border-pink-500/20",
-    borderClass: "border-pink-500/20",
-    accentClass: "bg-pink-600 hover:bg-pink-500 text-white",
+    bgClass: "bg-zinc-950 text-zinc-100",
+    sidebarClass: "bg-zinc-900 border-zinc-800",
+    cardClass: "bg-zinc-900/60 border-zinc-800/80 backdrop-blur-md shadow-xl shadow-black/10",
+    borderClass: "border-zinc-800",
+    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/15",
     textClass: "text-zinc-100",
-    dotColors: ["#000000", "#db2777"]
+    dotColors: ["#09090b", "#4f46e5"]
   },
   {
     id: "minimal",
-    name: "Minimal Slate",
+    name: "Slate Executive (Corporate)",
     isDark: true,
-    bgClass: "bg-zinc-900 text-zinc-100",
-    sidebarClass: "bg-zinc-950 border-zinc-800",
-    cardClass: "bg-zinc-950/40 border-zinc-800/60",
-    borderClass: "border-zinc-800",
-    accentClass: "bg-zinc-700 hover:bg-zinc-600 text-white",
-    textClass: "text-zinc-100",
-    dotColors: ["#18181b", "#4b5563"]
-  },
-  {
-    id: "vintage",
-    name: "Vintage Sepia",
-    isDark: false,
-    bgClass: "bg-[#fdf6e3] text-stone-900",
-    sidebarClass: "bg-[#eee8d5] border-stone-300",
-    cardClass: "bg-[#eee8d5]/40 border-stone-300/80",
-    borderClass: "border-stone-300",
-    accentClass: "bg-amber-800 hover:bg-amber-700 text-white",
-    textClass: "text-stone-900",
-    dotColors: ["#fdf6e3", "#9a3412"]
+    bgClass: "bg-slate-950 text-slate-100",
+    sidebarClass: "bg-slate-900 border-slate-800",
+    cardClass: "bg-slate-900/50 border-slate-800/80 backdrop-blur-md shadow-xl shadow-black/10",
+    borderClass: "border-slate-800",
+    accentClass: "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/15",
+    textClass: "text-slate-100",
+    dotColors: ["#0f172a", "#2563eb"]
   },
   {
     id: "nordic",
-    name: "Nordic Frost",
+    name: "Snow Light (Stripe Premium)",
     isDark: false,
     bgClass: "bg-slate-50 text-slate-900",
-    sidebarClass: "bg-white border-slate-200 shadow-sm",
-    cardClass: "bg-white border-slate-200 shadow-sm",
+    sidebarClass: "bg-white border-slate-200/80 shadow-sm",
+    cardClass: "bg-white/80 border-slate-200/80 backdrop-blur-md shadow-lg shadow-slate-100/50",
     borderClass: "border-slate-200",
-    accentClass: "bg-sky-600 hover:bg-sky-500 text-white",
+    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/15",
     textClass: "text-slate-900",
-    dotColors: ["#f8fafc", "#0284c7"]
+    dotColors: ["#f8fafc", "#4f46e5"]
+  },
+  {
+    id: "vintage",
+    name: "Warm Ivory (Notion Studio)",
+    isDark: false,
+    bgClass: "bg-[#fbf9f4] text-stone-900",
+    sidebarClass: "bg-[#f5f2eb] border-[#e4dfd0] shadow-sm",
+    cardClass: "bg-[#f5f2eb]/70 border-[#e4dfd0] backdrop-blur-md shadow-lg shadow-stone-200/30",
+    borderClass: "border-[#e4dfd0]",
+    accentClass: "bg-stone-800 hover:bg-stone-700 text-white shadow-lg shadow-stone-800/15",
+    textClass: "text-stone-900",
+    dotColors: ["#fbf9f4", "#292524"]
   }
 ];
 
@@ -209,7 +137,7 @@ export default function Settings({
   currentTheme,
   onThemeChange
 }: SettingsProps) {
-  const [activeTab, setActiveTab] = useState<"profile" | "language" | "notifications" | "display" | "backup">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "language" | "notifications" | "display">("profile");
 
   // Profile Edit fields
   const [displayName, setDisplayName] = useState(user.displayName);
@@ -448,15 +376,6 @@ export default function Settings({
             }`}
           >
             <Moon className="h-4 w-4" /> Display Themes (10)
-          </button>
-
-          <button
-            onClick={() => setActiveTab("backup")}
-            className={`w-full text-left p-3 rounded-xl font-semibold text-xs transition flex items-center gap-2.5 ${
-              activeTab === "backup" ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/20" : "text-slate-400 hover:text-white hover:bg-slate-900/40"
-            }`}
-          >
-            <Database className="h-4 w-4" /> Data & Local Backups
           </button>
         </div>
 
@@ -885,56 +804,6 @@ export default function Settings({
                   Changing the theme instantly adjusts your outer workspace wrapper, navigation headers, side elements, and background parameters.
                 </span>
               </div>
-            </div>
-          )}
-
-          {/* TAB 5: Backup */}
-          {activeTab === "backup" && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
-              <h3 className="text-sm font-bold text-slate-200 font-display flex items-center gap-2 pb-3 border-b border-slate-850">
-                <Database className="h-4.5 w-4.5 text-indigo-400" /> Data Redundancy & JSON Sync
-              </h3>
-              
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Maintain absolute sovereign ownership of your data package. Export all currently stored resumes, cover letter templates, and scanner reports, or import an existing backup bundle seamlessly.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={handleExportBackup}
-                  className="flex-1 py-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2"
-                >
-                  <Download className="h-4 w-4 text-indigo-400" /> Export All Data (JSON)
-                </button>
-
-                <div className="flex-1 relative">
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleImportBackupFile}
-                    className="hidden"
-                    id="import-backup-picker-enhanced"
-                  />
-                  <label
-                    htmlFor="import-backup-picker-enhanced"
-                    className="w-full py-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Upload className="h-4 w-4 text-emerald-400" /> Import Backup Bundle
-                  </label>
-                </div>
-              </div>
-
-              {importSuccess && (
-                <div className="p-3 bg-emerald-950/20 border border-emerald-800/60 text-emerald-300 text-xs rounded-lg flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-emerald-400" /> {importSuccess}
-                </div>
-              )}
-              {importError && (
-                <div className="p-3 bg-rose-950/20 border border-rose-800/60 text-rose-300 text-xs rounded-lg flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-rose-400" /> {importError}
-                </div>
-              )}
             </div>
           )}
 

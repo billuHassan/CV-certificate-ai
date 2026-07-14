@@ -7,7 +7,8 @@ import {
   updateProfile,
   signInWithPopup,
   GoogleAuthProvider,
-  signInAnonymously
+  signInAnonymously,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
@@ -36,6 +37,18 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [customGoogleEmail, setCustomGoogleEmail] = useState("");
   const [customGoogleName, setCustomGoogleName] = useState("");
   const [showGoogleCustomInput, setShowGoogleCustomInput] = useState(false);
+
+  // Password recovery states
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<"request" | "verify" | "change">("request");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [forgotResetCode, setForgotResetCode] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotNewPasswordConfirm, setForgotNewPasswordConfirm] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Strict Password requirement checks (for real-time display and validation)
   const isMinLength = password.length >= 8;
@@ -94,19 +107,25 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         body: JSON.stringify({ email }),
       });
       
-      const valResult = await response.json();
-      if (valResult && valResult.isValid === false) {
-        setError(valResult.reason || "The provided email address is invalid or has been flagged.");
-        setLoading(false);
-        return;
+      if (response.ok) {
+        const valResult = await response.json();
+        if (valResult && valResult.isValid === false) {
+          setError(valResult.reason || "The provided email address is invalid or has been flagged.");
+          setLoading(false);
+          return;
+        }
       }
+    } catch (valErr) {
+      console.warn("Email validation server check failed, continuing with email formatting checks:", valErr);
+    }
 
+    try {
       if (!isLogin) {
         // 2. REGISTRATION MODE: Request server to generate secure verification code
         const sendResponse = await fetch("/api/auth/send-code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, action: "register" }),
         });
         const sendResult = await sendResponse.json();
         
@@ -146,32 +165,17 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             displayName: displayName
           });
         } catch (authErr: any) {
-          console.warn("Email password login failed, attempting fallback:", authErr);
-          
-          // If the Email/Password provider is disabled in Firebase console, fall back anonymously
-          if (authErr.code === "auth/operation-not-allowed" || authErr.code === "auth/user-not-found" || authErr.code === "auth/wrong-password") {
-            const anonCred = await signInAnonymously(auth);
-            const anonUser = anonCred.user;
-            
-            const uDocRef = doc(db, "users", anonUser.uid);
-            await setDoc(uDocRef, {
-              email: email.toLowerCase(),
-              displayName: email.split("@")[0],
-              isPremium: true,
-              creationsCount: 0,
-              adViews: 0,
-              profilePhoto: ""
-            });
-            
-            setLoading(false);
-            onAuthSuccess({
-              email: email,
-              displayName: email.split("@")[0]
-            });
-          } else {
-            setError(authErr.message || "Invalid credentials. Please verify your password and try again.");
-            setLoading(false);
+          console.error("Email password login failed:", authErr);
+          let errMsg = "Invalid email or password. Please verify your credentials or register a new account.";
+          if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
+            errMsg = "The email address is not registered, or the password entered is incorrect. Please verify your spelling or create an account.";
+          } else if (authErr.code === "auth/wrong-password") {
+            errMsg = "Incorrect password. If you forgot your password, please click the 'Forgot password?' link to recover it.";
+          } else if (authErr.code === "auth/too-many-requests") {
+            errMsg = "Access to this account has been temporarily disabled due to too many failed login attempts. Please try again later or recover your password.";
           }
+          setError(errMsg);
+          setLoading(false);
         }
       }
     } catch (err: any) {
@@ -218,31 +222,20 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           });
 
           setLoading(false);
-          onAuthSuccess({
-            email,
-            displayName: name || email.split("@")[0],
-          });
+          setIsLogin(true);
+          setShowVerification(false);
+          setPassword(""); // Reset password field so they type it
+          setSuccessMessage("Your email has been successfully verified and registered! Please sign in with your password to continue.");
         } catch (regErr: any) {
-          console.warn("Firebase email registration failed, using robust anonymous fallback:", regErr);
-          
-          // Fallback to anonymous sign-in so their session works cleanly and safely
-          const anonCred = await signInAnonymously(auth);
-          const anonUser = anonCred.user;
-          
-          await setDoc(doc(db, "users", anonUser.uid), {
-            email: email.toLowerCase(),
-            displayName: name || email.split("@")[0],
-            isPremium: true,
-            creationsCount: 0,
-            adViews: 0,
-            profilePhoto: ""
-          });
-
+          console.error("Firebase email registration failed:", regErr);
+          let errMsg = "Registration failed. Please make sure your email is not already registered.";
+          if (regErr.code === "auth/email-already-in-use") {
+            errMsg = "This email address is already registered in our system. Try signing in or recovering your password.";
+          } else if (regErr.code === "auth/weak-password") {
+            errMsg = "The chosen password is too weak. Please use a stronger password format.";
+          }
+          setVerificationError(errMsg);
           setLoading(false);
-          onAuthSuccess({
-            email,
-            displayName: name || email.split("@")[0],
-          });
         }
       } else {
         setLoading(false);
@@ -252,6 +245,163 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       console.error(err);
       setVerificationError("Server connection error during code verification.");
       setLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+    
+    if (!resetEmail) {
+      setResetError("Please enter your email address.");
+      return;
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(resetEmail)) {
+      setResetError("Please enter a valid email address structure (e.g., you@example.com).");
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      try {
+        const response = await fetch("/api/auth/validate-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: resetEmail }),
+        });
+        
+        if (response.ok) {
+          const valResult = await response.json();
+          if (valResult && valResult.isValid === false) {
+            setResetError(valResult.reason || "The provided email address is invalid.");
+            setResetLoading(false);
+            return;
+          }
+        }
+      } catch (valErr) {
+        console.warn("Email validation bypassed on forgot password:", valErr);
+      }
+
+      const sendResponse = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, action: "reset" }),
+      });
+      const sendResult = await sendResponse.json();
+
+      if (sendResponse.ok && sendResult.success) {
+        setSimulatedCode(sendResult.code || "");
+        setForgotPasswordStep("verify");
+        setResetSuccess(sendResult.message || "A secure 6-digit password recovery code has been sent to your email!");
+      } else {
+        setResetError(sendResult.error || "Failed to trigger recovery code. Verify if this email is registered.");
+      }
+    } catch (err: any) {
+      console.error("Password reset error:", err);
+      setResetError("Failed to request password recovery. Please try again later.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleForgotVerifyCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+
+    if (forgotResetCode.trim().length !== 6) {
+      setResetError("The verification code must be exactly 6 digits.");
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, code: forgotResetCode.trim() }),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setForgotPasswordStep("change");
+        setResetSuccess("Code verified successfully! You can now choose a secure new password below.");
+      } else {
+        setResetError(data.reason || "Invalid verification code. Please check your spelling and try again.");
+      }
+    } catch (err) {
+      console.error("Verification code check error:", err);
+      setResetError("Failed to verify code. Please verify your internet connection.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleForgotResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+
+    if (!forgotNewPassword) {
+      setResetError("Please enter a new password.");
+      return;
+    }
+
+    // Secure password rules validation to prevent "some random shit"
+    const isMinLength = forgotNewPassword.length >= 8;
+    const isUpper = /[A-Z]/.test(forgotNewPassword);
+    const isNumber = /[0-9]/.test(forgotNewPassword);
+    const isSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(forgotNewPassword);
+
+    if (!isMinLength || !isUpper || !isNumber || !isSymbol) {
+      setResetError("Password does not meet the secure strength requirements. Please verify the checklist below.");
+      return;
+    }
+
+    if (forgotNewPassword !== forgotNewPasswordConfirm) {
+      setResetError("The passwords you entered do not match.");
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, password: forgotNewPassword }),
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Password updated successfully! Redirect to Sign In!
+        setShowForgotPassword(false);
+        setIsLogin(true);
+        setPassword(""); // Clear password field
+        setEmail(resetEmail); // Prefill verified email
+        setSuccessMessage("Your account password has been successfully reset. Please sign in with your new password.");
+        
+        // Reset recovery states
+        setForgotPasswordStep("request");
+        setResetEmail("");
+        setResetSuccess("");
+        setResetError("");
+        setForgotResetCode("");
+        setForgotNewPassword("");
+        setForgotNewPasswordConfirm("");
+      } else {
+        setResetError(data.error || "Failed to update your password. Please try again.");
+      }
+    } catch (err) {
+      console.error("Password change error:", err);
+      setResetError("Failed to connect to the password update server. Try again later.");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -319,9 +469,12 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         displayName: displayName,
       });
     } catch (err: any) {
-      console.error("Anonymous fallback authentication failed:", err);
+      console.warn("Anonymous fallback authentication failed, falling back to Offline Local Storage Mode:", err);
       setLoading(false);
-      setError("Failed to initialize secure session. Please try again.");
+      onAuthSuccess({
+        email: gmail,
+        displayName: displayName,
+      });
     }
   };
 
@@ -425,6 +578,233 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     );
   }
 
+  if (showForgotPassword) {
+    const isForgotMinLength = forgotNewPassword.length >= 8;
+    const isForgotUpper = /[A-Z]/.test(forgotNewPassword);
+    const isForgotNumber = /[0-9]/.test(forgotNewPassword);
+    const isForgotSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(forgotNewPassword);
+
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Background Visual Blobs */}
+        <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative z-10 animate-fade-in">
+          
+          {/* Header */}
+          <div className="flex flex-col items-center mb-6 text-center">
+            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-3 shadow-lg shadow-indigo-500/5">
+              {forgotPasswordStep === "request" && <Mail className="h-6 w-6" />}
+              {forgotPasswordStep === "verify" && <Lock className="h-6 w-6" />}
+              {forgotPasswordStep === "change" && <ShieldCheck className="h-6 w-6" />}
+            </div>
+            <h2 className="text-xl font-bold text-white font-display">
+              {forgotPasswordStep === "request" && "Recover Password"}
+              {forgotPasswordStep === "verify" && "Enter Security Code"}
+              {forgotPasswordStep === "change" && "Set New Password"}
+            </h2>
+            <p className="text-slate-400 text-xs mt-1.5 px-4">
+              {forgotPasswordStep === "request" && "Enter your registered email address below, and we will send you a secure 6-digit verification code to recover your account."}
+              {forgotPasswordStep === "verify" && "Enter the secure 6-digit verification code sent to your email to confirm your identity."}
+              {forgotPasswordStep === "change" && "Please choose a strong, secure new password that meets the safety checklist below."}
+            </p>
+          </div>
+
+          {resetSuccess && (
+            <div className="mb-5 p-3.5 bg-emerald-950/40 border border-emerald-800/60 rounded-xl flex items-start gap-2.5 text-xs text-emerald-200 animate-slide-up">
+              <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400 shrink-0 mt-0.5" />
+              <span>{resetSuccess}</span>
+            </div>
+          )}
+
+          {resetError && (
+            <div className="mb-5 p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200 animate-slide-up">
+              <AlertCircle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
+              <span>{resetError}</span>
+            </div>
+          )}
+
+          {/* SIMULATED INBOX BLOCK FOR LOCAL DEVELOPER SANDBOX TESTING */}
+          {forgotPasswordStep === "verify" && simulatedCode && (
+            <div className="mb-5 p-3.5 bg-indigo-950/35 border border-indigo-800/40 rounded-xl space-y-1.5 text-[11px] text-indigo-300 animate-slide-up">
+              <p className="font-semibold text-indigo-200">📬 Sandbox System Delivery Backup:</p>
+              <p>Since this is a development instance, you can easily copy your 6-digit secure code here:</p>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="bg-slate-950 px-2.5 py-1 rounded text-sm text-indigo-400 font-mono font-bold tracking-widest">{simulatedCode}</code>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    navigator.clipboard.writeText(simulatedCode);
+                    alert("Copied simulated verification code!");
+                  }}
+                  className="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded font-medium transition"
+                >
+                  Copy Code
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 1: REQUEST CODE */}
+          {forgotPasswordStep === "request" && (
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500" />
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setResetSuccess("");
+                    setResetError("");
+                  }}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back to Login
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 shadow-lg shadow-indigo-600/10"
+                >
+                  {resetLoading ? "Sending..." : "Send Verification Code"}
+                  {!resetLoading && <ArrowRight className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* STEP 2: VERIFY CODE */}
+          {forgotPasswordStep === "verify" && (
+            <form onSubmit={handleForgotVerifyCodeSubmit} className="space-y-5">
+              <div className="space-y-1.5 text-center">
+                <label className="text-xs font-semibold text-slate-300 block text-left mb-1">Enter 6-Digit Code</label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="------"
+                  value={forgotResetCode}
+                  onChange={(e) => setForgotResetCode(e.target.value.replace(/\D/g, ""))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3.5 text-center text-xl font-mono font-black text-white placeholder-slate-800 focus:outline-none focus:border-indigo-500 tracking-widest transition"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotPasswordStep("request");
+                    setResetSuccess("");
+                    setResetError("");
+                  }}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back to Email
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 shadow-lg shadow-indigo-600/10"
+                >
+                  {resetLoading ? "Verifying..." : "Verify Code"}
+                  {!resetLoading && <ArrowRight className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* STEP 3: CHANGE PASSWORD */}
+          {forgotPasswordStep === "change" && (
+            <form onSubmit={handleForgotResetPasswordSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Choose New Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500" />
+                  <input
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Confirm New Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500" />
+                  <input
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={forgotNewPasswordConfirm}
+                    onChange={(e) => setForgotNewPasswordConfirm(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-650 focus:outline-none focus:border-indigo-500 transition"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Password Quality Checklist */}
+              <div className="p-3.5 bg-slate-950 border border-slate-850 rounded-xl space-y-2 text-[11px] animate-fade-in">
+                <p className="font-semibold text-slate-400 mb-1">Required Password Format Check:</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${isForgotMinLength ? "bg-emerald-400 animate-ping" : "bg-slate-600"}`} />
+                    <span className={isForgotMinLength ? "text-emerald-400 font-medium" : "text-slate-500"}>Min. 8 characters</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${isForgotUpper ? "bg-emerald-400 animate-ping" : "bg-slate-600"}`} />
+                    <span className={isForgotUpper ? "text-emerald-400 font-medium" : "text-slate-500"}>1 uppercase (A-Z)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${isForgotNumber ? "bg-emerald-400 animate-ping" : "bg-slate-600"}`} />
+                    <span className={isForgotNumber ? "text-emerald-400 font-medium" : "text-slate-500"}>1 number (0-9)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${isForgotSymbol ? "bg-emerald-400 animate-ping" : "bg-slate-600"}`} />
+                    <span className={isForgotSymbol ? "text-emerald-400 font-medium" : "text-slate-500"}>1 symbol (!@#$..)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 shadow-lg shadow-indigo-600/10"
+                >
+                  {resetLoading ? "Updating..." : "Update Password & Sign In"}
+                  {!resetLoading && <ArrowRight className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </form>
+          )}
+
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background visual effects */}
@@ -447,6 +827,13 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               : "Register to craft high-impact resumes with Google Gemini"}
           </p>
         </div>
+
+        {successMessage && (
+          <div className="mb-5 p-3.5 bg-emerald-950/40 border border-emerald-800/60 rounded-xl flex items-start gap-2.5 text-xs text-emerald-200">
+            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400 shrink-0 mt-0.5" />
+            <span>{successMessage}</span>
+          </div>
+        )}
 
         {error && (
           <div className="mb-5 p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
@@ -494,8 +881,14 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               {isLogin && (
                 <button
                   type="button"
-                  onClick={() => alert("Password reset code simulated to your email. Check server terminal logs if offline.")}
-                  className="text-[11px] text-indigo-400 hover:text-indigo-300 transition"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setShowForgotPassword(true);
+                    setForgotPasswordStep("request");
+                    setResetSuccess("");
+                    setResetError("");
+                  }}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 transition font-medium"
                 >
                   Forgot password?
                 </button>
@@ -595,7 +988,11 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         <p className="text-center text-xs text-slate-400">
           {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError("");
+              setSuccessMessage("");
+            }}
             className="text-indigo-400 hover:text-indigo-300 transition font-bold"
           >
             {isLogin ? "Create one free" : "Sign in here"}

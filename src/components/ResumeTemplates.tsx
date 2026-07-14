@@ -1,5 +1,5 @@
 import React from "react";
-import { Mail, Phone, MapPin, Globe, Linkedin, Github } from "lucide-react";
+import { Mail, Phone, MapPin, Globe, Linkedin, Github, Sparkles } from "lucide-react";
 import { ResumeData } from "../types";
 
 interface ResumeTemplatesProps {
@@ -9,15 +9,25 @@ interface ResumeTemplatesProps {
 
 export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProps) {
   const {
-    personalInfo,
-    summary,
-    experience,
-    education,
-    projects,
-    skills,
-    languages,
-    certifications,
-    references,
+    personalInfo = {
+      fullName: "",
+      jobTitle: "",
+      email: "",
+      phone: "",
+      location: "",
+      website: "",
+      linkedin: "",
+      github: "",
+      profilePhoto: "",
+    },
+    summary = "",
+    experience = [],
+    education = [],
+    projects = [],
+    skills = [],
+    languages = [],
+    certifications = [],
+    references = [],
     sectionsOrder = ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references"],
     templateId = "minimal",
     colorTheme = "#3b82f6", // Default blue
@@ -26,7 +36,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
     layoutMode = "auto",
   } = data;
 
-  // Spacing unit mapping
+  // Spacing configurations
   const spacingClasses = {
     compact: "space-y-2 py-1 gap-2",
     comfortable: "space-y-4 py-2 gap-4",
@@ -34,118 +44,275 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
   };
 
   const itemSpacingClasses = {
-    compact: "space-y-1 mt-1",
-    comfortable: "space-y-2 mt-2",
-    spacious: "space-y-3 mt-3",
+    compact: "space-y-1.5 mt-1",
+    comfortable: "space-y-3 mt-2.5",
+    spacious: "space-y-4.5 mt-3.5",
   };
 
-  // Dynamic template configurations for all 50 templates
+  // Determine structural types based on templateId
   const getTemplateConfig = () => {
-    const splitLayouts = [
-      "executive", "designer", "international", "tokyo", "swiss", "slate_pro", "san_fran", "mumbai", "shanghai"
+    // 1. Sidebar/Split Layout Templates
+    const splitTemplates = [
+      "executive"
     ];
-    const serifLayouts = [
-      "paris", "london", "elegant", "gold_luxe", "royal", "vintage", "milano", "chicago", "denver", "vienna", "geneva", "brussels"
-    ];
-    const monoLayouts = [
-      "silicon", "berlin", "cyber", "munich", "oslo"
-    ];
-    const darkThemes = [
-      "dark", "cyber", "slate_pro", "aurora", "premium_dark"
-    ];
-    const creamThemes = [
-      "elegant", "gold_luxe", "royal", "vintage", "milano", "vienna", "paris"
-    ];
-    const greyThemes = [
-      "nordic", "copenhagen", "austin", "miami"
-    ];
-    const brutalThemes = [
-      "berlin"
+    
+    // 2. Academic / Serif / Cream templates
+    const serifTemplates = [
+      "elegant", "gold_luxe", "royal", "vintage", "milano", "chicago"
     ];
 
-    let isSplit = splitLayouts.includes(templateId);
+    // 3. Monospace / Code templates
+    const monoTemplates = [
+      "silicon", "cyber", "oslo"
+    ];
+
+    let isSplit = splitTemplates.includes(templateId);
     if (layoutMode === "single") {
       isSplit = false;
     } else if (layoutMode === "split") {
       isSplit = true;
     }
-    
+
+    // Determine font family
     let font = fontFamily;
     if (fontFamily === "auto" || !fontFamily) {
-      if (serifLayouts.includes(templateId)) font = "font-serif";
-      else if (monoLayouts.includes(templateId)) font = "font-mono";
+      if (serifTemplates.includes(templateId)) font = "font-serif";
+      else if (monoTemplates.includes(templateId)) font = "font-mono";
       else font = "font-sans";
     }
 
-    let theme = "light";
-    if (darkThemes.includes(templateId)) theme = "dark";
-    else if (creamThemes.includes(templateId)) theme = "cream";
-    else if (greyThemes.includes(templateId)) theme = "grey";
-    else if (brutalThemes.includes(templateId)) theme = "brutalist";
+    // Dynamic styling category
+    let styleCategory: "standard" | "sidebar" | "banner" | "cream" | "cyber" | "brutalist" | "modern-card" = "standard";
+    
+    if (templateId === "cyber") {
+      styleCategory = "cyber";
+    } else if (templateId === "berlin") {
+      styleCategory = "brutalist";
+    } else if (isSplit) {
+      styleCategory = "sidebar";
+    } else if (["toronto", "sydney", "austin"].includes(templateId)) {
+      styleCategory = "banner";
+    } else if (serifTemplates.includes(templateId)) {
+      styleCategory = "cream";
+    } else if (["munich", "oslo", "teal_grid", "aurora", "swiss"].includes(templateId)) {
+      styleCategory = "modern-card";
+    }
 
-    let headerStyle: "classic" | "creative" | "modern" | "executive" = "classic";
-    if (isSplit) headerStyle = "executive";
-    else if (["creative", "sydney", "amsterdam", "vibrant", "austin", "miami", "sao_paulo"].includes(templateId)) headerStyle = "creative";
-    else if (["modern", "silicon", "aurora", "teal_grid", "seattle"].includes(templateId)) headerStyle = "modern";
-
-    return { isSplit, font, theme, headerStyle };
+    return { isSplit, font, styleCategory };
   };
 
-  const templateConfig = getTemplateConfig();
-  const fontStyle = templateConfig.font;
+  const config = getTemplateConfig();
+  const fontStyle = config.font;
 
-  // Standard Section Heading Component
+  // Custom styling colors based on specific templateId
+  const getSidebarBgClass = () => {
+    switch (templateId) {
+      case "executive":
+        return "bg-slate-900 text-slate-100 border-r border-slate-850";
+      default:
+        return "bg-slate-50 text-slate-800 border-r border-slate-200";
+    }
+  };
+
+  const getTopBannerStyles = () => {
+    switch (templateId) {
+      case "toronto":
+        return { bg: "bg-[#1e3a8a]", text: "text-white", border: "border-b-4 border-indigo-500" };
+      case "sydney":
+        return { bg: "bg-gradient-to-r from-[#6366f1] to-[#a855f7]", text: "text-white", border: "border-b-2 border-purple-300" };
+      case "austin":
+        return { bg: "bg-[#c2410c]", text: "text-white", border: "border-b-4 border-amber-950" };
+      default:
+        return { bg: "bg-slate-800", text: "text-white", border: "" };
+    }
+  };
+
+  const getPaperBgStyles = () => {
+    switch (config.styleCategory) {
+      case "cyber":
+        return "bg-black text-[#00ff66] border-2 border-[#00ff66] shadow-[0_0_15px_rgba(0,255,102,0.3)]";
+      case "brutalist":
+        return "bg-white text-slate-950 border-[6px] border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]";
+      case "cream":
+        if (templateId === "gold_luxe") {
+          return "bg-[#faf7f0] text-slate-900 border-[8px] border-double border-[#d4af37] shadow-xl";
+        }
+        if (templateId === "royal") {
+          return "bg-[#fefcf8] text-slate-900 border-t-8 border-red-800 border-b-8 border-red-800/10 shadow-xl";
+        }
+        if (templateId === "vintage") {
+          return "bg-[#fbf9f3] text-stone-900 border-2 border-stone-300 shadow-md";
+        }
+        if (templateId === "milano") {
+          return "bg-[#fffdfa] text-slate-900 border-t-8 border-slate-950 shadow-lg";
+        }
+        if (templateId === "chicago") {
+          return "bg-[#fcfcfc] text-slate-950 border-4 border-double border-slate-950 shadow-md";
+        }
+        return "bg-[#faf6ee] text-slate-900 border border-amber-900/10 shadow-lg";
+      case "modern-card":
+        if (templateId === "aurora") {
+          return "bg-[#090d16] text-slate-100 border border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.2)]";
+        }
+        if (templateId === "swiss") {
+          return "bg-white text-black border-l-[12px] border-red-600 shadow-lg";
+        }
+        return "bg-slate-50 text-slate-900 border border-slate-200 shadow-sm";
+      default:
+        if (templateId === "tokyo") {
+          return "bg-stone-50 text-stone-900 border border-stone-200 shadow-sm";
+        }
+        return "bg-white text-slate-900 shadow-lg border border-slate-100";
+    }
+  };
+
+  // Section heading element with high aesthetic differences
   const SectionHeader = ({ title }: { title: string }) => {
-    const isDarkTemplate = templateConfig.theme === "dark";
-    const headerColor = isDarkTemplate ? "text-slate-100" : "text-slate-900";
-    
-    if (templateConfig.headerStyle === "classic" || templateConfig.theme === "cream") {
+    if (config.styleCategory === "cyber") {
       return (
-        <div className="border-b-2 pb-1.5 mb-3" style={{ borderColor: colorTheme }}>
-          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: colorTheme }}>
+        <div className="font-mono text-xs font-bold uppercase tracking-widest text-[#00ff66] border-b border-dashed border-[#00ff66] pb-1.5 mb-3 flex items-center gap-2">
+          <span>&gt;&gt;</span>
+          <span>{title}</span>
+          <span className="animate-pulse">_</span>
+        </div>
+      );
+    }
+
+    if (config.styleCategory === "brutalist") {
+      return (
+        <div className="bg-black text-white px-3 py-1.5 mb-4 border-2 border-black inline-block font-sans font-black tracking-wider uppercase text-xs">
+          {title}
+        </div>
+      );
+    }
+
+    if (templateId === "gold_luxe") {
+      return (
+        <div className="text-center mb-4">
+          <div className="text-xs font-bold uppercase tracking-widest text-[#b89742] font-serif">
+            {title}
+          </div>
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <div className="h-[1px] w-12 bg-[#d4af37]" />
+            <div className="h-1.5 w-1.5 rotate-45 border border-[#d4af37]" />
+            <div className="h-[1px] w-12 bg-[#d4af37]" />
+          </div>
+        </div>
+      );
+    }
+
+    if (templateId === "royal") {
+      return (
+        <div className="border-b border-red-900/40 pb-1.5 mb-3.5">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-red-800 font-serif flex items-center gap-2">
+            <span className="h-1.5 w-1.5 bg-red-800 rounded-full" />
             {title}
           </h3>
         </div>
       );
     }
-    if (templateConfig.headerStyle === "creative" || templateConfig.headerStyle === "modern") {
+
+    if (templateId === "vintage") {
       return (
-        <div className="flex items-center gap-3 mb-3">
-          <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: colorTheme }}>
-            {title}
-          </h3>
-          <div className="h-[1px] bg-slate-200 grow" />
+        <div className="font-mono text-xs font-bold uppercase tracking-widest text-stone-800 border-b-2 border-double border-stone-400 pb-1 mb-3.5">
+          --- {title} ---
         </div>
       );
     }
-    if (templateConfig.headerStyle === "executive") {
+
+    if (templateId === "milano") {
       return (
-        <div className="border-l-4 pl-3 py-0.5 mb-3" style={{ borderColor: colorTheme }}>
-          <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: isDarkTemplate ? "#f8fafc" : "#1e293b" }}>
+        <div className="border-b border-slate-350 pb-1.5 mb-4 text-center">
+          <h3 className="text-xs font-serif italic uppercase tracking-[0.2em] text-slate-900 font-medium">
             {title}
           </h3>
         </div>
       );
     }
+
+    if (templateId === "chicago") {
+      return (
+        <div className="border-t border-b-2 border-black py-1 mb-4">
+          <h3 className="text-xs font-serif font-black uppercase tracking-wider text-black text-center">
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    if (templateId === "tokyo") {
+      return (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="h-1.5 w-1.5 bg-red-600 rotate-45" />
+          <h3 className="text-xs font-sans font-bold uppercase tracking-[0.15em] text-stone-800">
+            {title}
+          </h3>
+          <div className="h-[1px] grow bg-stone-200" />
+        </div>
+      );
+    }
+
+    if (templateId === "aurora") {
+      return (
+        <div className="border-b border-indigo-500/30 pb-2 mb-4 flex items-center justify-between">
+          <h3 className="text-xs font-sans font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+            {title}
+          </h3>
+          <div className="h-1.5 w-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]" />
+        </div>
+      );
+    }
+
+    if (templateId === "swiss") {
+      return (
+        <div className="border-l-4 border-red-600 pl-3.5 py-1 mb-4">
+          <h3 className="text-xs font-sans font-extrabold uppercase tracking-widest text-black">
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    if (config.styleCategory === "banner") {
+      return (
+        <div className="flex items-center gap-3.5 mb-3.5">
+          <h3 className="text-xs font-extrabold uppercase tracking-widest" style={{ color: colorTheme }}>
+            {title}
+          </h3>
+          <div className="h-[1px] grow bg-slate-200" />
+        </div>
+      );
+    }
+
+    if (config.styleCategory === "sidebar") {
+      return (
+        <div className="border-l-3 pl-3 py-0.5 mb-3.5" style={{ borderColor: colorTheme }}>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    // Default neat horizontal bar
     return (
-      <div className="mb-2">
-        <h3 className="text-xs font-bold tracking-widest uppercase text-slate-400">
+      <div className="border-b pb-1.5 mb-3.5" style={{ borderColor: `${colorTheme}25` }}>
+        <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: colorTheme }}>
           {title}
         </h3>
-        <div className="h-[1px] bg-slate-200 mt-1" />
       </div>
     );
   };
 
-  // Render individual sections dynamically based on ID
+  // Render a section's contents
   const renderSection = (sectionId: string) => {
     switch (sectionId) {
       case "summary":
         if (!summary) return null;
         return (
-          <div key="summary">
+          <div key="summary" className="break-inside-avoid">
             <SectionHeader title="Professional Summary" />
-            <p className="text-xs leading-relaxed text-slate-600 font-sans mt-1">
+            <p className={`text-xs leading-relaxed text-slate-600 mt-1 font-sans ${config.styleCategory === 'cyber' ? '!text-[#00ff66] !font-mono' : ''}`}>
               {summary}
             </p>
           </div>
@@ -157,27 +324,32 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
           <div key="experience">
             <SectionHeader title="Professional Experience" />
             <div className={itemSpacingClasses[spacing]}>
-              {experience.map((exp) => (
-                <div key={exp.id} className="text-xs group break-inside-avoid">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between font-bold text-slate-800">
-                    <span>{exp.position}</span>
-                    <span className="text-[10px] text-slate-500 font-normal">
-                      {exp.startDate} – {exp.current ? "Present" : exp.endDate}
-                    </span>
+              {experience.map((exp) => {
+                const isCyber = config.styleCategory === "cyber";
+                return (
+                  <div key={exp.id} className={`text-xs break-inside-avoid relative p-1 rounded transition ${config.styleCategory === 'modern-card' ? 'bg-white p-3 border border-slate-100 rounded-lg hover:shadow-sm' : ''}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between font-bold text-slate-800">
+                      <span className={isCyber ? "text-[#00ff66]" : ""}>{exp.position}</span>
+                      <span className={`text-[10px] text-slate-500 font-normal ${isCyber ? "text-[#00ff66]/75 font-mono" : ""}`}>
+                        {exp.startDate} – {exp.current ? "Present" : exp.endDate}
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 font-medium mt-0.5">
+                      <span style={{ color: !isCyber ? colorTheme : undefined }} className={isCyber ? "text-[#00ff66]" : ""}>{exp.company}</span>
+                      <span className={`italic font-normal ${isCyber ? "text-[#00ff66]/60 font-mono" : ""}`}>{exp.location}</span>
+                    </div>
+                    {exp.description && (
+                      <ul className={`list-disc pl-4 mt-2 space-y-1 text-slate-600 ${isCyber ? "text-[#00ff66]/80 list-none !pl-1 font-mono" : ""}`}>
+                        {exp.description.split("\n").map((bullet, i) => (
+                          <li key={i}>
+                            {isCyber ? `* ${bullet.replace(/^[•\-\*\s]+/, "")}` : bullet.replace(/^[•\-\*\s]+/, "")}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 font-medium">
-                    <span style={{ color: templateId !== 'dark' ? colorTheme : undefined }}>{exp.company}</span>
-                    <span className="italic font-normal">{exp.location}</span>
-                  </div>
-                  {exp.description && (
-                    <ul className="list-disc pl-4 mt-1.5 space-y-1 text-slate-600">
-                      {exp.description.split("\n").map((bullet, i) => (
-                        <li key={i}>{bullet.replace(/^[•\-\*\s]+/, "")}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -189,16 +361,18 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
             <SectionHeader title="Education" />
             <div className={itemSpacingClasses[spacing]}>
               {education.map((edu) => (
-                <div key={edu.id} className="text-xs break-inside-avoid">
+                <div key={edu.id} className={`text-xs break-inside-avoid p-1 rounded ${config.styleCategory === 'modern-card' ? 'bg-white p-3 border border-slate-100 rounded-lg' : ''}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between font-bold text-slate-800">
-                    <span>{edu.degree} {edu.fieldOfStudy && `in ${edu.fieldOfStudy}`}</span>
-                    <span className="text-[10px] text-slate-500 font-normal">
+                    <span className={config.styleCategory === 'cyber' ? "text-[#00ff66]" : ""}>{edu.degree} {edu.fieldOfStudy && `in ${edu.fieldOfStudy}`}</span>
+                    <span className={`text-[10px] text-slate-500 font-normal ${config.styleCategory === 'cyber' ? "text-[#00ff66]/70" : ""}`}>
                       {edu.startDate} – {edu.current ? "Present" : edu.endDate}
                     </span>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 font-medium">
-                    <span>{edu.school}</span>
-                    <span className="italic font-normal">{edu.location} {edu.gpa && `| GPA: ${edu.gpa}`}</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 font-medium mt-0.5">
+                    <span className={config.styleCategory === 'cyber' ? "text-[#00ff66]" : ""}>{edu.school}</span>
+                    <span className={`italic font-normal ${config.styleCategory === 'cyber' ? "text-[#00ff66]/60" : ""}`}>
+                      {edu.location} {edu.gpa && `| GPA: ${edu.gpa}`}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -213,21 +387,21 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
             <SectionHeader title="Key Projects" />
             <div className={itemSpacingClasses[spacing]}>
               {projects.map((proj) => (
-                <div key={proj.id} className="text-xs break-inside-avoid">
+                <div key={proj.id} className={`text-xs break-inside-avoid p-1 rounded ${config.styleCategory === 'modern-card' ? 'bg-white p-3 border border-slate-100 rounded-lg' : ''}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between font-bold text-slate-800">
                     <div className="flex items-center gap-1.5">
-                      <span>{proj.name}</span>
-                      {proj.role && <span className="text-[11px] font-normal text-slate-500">({proj.role})</span>}
+                      <span className={config.styleCategory === 'cyber' ? "text-[#00ff66]" : ""}>{proj.name}</span>
+                      {proj.role && <span className={`text-[11px] font-normal text-slate-500 ${config.styleCategory === 'cyber' ? "text-[#00ff66]/75" : ""}`}>({proj.role})</span>}
                     </div>
-                    <span className="text-[10px] text-slate-500 font-normal">{proj.startDate} – {proj.endDate}</span>
+                    <span className={`text-[10px] text-slate-500 font-normal ${config.styleCategory === 'cyber' ? "text-[#00ff66]/70" : ""}`}>{proj.startDate} – {proj.endDate}</span>
                   </div>
                   {proj.url && (
-                    <a href={proj.url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 underline block mb-1">
+                    <a href={proj.url} target="_blank" rel="noreferrer" className={`text-[10px] text-blue-500 underline block mb-1.5 ${config.styleCategory === 'cyber' ? "!text-[#00ff66]/90" : ""}`}>
                       {proj.url}
                     </a>
                   )}
                   {proj.description && (
-                    <p className="text-slate-600 mt-1 leading-relaxed">{proj.description}</p>
+                    <p className={`text-slate-600 mt-1.5 leading-relaxed ${config.styleCategory === 'cyber' ? "text-[#00ff66]/85" : ""}`}>{proj.description}</p>
                   )}
                 </div>
               ))}
@@ -238,13 +412,19 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       case "skills":
         if (!skills || skills.length === 0) return null;
         return (
-          <div key="skills">
+          <div key="skills" className="break-inside-avoid">
             <SectionHeader title="Core Skills" />
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               {skills.map((skill, i) => (
                 <span
                   key={i}
-                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-800 border border-slate-200/60"
+                  className={`px-2 py-1 rounded text-[10px] font-semibold border ${
+                    config.styleCategory === "cyber"
+                      ? "bg-black text-[#00ff66] border-[#00ff66]/40 font-mono"
+                      : config.styleCategory === "brutalist"
+                      ? "bg-white text-black border-2 border-black rounded-none shadow-[2px_2px_0px_rgba(0,0,0,1)] font-bold"
+                      : "bg-slate-100/80 text-slate-800 border-slate-200/60"
+                  }`}
                 >
                   {skill}
                 </span>
@@ -256,13 +436,13 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       case "languages":
         if (!languages || languages.length === 0) return null;
         return (
-          <div key="languages">
+          <div key="languages" className="break-inside-avoid">
             <SectionHeader title="Languages" />
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="grid grid-cols-2 gap-2.5 mt-2">
               {languages.map((lang) => (
-                <div key={lang.id} className="text-xs flex items-center justify-between border-b border-slate-100 pb-1">
+                <div key={lang.id} className={`text-xs flex items-center justify-between border-b pb-1.5 ${config.styleCategory === 'cyber' ? 'border-[#00ff66]/20 text-[#00ff66]' : 'border-slate-100'}`}>
                   <span className="font-semibold text-slate-800">{lang.name}</span>
-                  <span className="text-[10px] text-slate-500">{lang.proficiency}</span>
+                  <span className={`text-[10px] text-slate-500 ${config.styleCategory === 'cyber' ? '!text-[#00ff66]/70' : ''}`}>{lang.proficiency}</span>
                 </div>
               ))}
             </div>
@@ -272,16 +452,16 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       case "certifications":
         if (!certifications || certifications.length === 0) return null;
         return (
-          <div key="certifications">
+          <div key="certifications" className="break-inside-avoid">
             <SectionHeader title="Certifications" />
-            <div className="space-y-1.5 mt-2">
+            <div className="space-y-2 mt-2">
               {certifications.map((cert) => (
                 <div key={cert.id} className="text-xs flex justify-between items-start break-inside-avoid">
                   <div>
-                    <span className="font-bold text-slate-800">{cert.name}</span>
-                    <span className="text-slate-500 text-[11px] block">{cert.issuer}</span>
+                    <span className={`font-bold text-slate-800 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]' : ''}`}>{cert.name}</span>
+                    <span className={`text-slate-500 text-[11px] block mt-0.5 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}`}>{cert.issuer}</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">{cert.date}</span>
+                  <span className={`text-[10px] text-slate-400 shrink-0 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/60' : ''}`}>{cert.date}</span>
                 </div>
               ))}
             </div>
@@ -291,16 +471,25 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       case "references":
         if (!references || references.length === 0) return null;
         return (
-          <div key="references">
+          <div key="references" className="break-inside-avoid">
             <SectionHeader title="References" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
               {references.map((ref) => (
-                <div key={ref.id} className="text-xs break-inside-avoid p-2 rounded bg-slate-50 border border-slate-100">
+                <div
+                  key={ref.id}
+                  className={`text-xs break-inside-avoid p-3 rounded border ${
+                    config.styleCategory === "cyber"
+                      ? "bg-black border-[#00ff66]/40 text-[#00ff66]"
+                      : config.styleCategory === "brutalist"
+                      ? "bg-white border-2 border-black rounded-none shadow-[3px_3px_0px_rgba(0,0,0,1)] text-black"
+                      : "bg-slate-50/50 border-slate-100/80"
+                  }`}
+                >
                   <span className="font-bold text-slate-800 block">{ref.name}</span>
                   <span className="text-slate-500 text-[11px] block">{ref.title} at {ref.company}</span>
-                  <div className="text-[10px] text-slate-400 mt-1 space-y-0.5">
-                    {ref.email && <div>Email: {ref.email}</div>}
-                    {ref.phone && <div>Phone: {ref.phone}</div>}
+                  <div className="text-[10px] text-slate-400 mt-2 space-y-0.5">
+                    {ref.email && <div className={config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}>Email: {ref.email}</div>}
+                    {ref.phone && <div className={config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}>Phone: {ref.phone}</div>}
                   </div>
                 </div>
               ))}
@@ -313,83 +502,221 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
     }
   };
 
-  // Outer template styling container
-  const getTemplateContainerStyles = () => {
-    switch (templateConfig.theme) {
-      case "dark":
-        return "bg-slate-900 text-slate-100 border border-slate-800";
-      case "cream":
-        return "bg-[#faf6ee] text-slate-900 border-2 border-amber-900/10 shadow-xl rounded-sm";
-      case "grey":
-        return "bg-slate-50 text-slate-900 border border-slate-200 shadow-md";
-      case "brutalist":
-        return "bg-white text-slate-950 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]";
-      default:
-        return "bg-white text-slate-900 shadow-lg border border-slate-100";
-    }
-  };
-
-  // Header layouts
+  // Header layouts with high design distinctions
   const renderHeader = () => {
     const hasPhoto = !!personalInfo.profilePhoto;
 
-    // Creative template header
-    if (templateConfig.headerStyle === "creative") {
+    // A. Aurora Cosmic Glow Header (Glowing highlights on space dark background)
+    if (templateId === "aurora") {
       return (
-        <div className="border-b pb-6 flex flex-col md:flex-row items-center gap-6 justify-between">
-          <div className="flex items-center gap-5">
-            {hasPhoto && (
-              <img
-                src={personalInfo.profilePhoto}
-                alt={personalInfo.fullName}
-                referrerPolicy="no-referrer"
-                className="h-20 w-20 rounded-2xl object-cover ring-4"
-                style={{ ringColor: colorTheme }}
-              />
-            )}
-            <div className="text-center md:text-left">
-              <h1 className="text-3xl font-black tracking-tight" style={{ color: colorTheme }}>
-                {personalInfo.fullName || "Your Full Name"}
-              </h1>
-              <p className="text-sm font-mono uppercase tracking-widest text-slate-500 mt-1">
-                {personalInfo.jobTitle || "Professional Title"}
-              </p>
-            </div>
+        <div className="border-b border-indigo-500/40 pb-5 mb-5 font-sans relative overflow-hidden">
+          <div className="absolute top-0 right-0 animate-pulse text-indigo-400">
+            <Sparkles className="h-5 w-5 text-indigo-400 opacity-60" />
           </div>
-          {/* Right contacts block */}
-          <div className="text-xs text-slate-500 space-y-1 border-l pl-4 border-slate-200 self-stretch flex flex-col justify-center">
-            {personalInfo.email && <div className="flex items-center gap-1.5 justify-center md:justify-start"><Mail className="h-3.5 w-3.5" /> {personalInfo.email}</div>}
-            {personalInfo.phone && <div className="flex items-center gap-1.5 justify-center md:justify-start"><Phone className="h-3.5 w-3.5" /> {personalInfo.phone}</div>}
-            {personalInfo.location && <div className="flex items-center gap-1.5 justify-center md:justify-start"><MapPin className="h-3.5 w-3.5" /> {personalInfo.location}</div>}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {hasPhoto && (
+                <img
+                  src={personalInfo.profilePhoto}
+                  alt={personalInfo.fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-16 w-16 rounded-xl object-cover ring-2 ring-purple-500/40"
+                />
+              )}
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl font-black tracking-tight text-white font-display bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
+                  {personalInfo.fullName || "Your Full Name"}
+                </h1>
+                <p className="text-xs font-mono uppercase tracking-[0.2em] text-indigo-400 mt-1 font-semibold">
+                  // {personalInfo.jobTitle || "Professional Title"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1.5 text-[10px] text-slate-400 max-w-sm font-mono">
+              {personalInfo.email && <div className="flex items-center gap-1 text-indigo-300/90"><Mail className="h-3 w-3 text-indigo-400" /> {personalInfo.email}</div>}
+              {personalInfo.phone && <div className="flex items-center gap-1 text-indigo-300/90"><Phone className="h-3 w-3 text-indigo-400" /> {personalInfo.phone}</div>}
+              {personalInfo.location && <div className="flex items-center gap-1 text-indigo-300/90"><MapPin className="h-3 w-3 text-indigo-400" /> {personalInfo.location}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1 text-indigo-300/90"><Linkedin className="h-3 w-3 text-indigo-400" /> {personalInfo.linkedin}</div>}
+            </div>
           </div>
         </div>
       );
     }
 
-    // Modern / Tech template layout
-    if (templateConfig.headerStyle === "modern") {
+    // B. Vintage Press Typewriter Header (Typewriter slab-serif, warm paper)
+    if (templateId === "vintage") {
       return (
-        <div className="flex flex-col md:flex-row md:items-start justify-between border-b pb-6 gap-4">
-          <div className="space-y-1 text-center md:text-left">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-display">
+        <div className="text-center pb-6 mb-6 border-b-2 border-stone-400 font-mono text-stone-800">
+          <div className="text-[10px] tracking-widest text-stone-500 uppercase mb-3">*** CONFIDENTIAL & PERSONAL RESUME ***</div>
+          <h1 className="text-3xl font-black tracking-normal uppercase">
+            {personalInfo.fullName || "Your Full Name"}
+          </h1>
+          <p className="text-xs italic text-stone-600 mt-1.5 font-bold uppercase tracking-wider">
+            == {personalInfo.jobTitle || "Professional Title"} ==
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[11px] mt-4 max-w-lg mx-auto border-t border-b border-dashed border-stone-400 py-2">
+            {personalInfo.email && <span>Email: {personalInfo.email}</span>}
+            {personalInfo.phone && <span>Tel: {personalInfo.phone}</span>}
+            {personalInfo.location && <span>Loc: {personalInfo.location}</span>}
+            {personalInfo.website && <span>Web: {personalInfo.website}</span>}
+          </div>
+        </div>
+      );
+    }
+
+    // C. Swiss Bauhaus Avant-Garde Header (Stark bold, red highlights)
+    if (templateId === "swiss") {
+      return (
+        <div className="pb-6 mb-6 border-b-4 border-black font-sans relative">
+          <div className="absolute top-0 right-0 text-red-600 text-5xl font-black opacity-10 font-sans select-none">
+            CH
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-4xl font-black tracking-tight text-black uppercase leading-none">
               {personalInfo.fullName || "Your Full Name"}
             </h1>
-            <p className="text-sm font-bold uppercase tracking-widest mt-1" style={{ color: colorTheme }}>
+            <p className="text-sm font-extrabold uppercase tracking-widest text-red-600">
               {personalInfo.jobTitle || "Professional Title"}
             </p>
           </div>
-          <div className="flex flex-wrap justify-center md:justify-end gap-3 text-[10px] font-mono text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100">
-            {personalInfo.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" /> {personalInfo.email}</div>}
-            {personalInfo.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" /> {personalInfo.phone}</div>}
-            {personalInfo.location && <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {personalInfo.location}</div>}
-            {personalInfo.linkedin && <div className="flex items-center gap-1"><Linkedin className="h-3 w-3" /> {personalInfo.linkedin}</div>}
-            {personalInfo.github && <div className="flex items-center gap-1"><Github className="h-3 w-3" /> {personalInfo.github}</div>}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] text-stone-700 mt-5 pt-4 border-t border-stone-200 font-medium">
+            {personalInfo.email && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">Email</span>{personalInfo.email}</div>}
+            {personalInfo.phone && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">Telephone</span>{personalInfo.phone}</div>}
+            {personalInfo.location && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">Location</span>{personalInfo.location}</div>}
+            {personalInfo.linkedin && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">LinkedIn</span>{personalInfo.linkedin}</div>}
           </div>
         </div>
       );
     }
 
-    // Classic / Business / Minimal template standard header
+    // D. Cyber Terminal Retro Header
+    if (config.styleCategory === "cyber") {
+      return (
+        <div className="border-b border-[#00ff66] pb-4 mb-5 font-mono">
+          <div className="flex justify-between text-[10px] text-[#00ff66]/60 mb-2">
+            <span>CVCRAFT_AI_TERMINAL_V1.0</span>
+            <span>SYSTEM_STATUS: ONLINE</span>
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black text-[#00ff66] tracking-tight uppercase">
+              {personalInfo.fullName || "GUEST_USER"}
+            </h1>
+            <p className="text-sm font-semibold tracking-wider text-[#00ff66] uppercase">
+              // ROLE: {personalInfo.jobTitle || "DEVELOPER_SYSTEMS_ENGINEER"}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] text-[#00ff66]/80 mt-3 border-t border-dashed border-[#00ff66]/30 pt-3">
+            {personalInfo.email && <div>$ cat contact/email.txt &gt; {personalInfo.email}</div>}
+            {personalInfo.phone && <div>$ cat contact/phone.txt &gt; {personalInfo.phone}</div>}
+            {personalInfo.location && <div>$ cat contact/location.txt &gt; {personalInfo.location}</div>}
+            {personalInfo.linkedin && <div>$ cat contact/linkedin.txt &gt; {personalInfo.linkedin}</div>}
+          </div>
+        </div>
+      );
+    }
+
+    // E. Brutalist High Contrast Header
+    if (config.styleCategory === "brutalist") {
+      return (
+        <div className="border-b-[6px] border-black pb-5 mb-5 flex flex-col md:flex-row items-start justify-between gap-4 font-sans">
+          <div className="space-y-1.5">
+            <h1 className="text-4xl font-black tracking-tight uppercase text-black">
+              {personalInfo.fullName || "Your Full Name"}
+            </h1>
+            <div className="bg-black text-white px-2 py-1 inline-block text-xs font-bold uppercase tracking-widest">
+              {personalInfo.jobTitle || "Professional Title"}
+            </div>
+          </div>
+          <div className="text-xs font-bold border-4 border-black p-3.5 bg-yellow-300 shadow-[3px_3px_0px_rgba(0,0,0,1)] text-black space-y-1">
+            {personalInfo.email && <div>EMAIL: {personalInfo.email}</div>}
+            {personalInfo.phone && <div>PHONE: {personalInfo.phone}</div>}
+            {personalInfo.location && <div>LOCATION: {personalInfo.location}</div>}
+          </div>
+        </div>
+      );
+    }
+
+    // F. Solid Banner Header (Bold bands with solid colors or gradients)
+    if (config.styleCategory === "banner") {
+      const banner = getTopBannerStyles();
+      return (
+        <div className={`-mx-8 -mt-8 p-8 mb-6 ${banner.bg} ${banner.text} ${banner.border} relative overflow-hidden`}>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+            <div className="flex items-center gap-5">
+              {hasPhoto && (
+                <img
+                  src={personalInfo.profilePhoto}
+                  alt={personalInfo.fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-20 w-20 rounded-xl object-cover ring-4 ring-white/35 shadow-md"
+                />
+              )}
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl font-black tracking-tight font-display">
+                  {personalInfo.fullName || "Your Full Name"}
+                </h1>
+                <p className="text-xs font-mono uppercase tracking-widest opacity-85 mt-1 font-semibold">
+                  {personalInfo.jobTitle || "Professional Title"}
+                </p>
+              </div>
+            </div>
+            {/* Horizontal Contact layout */}
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1.5 text-[10px] font-mono opacity-90 text-center md:text-right max-w-sm">
+              {personalInfo.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3 shrink-0" /> {personalInfo.email}</div>}
+              {personalInfo.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3 shrink-0" /> {personalInfo.phone}</div>}
+              {personalInfo.location && <div className="flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /> {personalInfo.location}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1"><Linkedin className="h-3 w-3 shrink-0" /> {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div className="flex items-center gap-1"><Github className="h-3 w-3 shrink-0" /> {personalInfo.github}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // G. Classic Serif and Cream Layout Header
+    if (config.styleCategory === "cream") {
+      return (
+        <div className="text-center pb-5 mb-5 border-b border-stone-200">
+          <h1 className="text-3xl font-serif tracking-normal text-stone-900 font-medium">
+            {personalInfo.fullName || "Your Full Name"}
+          </h1>
+          <p className="text-xs font-serif italic text-stone-500 mt-1 uppercase tracking-widest font-semibold">
+            {personalInfo.jobTitle || "Professional Title"}
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-stone-500 mt-3 font-medium font-serif italic">
+            {personalInfo.email && <span>{personalInfo.email}</span>}
+            {personalInfo.phone && <span>• {personalInfo.phone}</span>}
+            {personalInfo.location && <span>• {personalInfo.location}</span>}
+            {personalInfo.website && <span>• {personalInfo.website}</span>}
+          </div>
+        </div>
+      );
+    }
+
+    // H. Tokyo Minimalist Header (Japanese architecture styling)
+    if (templateId === "tokyo") {
+      return (
+        <div className="pb-5 mb-5 border-b border-stone-200 text-stone-900">
+          <div className="flex flex-col sm:flex-row items-baseline justify-between gap-2">
+            <div>
+              <h1 className="text-3xl font-bold tracking-widest uppercase">
+                {personalInfo.fullName || "Your Full Name"}
+              </h1>
+              <p className="text-xs font-semibold tracking-[0.2em] text-red-600 uppercase mt-1">
+                {personalInfo.jobTitle || "Professional Title"}
+              </p>
+            </div>
+            <div className="text-[10px] space-y-0.5 text-stone-500 border-l border-red-600 pl-3">
+              {personalInfo.email && <div>Email: {personalInfo.email}</div>}
+              {personalInfo.phone && <div>Tel: {personalInfo.phone}</div>}
+              {personalInfo.location && <div>Loc: {personalInfo.location}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // I. Minimal Standard Corporate Header
     return (
       <div className="text-center border-b pb-4 mb-4">
         {hasPhoto && (
@@ -397,7 +724,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
             src={personalInfo.profilePhoto}
             alt={personalInfo.fullName}
             referrerPolicy="no-referrer"
-            className="h-16 w-16 rounded-full mx-auto object-cover border-2 mb-3"
+            className="h-16 w-16 rounded-full mx-auto object-cover border mb-3"
             style={{ borderColor: colorTheme }}
           />
         )}
@@ -417,81 +744,95 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
     );
   };
 
-  // Left sidebar template styles for split layouts
-  const isSplitLayout = templateConfig.isSplit;
+  const isSplitLayout = config.isSplit;
 
   return (
     <div
       style={{ transform: `scale(${scale})`, transformOrigin: "top center" }}
-      className={`print-page w-full p-8 mx-auto ${fontStyle} ${getTemplateContainerStyles()}`}
+      className={`print-page w-full p-8 mx-auto ${fontStyle} ${getPaperBgStyles()}`}
     >
       {isSplitLayout ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Split Sidebar */}
-          <div className="md:col-span-1 space-y-4 border-r border-slate-100 pr-4">
-            <div className="text-center md:text-left pb-4 border-b border-slate-100">
-              {personalInfo.profilePhoto && (
-                <img
-                  src={personalInfo.profilePhoto}
-                  alt={personalInfo.fullName}
-                  referrerPolicy="no-referrer"
-                  className="h-20 w-20 rounded-xl object-cover mb-3 mx-auto md:mx-0 border-2"
-                  style={{ borderColor: colorTheme }}
-                />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 -m-8 min-h-[inherit]">
+          {/* Left Split Colored Sidebar */}
+          <div className={`md:col-span-1 p-6 space-y-5 flex flex-col justify-between ${getSidebarBgClass()}`}>
+            <div className="space-y-5">
+              <div className="text-center md:text-left pb-4 border-b border-white/10">
+                {personalInfo.profilePhoto ? (
+                  <img
+                    src={personalInfo.profilePhoto}
+                    alt={personalInfo.fullName}
+                    referrerPolicy="no-referrer"
+                    className="h-20 w-20 rounded-xl object-cover mb-3 mx-auto md:mx-0 border-2 border-white/20"
+                  />
+                ) : (
+                  <div className="h-14 w-14 rounded-xl bg-slate-100/10 flex items-center justify-center text-lg font-bold mb-3 mx-auto md:mx-0">
+                    {personalInfo.fullName ? personalInfo.fullName.charAt(0) : "U"}
+                  </div>
+                )}
+                <h1 className="text-lg font-black tracking-tight">{personalInfo.fullName || "Full Name"}</h1>
+                <p className="text-xs font-semibold opacity-75 mt-0.5">{personalInfo.jobTitle || "Professional Title"}</p>
+              </div>
+
+              {/* Contacts info block */}
+              <div className="space-y-2 text-[10px] opacity-90">
+                <span className="text-[11px] font-bold uppercase tracking-wider block opacity-70">Contact</span>
+                {personalInfo.email && <div className="truncate flex items-center gap-1.5"><Mail className="h-3 w-3 shrink-0" /> {personalInfo.email}</div>}
+                {personalInfo.phone && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3 shrink-0" /> {personalInfo.phone}</div>}
+                {personalInfo.location && <div className="flex items-center gap-1.5"><MapPin className="h-3 w-3 shrink-0" /> {personalInfo.location}</div>}
+                {personalInfo.linkedin && <div className="truncate flex items-center gap-1.5"><Linkedin className="h-3 w-3 shrink-0" /> {personalInfo.linkedin}</div>}
+                {personalInfo.github && <div className="truncate flex items-center gap-1.5"><Github className="h-3 w-3 shrink-0" /> {personalInfo.github}</div>}
+              </div>
+
+              {/* Render skills in sidebar */}
+              {skills && skills.length > 0 && (
+                <div className="pt-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-2 opacity-70">Skills</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {skills.map((skill, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded text-[9px] font-semibold bg-white/10 border border-white/5 text-white">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">{personalInfo.fullName || "Full Name"}</h1>
-              <p className="text-xs font-medium text-slate-500 mt-0.5">{personalInfo.jobTitle || "Professional Title"}</p>
-            </div>
 
-            <div className="space-y-2 text-[10px] text-slate-600">
-              <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: colorTheme }}>Contact</span>
-              {personalInfo.email && <div className="truncate"><Mail className="inline h-3 w-3 mr-1" /> {personalInfo.email}</div>}
-              {personalInfo.phone && <div><Phone className="inline h-3 w-3 mr-1" /> {personalInfo.phone}</div>}
-              {personalInfo.location && <div><MapPin className="inline h-3 w-3 mr-1" /> {personalInfo.location}</div>}
-              {personalInfo.linkedin && <div className="truncate"><Linkedin className="inline h-3 w-3 mr-1" /> {personalInfo.linkedin}</div>}
-            </div>
-
-            {/* Render sub-sections like skills and languages in sidebar for clean layouts */}
-            {skills && skills.length > 0 && (
-              <div className="pt-2">
-                <span className="text-xs font-bold uppercase tracking-wider block mb-2" style={{ color: colorTheme }}>Skills</span>
-                <div className="flex flex-wrap gap-1">
-                  {skills.map((skill, i) => (
-                    <span key={i} className="px-1.5 py-0.5 rounded text-[9px] bg-slate-100 text-slate-800 border border-slate-200">
-                      {skill}
-                    </span>
-                  ))}
+              {/* Render languages in sidebar */}
+              {languages && languages.length > 0 && (
+                <div className="pt-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider block mb-1.5 opacity-70">Languages</span>
+                  <div className="space-y-1 text-[10px]">
+                    {languages.map((lang) => (
+                      <div key={lang.id} className="flex justify-between border-b border-white/5 pb-1">
+                        <span className="font-semibold">{lang.name}</span>
+                        <span className="opacity-75">{lang.proficiency}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {languages && languages.length > 0 && (
-              <div className="pt-2">
-                <span className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color: colorTheme }}>Languages</span>
-                <div className="space-y-1 text-[10px]">
-                  {languages.map((lang) => (
-                    <div key={lang.id} className="flex justify-between">
-                      <span className="font-semibold">{lang.name}</span>
-                      <span className="text-slate-400">{lang.proficiency}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+            
+            {/* Foot note */}
+            <div className="text-[8px] opacity-40 font-mono text-center">
+              Powered by CVCraft AI
+            </div>
           </div>
 
-          {/* Right Split Body */}
-          <div className="md:col-span-2 space-y-4">
+          {/* Right Split Main Body Content */}
+          <div className="md:col-span-2 p-6 space-y-5 bg-white text-slate-900 min-h-[297mm]">
             {sectionsOrder
-              .filter((id) => id !== "skills" && id !== "languages") // Exclude sidebar components from main list
+              .filter((id) => id !== "skills" && id !== "languages") // Exclude sidebar components from main body
               .map((id) => renderSection(id))}
           </div>
         </div>
       ) : (
-        // Standard full-width layout
+        // Standard full-width layout with spacers
         <div className={spacingClasses[spacing]}>
           {renderHeader()}
-          {sectionsOrder.map((id) => renderSection(id))}
+          <div className="space-y-5">
+            {sectionsOrder.map((id) => renderSection(id))}
+          </div>
         </div>
       )}
     </div>

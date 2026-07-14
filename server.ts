@@ -1,3 +1,4 @@
+import "./env-init";
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
@@ -5,8 +6,22 @@ import os from "os";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
+import * as admin from "firebase-admin";
 
 dotenv.config();
+
+const firebaseAdmin: any = admin;
+
+try {
+  if (firebaseAdmin.apps.length === 0) {
+    firebaseAdmin.initializeApp({
+      projectId: "eco-compass-fcf5x"
+    });
+    console.log("[FIREBASE ADMIN] Initialized successfully on backend.");
+  }
+} catch (adminErr) {
+  console.error("[FIREBASE ADMIN] Initialization failed:", adminErr);
+}
 
 const app = express();
 const PORT = 3000;
@@ -111,6 +126,20 @@ app.post("/api/admin/stats", (req, res) => {
     endpointsCalls: serverStats.endpointsCalls,
     lastActiveTime: serverStats.lastActiveTime,
     recentEvents: serverStats.recentEvents
+  });
+});
+
+// Diagnostic endpoint to check environment setup
+app.get("/api/diagnostic", (req, res) => {
+  res.json({
+    geminiApiKeyLength: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
+    geminiApiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : "none",
+    googleApiKeyExists: !!process.env.GOOGLE_API_KEY,
+    metadataHost: process.env.GCP_METADATA_HOST,
+    googleAppCredentialsExists: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    kService: process.env.K_SERVICE,
+    envKeys: Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('SECRET') && !k.includes('PASSWORD') && !k.includes('TOKEN')),
+    lastGeminiError: lastGeminiErrorDetails
   });
 });
 
@@ -457,10 +486,72 @@ app.post("/api/payments/verify-receipt", async (req, res) => {
 // In-memory store for secure email verification codes (email -> { code, expires })
 const verificationCodes = new Map<string, { code: string; expires: number }>();
 
-// Endpoint to generate and "send" a secure 6-digit verification code
-app.post("/api/auth/send-code", (req, res) => {
+// Helper function to dispatch verification emails via SMTP if configured
+async function dispatchVerificationEmail(email: string, code: string, actionType: "registration" | "recovery") {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || "auth@cvcraftai.com";
+
+  if (!host || !user || !pass) {
+    console.warn(`[SMTP OFFLINE] SMTP is not configured. Verification code for ${email} is ${code}`);
+    return false;
+  }
+
   try {
-    const { email } = req.body;
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: {
+        user,
+        pass,
+      },
+    });
+
+    const subject = actionType === "registration" 
+      ? "[CVCraft AI] Verify your email address" 
+      : "[CVCraft AI] Reset your account password";
+
+    const actionText = actionType === "registration" ? "registering your new account" : "resetting your account password";
+
+    const mailOptions = {
+      from,
+      to: email,
+      subject,
+      text: `Hello,\n\nYou are receiving this email because you requested a verification code for ${actionText} on CVCraft AI.\n\nYour 6-digit secure code is: ${code}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nCVCraft AI Team`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #fafafa; text-align: center;">
+          <h2 style="color: #4f46e5; margin-top: 0; font-size: 22px; font-weight: 700;">Secure Verification Code</h2>
+          <p style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+            You requested a secure code for <strong>${actionText}</strong> on CVCraft AI. Please use the following 6-digit code to complete the step:
+          </p>
+          <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 24px; display: inline-block;">
+            <span style="font-family: monospace; font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #1e293b;">${code}</span>
+          </div>
+          <p style="font-size: 12px; color: #64748b; margin-top: 24px;">
+            This code is valid for <strong>10 minutes</strong>. If you did not make this request, please ignore this email safely.
+          </p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="font-size: 11px; color: #94a3b8; margin: 0;">&copy; ${new Date().getFullYear()} CVCraft AI. All rights reserved.</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`[SMTP SUCCESS] Dispatched verification email successfully to ${email}`);
+    return true;
+  } catch (err) {
+    console.error("[SMTP ERROR] Failed to dispatch verification email:", err);
+    return false;
+  }
+}
+
+// Endpoint to generate and "send" a secure 6-digit verification code
+app.post("/api/auth/send-code", async (req, res) => {
+  try {
+    const { email, action } = req.body;
     if (!email) {
       return res.status(400).json({ error: "Email is required for verification." });
     }
@@ -470,23 +561,61 @@ app.post("/api/auth/send-code", (req, res) => {
       return res.status(400).json({ error: "The email address format is invalid." });
     }
 
+    // 1. Verify existence of the email in Firebase Auth to prevent fake registrations/recoveries
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    if (action === "reset") {
+      try {
+        await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
+      } catch (authErr: any) {
+        if (authErr.code === "auth/user-not-found") {
+          return res.status(404).json({
+            error: "This email address is not registered in our system. Please double-check your spelling or register a new account."
+          });
+        }
+        console.warn("[AUTH CHECK WARNING] Could not verify user existence via admin SDK:", authErr);
+      }
+    } else if (action === "register") {
+      try {
+        const existingUser = await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
+        if (existingUser) {
+          return res.status(400).json({
+            error: "This email address is already registered in our system. Please try signing in or recover your password."
+          });
+        }
+      } catch (authErr: any) {
+        if (authErr.code !== "auth/user-not-found") {
+          console.warn("[AUTH CHECK WARNING] Could not verify user uniqueness via admin SDK:", authErr);
+        }
+      }
+    }
+
     // Generate a secure 6-digit verification code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
 
-    verificationCodes.set(email.toLowerCase(), { code, expires });
-    addServerEvent(`Generated secure verification code for ${email}`);
-    console.log(`[AUTH SECURE] Verification code for ${email}: ${code}`);
+    verificationCodes.set(normalizedEmail, { code, expires });
+    addServerEvent(`Generated secure verification code for ${normalizedEmail}`);
+    console.log(`[AUTH SECURE] Verification code for ${normalizedEmail}: ${code}`);
+
+    // Attempt SMTP dispatch
+    const smtpDispatched = await dispatchVerificationEmail(
+      normalizedEmail, 
+      code, 
+      action === "reset" ? "recovery" : "registration"
+    );
 
     res.json({
       success: true,
-      message: "Verification code generated successfully.",
-      // Return the code so that the dev sandbox UI can easily show it as a beautiful copyable toast
-      code: code
+      smtpConfigured: smtpDispatched,
+      message: smtpDispatched 
+        ? "Verification code successfully sent to your email inbox."
+        : "Verification code generated. Please retrieve it below (SMTP fallback active).",
+      code: code // Still return the code for UI to show a beautiful copyable backup block
     });
   } catch (error: any) {
     console.error("Send Code Error:", error);
-    res.status(500).json({ error: "Failed to generate verification code" });
+    res.status(500).json({ error: "Failed to generate or send verification code." });
   }
 });
 
@@ -498,7 +627,8 @@ app.post("/api/auth/verify-code", (req, res) => {
       return res.status(400).json({ error: "Email and verification code are required." });
     }
 
-    const record = verificationCodes.get(email.toLowerCase());
+    const normalizedEmail = email.trim().toLowerCase();
+    const record = verificationCodes.get(normalizedEmail);
     if (!record) {
       return res.json({
         success: false,
@@ -507,7 +637,7 @@ app.post("/api/auth/verify-code", (req, res) => {
     }
 
     if (Date.now() > record.expires) {
-      verificationCodes.delete(email.toLowerCase());
+      verificationCodes.delete(normalizedEmail);
       return res.json({
         success: false,
         reason: "The verification code has expired. Please request a new code."
@@ -522,12 +652,47 @@ app.post("/api/auth/verify-code", (req, res) => {
     }
 
     // Code is valid! Delete it from store to prevent reuse
-    verificationCodes.delete(email.toLowerCase());
-    addServerEvent(`Successfully verified email credentials for ${email}`);
+    verificationCodes.delete(normalizedEmail);
+    addServerEvent(`Successfully verified email credentials for ${normalizedEmail}`);
     res.json({ success: true });
   } catch (error: any) {
     console.error("Verify Code Error:", error);
     res.status(500).json({ error: "Failed to verify code" });
+  }
+});
+
+// Endpoint to securely reset a user's password on the backend using Admin SDK
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and new password are required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Find user record
+    const userRecord = await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
+    
+    // Update password
+    await firebaseAdmin.auth().updateUser(userRecord.uid, {
+      password: password
+    });
+
+    addServerEvent(`Successfully reset password for ${normalizedEmail}`);
+    res.json({
+      success: true,
+      message: "Your password has been successfully updated. Please sign in with your new credentials."
+    });
+  } catch (error: any) {
+    console.error("Reset Password Server Error:", error);
+    let errMsg = "Failed to update your password. Please ensure it is at least 6 characters long.";
+    if (error.code === "auth/user-not-found") {
+      errMsg = "The specified email address is not registered.";
+    } else if (error.code === "auth/weak-password") {
+      errMsg = "The chosen password format is too weak.";
+    }
+    res.status(500).json({ error: errMsg });
   }
 });
 
@@ -640,21 +805,35 @@ app.post("/api/auth/validate-email", async (req, res) => {
 // To prevent the Google GenAI SDK from automatically using Google Cloud Application Default Credentials (ADC)
 // or Service Account metadata which causes ACCESS_TOKEN_TYPE_UNSUPPORTED errors in Cloud Run,
 // we override and clear the GCP metadata environment variables.
-process.env.GCP_METADATA_HOST = "127.0.0.1";
-delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
-delete process.env.GOOGLE_GCLOUD_ADC_PATH;
-delete process.env.K_SERVICE; // Stops Cloud Run auto-detection in google-auth-library
+// Environment overrides are handled in env-init.ts to ensure they execute before any imports.
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
+let lastGeminiErrorDetails: any = null;
+
+console.log("DIAGNOSTIC: geminiApiKey length =", geminiApiKey ? geminiApiKey.length : 0);
+console.log("DIAGNOSTIC: geminiApiKey prefix =", geminiApiKey ? geminiApiKey.substring(0, 5) : "none");
+console.log("DIAGNOSTIC: process.env.GOOGLE_API_KEY exists =", !!process.env.GOOGLE_API_KEY);
 
 if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") {
+  // Check if it's a standard API key (starts with AIzaSy) or an OAuth token (typically starts with AQ.Ab or similar)
+  const isStandardKey = geminiApiKey.startsWith("AIzaSy");
+  
+  const headers: Record<string, string> = {
+    "User-Agent": "aistudio-build",
+  };
+  
+  if (!isStandardKey) {
+    console.log("DIAGNOSTIC: Initializing Gemini SDK with OAuth Bearer token auth");
+    headers["Authorization"] = `Bearer ${geminiApiKey}`;
+  } else {
+    console.log("DIAGNOSTIC: Initializing Gemini SDK with standard x-goog-api-key auth");
+  }
+
   ai = new GoogleGenAI({
     apiKey: geminiApiKey,
     httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
+      headers,
     },
   });
 } else {
@@ -684,6 +863,14 @@ async function callGeminiWithFallback<T>(
         lastError = err;
         const errMsg = err?.message || String(err || "");
         const status = err?.status || err?.statusCode || 0;
+        
+        lastGeminiErrorDetails = {
+          message: errMsg,
+          status: status,
+          stack: err?.stack,
+          name: err?.name,
+          raw: JSON.stringify(err)
+        };
         
         console.warn(`Model ${model} failed (Status: ${status}, Message: ${errMsg}). Attempts left: ${attempts - 1}`);
 
@@ -1576,14 +1763,131 @@ You MUST return a JSON object with this schema:
         });
         return JSON.parse(response.text || "{}");
       },
-      () => ({
-        reply: "Hello! I am your CVCraft AI Career Coach. I'm currently running in high-fidelity offline mode to ensure instant response times. Feel free to ask me anything about your resume, career goals, cover letters, or interview preparations!",
-        suggestions: [
-          "Suggest high-impact action verbs",
-          "How do I highlight leadership?",
-          "Review my job summary details"
-        ]
-      })
+      () => {
+        const lastMsg = (messages[messages.length - 1]?.content || "").trim();
+        const lastMsgLower = lastMsg.toLowerCase();
+        const roleStr = jobTitleContext || "Professional Specialist";
+        let reply = "";
+        let suggestions = ["Optimize my target summary", "Suggest top 5 skills", "List strong ATS action verbs"];
+
+        const infoBanner = `> ⚠️ **Offline Demo Mode Active**: The Generative Language API is currently disabled or unauthorized in this Google Cloud project. To unlock full real-time Gemini AI, please set your personal **GEMINI_API_KEY** in the AI Studio Settings menu, or enable the Gemini API in the Google Cloud Console [here](https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview?project=176655497920).\n\n`;
+
+        if (lastMsgLower.includes("summary") || lastMsgLower.includes("profile") || lastMsgLower.includes("about me") || lastMsgLower.includes("bio")) {
+          reply = `### Career Summary Optimization Strategy 🚀
+
+To make your professional summary stand out, it must be highly focused, result-oriented, and tailored. Here are customized recommendations for your role as a **${roleStr}**:
+
+1. **Lead with Core Identity**: State your exact target title (e.g., "${roleStr}") and your years of high-impact experience.
+2. **Highlight Key Skills**: Explicitly mention 2-3 top competencies.
+3. **Quantify Achievements**: Include at least one impressive, measurable metric (e.g., *'optimized workflows by 25%'* or *'reduced latency by 45%'*).
+
+**Recommended Draft for Your Profile:**
+*"Results-driven **${roleStr}** with a proven track record of optimizing operational efficiency, streamlining cross-functional deliverables, and engineering scalable solutions. Expert in leveraging industry-leading tools and agile methodologies to deliver critical milestones ahead of schedule. Dedicated to building high-integrity codebases and driving measurable business growth."*`;
+          suggestions = ["How do I add metrics?", "Suggest strong action verbs", "Mock interview prep"];
+        } else if (lastMsgLower.includes("skills") || lastMsgLower.includes("skillset") || lastMsgLower.includes("technology") || lastMsgLower.includes("tool") || lastMsgLower.includes("competencies")) {
+          reply = `### In-Demand Skill Alignment Suggestions 💡
+
+For a **${roleStr}** role, modern ATS screeners look for specific toolchains and structural methodologies. Ensure these are integrated within your actual experience bullets, not just listed at the bottom:
+
+- **Technical & Domain Expertise**: Scalable System Architecture, Cross-functional Team Leadership, Project Lifecycle Execution.
+- **Tools & Core Frameworks**: Automation Systems, Version Control, High-Performance Analytics, Cloud Infrastructure.
+- **Core Competencies**: Agile Methodologies, Stakeholder Management, Requirements Engineering.
+
+*Pro-Tip:* Try to pair each of these skills with an actual numeric outcome in your experience description fields!`;
+          suggestions = ["List strong ATS action verbs", "Mock interview prep", "Optimize my target summary"];
+        } else if (lastMsgLower.includes("verb") || lastMsgLower.includes("word") || lastMsgLower.includes("vocabulary") || lastMsgLower.includes("action")) {
+          reply = `### High-Impact ATS Action Verbs List ⚡
+
+Replace passive or repetitive verbs like *'responsible for'*, *'helped'*, or *'worked on'* with these dynamic, result-oriented action words:
+
+- **For Leadership & Ownership**: *Spearheaded*, *Orchestrated*, *Directed*, *Championed*, *Engineered*.
+- **For Efficiency & Savings**: *Optimized*, *Streamlined*, *Accelerated*, *Consolidated*, *Restructured*.
+- **For Growth & Value**: *Multiplied*, *Expanded*, *Secured*, *Maximized*, *Catalyzed*.
+
+**Example Transformation:**
+- ❌ *Passive*: "Was responsible for leading the daily team meetings and helping with reports."
+- **ATS-Pro**: "**Orchestrated** daily cross-functional standups to synchronize delivery timelines, **accelerating** project completion rate by 18%."`;
+          suggestions = ["Optimize my target summary", "Mock interview prep", "Suggest top 5 skills"];
+        } else if (lastMsgLower.includes("interview") || lastMsgLower.includes("question") || lastMsgLower.includes("prep") || lastMsgLower.includes("mock") || lastMsgLower.includes("practice")) {
+          reply = `### Personalized Mock Interview Prep Guide 🎤
+
+Preparing for a **${roleStr}** interview requires mastering the **STAR** method (Situation, Task, Action, Result). Here are key behavioral questions to prepare for:
+
+1. *"Tell me about a time you had to optimize a complex workflow under tight deadlines. What was the outcome?"*
+2. *"How do you align expectations with difficult stakeholders or technical clients?"*
+3. *"Describe a project challenge. What did you learn and how did you adjust your strategy?"*
+
+**Recommended Preparation Steps:**
+- Focus on **quantifiable results** (e.g., hours saved, latency reduced, percentage improvement).
+- Keep answers to a concise 2-minute format, focusing heavily on your personal contributions and business results.`;
+          suggestions = ["How to highlight leadership", "List strong ATS action verbs", "Suggest top 5 skills"];
+        } else if (lastMsgLower.includes("salary") || lastMsgLower.includes("negotiat") || lastMsgLower.includes("pay") || lastMsgLower.includes("compensation") || lastMsgLower.includes("raise") || lastMsgLower.includes("offer")) {
+          reply = `### Salary & Compensation Negotiation Strategy 💵
+
+Negotiating your package as a **${roleStr}** is a critical phase of your career advancement. Follow these professional guidelines to secure your market value:
+
+1. **Leverage Market Data**: Always research benchmark salary distributions for your role on levels.fyi, Glassdoor, or local salary logs before the call.
+2. **Focus on Value Delivered**: Frame your negotiation around the high-impact metrics and specific business achievements documented on your resume.
+3. **Negotiate the Whole Package**: Remember to consider sign-on bonuses, equity/options, performance bonuses, and extra PTO if the base salary is restricted.
+
+**Example Negotiation Script:**
+*"Thank you so much for this exciting offer! Based on the scope of responsibilities for this role and the value I can deliver to the team using my specialized expertise, I would like to discuss a base compensation of $X, which aligns more closely with standard market benchmarks for this level."*`;
+          suggestions = ["How to handle counter-offers", "Suggest top 5 skills", "Mock interview prep"];
+        } else if (lastMsgLower.includes("change") || lastMsgLower.includes("pivot") || lastMsgLower.includes("switch") || lastMsgLower.includes("transition")) {
+          reply = `### Strategic Career Transition & Pivoting Guide 🔀
+
+Pivoting your career from another field into a **${roleStr}** role requires re-contextualizing your existing experience to highlight transferable competencies:
+
+1. **Identify Transferable Skills**: Map your previous duties to target skills (e.g., project management, systems execution, data-driven decisions).
+2. **Lead with a Pivot Summary**: Craft a professional summary that explicitly states your target role and explains how your background uniquely prepares you.
+3. **De-emphasize Niche Details**: Rephrase older experience lines to focus on results, leadership, and outcomes rather than industry-specific jargon.
+
+**Strategic Pivot Formula:**
+*"Leveraged [Previous Skill] to orchestrate [New Outcome], driving a [Measurable Business Percentage] increase in operational speed."*`;
+          suggestions = ["Optimize my target summary", "Suggest top 5 skills", "List strong ATS action verbs"];
+        } else if (lastMsgLower.includes("ats") || lastMsgLower.includes("scanner") || lastMsgLower.includes("keyword") || lastMsgLower.includes("parse")) {
+          reply = `### Mastering ATS (Applicant Tracking Systems) Scanning 📋
+
+Over 90% of Fortune 500 companies use ATS screeners. To ensure your resume passes these automated filters and reaches human recruiters, apply these rules:
+
+1. **Use Exact Keywords**: Look at the job description and match key technical and methodology terms exactly on your resume.
+2. **Simple Layout Hierarchy**: Avoid complex multi-column grids or heavy graphical bars if you suspect the scanner is legacy. Keep headings standard.
+3. **Never Put Crucial Info in Headers/Footers**: Some scanners completely ignore header and footer blocks. Always place contact details and credentials in the main page body.
+
+*CVCraft AI templates are fully ATS-optimized and parsed correctly by modern system gateways.*`;
+          suggestions = ["Suggest top 5 skills", "List strong ATS action verbs", "Optimize my target summary"];
+        } else if (lastMsgLower.includes("cover letter") || lastMsgLower.includes("letter") || lastMsgLower.includes("application")) {
+          reply = `### Crafting an Outstanding Cover Letter ✉️
+
+A great cover letter is not a repetition of your resume; it is a personalized story that connects your achievements directly to the company's pain points:
+
+1. **Address a Real Person**: Find the hiring manager's name or address the specific team lead if possible.
+2. **The Hook (First Paragraph)**: State your excitement, your target role, and mention a recent positive public milestone or core value of the company.
+3. **The Proof (Second Paragraph)**: Highlight one major achievement from your resume that directly solves a primary requirement of the target job.
+4. **Call to Action**: Keep the closing eager but highly professional, proposing a quick chat or portfolio walkthrough.`;
+          suggestions = ["Optimize my target summary", "Mock interview prep", "Suggest top 5 skills"];
+        } else {
+          reply = `### Career Consultation & Strategy Advisory 🎯
+
+Thank you for your question regarding **"${lastMsg}"**! As your executive career advisor, here is a professional strategic path forward tailored to your profile as a **${roleStr}**:
+
+1. **Analyze Your Objective**: Ensure that your career steps align with your ultimate long-term professional objectives.
+2. **Contextualize with Metrics**: In your resume, every bullet point related to this topic should show the action you took, the tool you used, and the direct business impact.
+3. **Expand Your Professional Network**: Leverage LinkedIn and targeted industry groups to connect with professionals working in similar capacities.
+
+**How can I assist you further with this?**
+- Ask: *"Suggest 5 premium skills for my resume"* to get a customized keyword list.
+- Ask: *"List strong ATS action verbs"* to discover dynamic verbs to elevate your bullet points.
+- Ask: *"Optimize my target summary"* to write or refine an outstanding professional profile section.
+- Ask: *"Mock interview prep"* to run through tailored practice questions.`;
+          suggestions = ["Optimize my target summary", "Suggest top 5 skills", "List strong ATS action verbs"];
+        }
+
+        return {
+          reply: infoBanner + reply,
+          suggestions
+        };
+      }
     );
 
     res.json(result);

@@ -17,7 +17,7 @@ import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
-import AIChat from "./components/AIChat";
+// import AIChat from "./components/AIChat";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, query, where } from "firebase/firestore";
@@ -27,7 +27,7 @@ import { motion, AnimatePresence } from "motion/react";
 const SAMPLE_RESUME: ResumeData = {
   id: "sample-resume-id",
   title: "Professional Developer Resume",
-  templateId: "professional",
+  templateId: "minimal",
   colorTheme: "#4f46e5",
   fontFamily: "font-sans",
   spacing: "comfortable",
@@ -89,7 +89,7 @@ const SAMPLE_RESUME: ResumeData = {
     { id: "cert-1", name: "AWS Certified Solutions Architect", issuer: "Amazon Web Services", date: "2022" }
   ],
   references: [],
-  sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications"],
+  sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references"],
 };
 
 const SAMPLE_LETTER: CoverLetterData = {
@@ -131,6 +131,10 @@ export default function App() {
   const [userUnreadCount, setUserUnreadCount] = useState<number>(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
   const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" } | null>(null);
+
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
+    return localStorage.getItem("cvcraft_offline_mode") === "true";
+  });
 
   const seenMessagesRef = useRef<Set<string>>(new Set());
   const isUserChatsFirstLoad = useRef(true);
@@ -205,6 +209,56 @@ export default function App() {
 
     const savedOnboard = localStorage.getItem("cvcraft_onboarded");
     if (savedOnboard) setIsOnboarded(true);
+
+    if (isOfflineMode) {
+      const savedUser = localStorage.getItem("cvcraft_local_user");
+      let localUser: UserSession | null = null;
+      if (savedUser) {
+        try {
+          localUser = JSON.parse(savedUser);
+        } catch {
+          // ignore
+        }
+      }
+      if (!localUser) {
+        localUser = {
+          uid: "local-user-session",
+          email: "demo@cvcraft.ai",
+          displayName: "Guest User",
+          isPremium: true,
+          creationsCount: 0,
+          adViews: 0,
+          profilePhoto: ""
+        };
+      }
+      setUser(localUser);
+      setIsAuthLoading(false);
+      
+      // Load local resumes
+      const localResumes = localStorage.getItem(`cvcraft_local_resumes_${localUser.email}`);
+      if (localResumes) {
+        try {
+          setResumes(JSON.parse(localResumes));
+        } catch {
+          setResumes([SAMPLE_RESUME]);
+        }
+      } else {
+        setResumes([SAMPLE_RESUME]);
+      }
+      
+      // Load local letters
+      const localLetters = localStorage.getItem(`cvcraft_local_letters_${localUser.email}`);
+      if (localLetters) {
+        try {
+          setLetters(JSON.parse(localLetters));
+        } catch {
+          setLetters([SAMPLE_LETTER]);
+        }
+      } else {
+        setLetters([SAMPLE_LETTER]);
+      }
+      return;
+    }
 
     let unsubUserDoc: (() => void) | null = null;
     let unsubResumes: (() => void) | null = null;
@@ -281,7 +335,9 @@ export default function App() {
               profilePhoto: profileData.profilePhoto
             });
           }, (err) => {
-            console.error("User document real-time listener error:", err);
+            console.error("User document real-time listener error, falling back to offline mode:", err);
+            setIsOfflineMode(true);
+            localStorage.setItem("cvcraft_offline_mode", "true");
           });
 
           // Set up real-time listener for resumes sub-collection
@@ -302,7 +358,9 @@ export default function App() {
               }
             },
             (err) => {
-              handleFirestoreError(err, OperationType.LIST, `users/${firebaseUser.uid}/resumes`);
+              console.error("Firestore resumes listener error, falling back to offline mode:", err);
+              setIsOfflineMode(true);
+              localStorage.setItem("cvcraft_offline_mode", "true");
             }
           );
 
@@ -324,12 +382,16 @@ export default function App() {
               }
             },
             (err) => {
-              handleFirestoreError(err, OperationType.LIST, `users/${firebaseUser.uid}/letters`);
+              console.error("Firestore letters listener error, falling back to offline mode:", err);
+              setIsOfflineMode(true);
+              localStorage.setItem("cvcraft_offline_mode", "true");
             }
           );
 
         } catch (error) {
-          console.error("Error setting up Firestore real-time listeners:", error);
+          console.error("Error setting up Firestore real-time listeners, falling back to offline mode:", error);
+          setIsOfflineMode(true);
+          localStorage.setItem("cvcraft_offline_mode", "true");
         } finally {
           setIsAuthLoading(false);
         }
@@ -356,7 +418,7 @@ export default function App() {
       if (unsubResumes) unsubResumes();
       if (unsubLetters) unsubLetters();
     };
-  }, []);
+  }, [isOfflineMode]);
 
   const handleOnboardingComplete = () => {
     setIsOnboarded(true);
@@ -365,7 +427,7 @@ export default function App() {
 
   // Listen to unread messages for normal users and admin
   useEffect(() => {
-    if (!user) {
+    if (!user || isOfflineMode) {
       setUserUnreadCount(0);
       return;
     }
@@ -431,7 +493,7 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    if (!user || user.email !== "bilalhassanmussa@gmail.com") {
+    if (!user || isOfflineMode || user.email !== "bilalhassanmussa@gmail.com") {
       setAdminUnreadCount(0);
       return;
     }
@@ -469,13 +531,37 @@ export default function App() {
   }, [user]);
 
   const handleAuthSuccess = (u: { email: string; displayName: string }) => {
-    // Session is handled automatically by onAuthStateChanged subscription
+    // Session is handled automatically by onAuthStateChanged subscription for real Firebase users.
+    // If Firebase Auth is not signed in but we succeeded via fallback, let's configure local session.
+    if (!auth.currentUser) {
+      setIsOfflineMode(true);
+      localStorage.setItem("cvcraft_offline_mode", "true");
+      
+      const localUser: UserSession = {
+        uid: "local-user-session",
+        email: u.email,
+        displayName: u.displayName,
+        isPremium: true,
+        creationsCount: 0,
+        adViews: 0,
+        profilePhoto: ""
+      };
+      setUser(localUser);
+      localStorage.setItem("cvcraft_local_user", JSON.stringify(localUser));
+    }
   };
 
   const handleSignOut = async () => {
     try {
       sessionStorage.clear();
-      await firebaseSignOut(auth);
+      localStorage.removeItem("cvcraft_offline_mode");
+      localStorage.removeItem("cvcraft_local_user");
+      setIsOfflineMode(false);
+      try {
+        await firebaseSignOut(auth);
+      } catch (e) {
+        // Ignore errors if already signed out
+      }
       setUser(null);
     } catch (err) {
       console.error("Sign out error:", err);
@@ -487,7 +573,13 @@ export default function App() {
   };
 
   const handleUpdateUser = async (updatedUser: UserSession) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
+    if (isOfflineMode) {
+      setUser(updatedUser);
+      localStorage.setItem("cvcraft_local_user", JSON.stringify(updatedUser));
+      return;
+    }
+    if (!auth.currentUser) return;
     try {
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
         displayName: updatedUser.displayName,
@@ -502,7 +594,7 @@ export default function App() {
   };
 
   const handleCreateResume = async (title: string, templateId: string) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
     const newId = crypto.randomUUID();
     const newResume: ResumeData = {
       id: newId,
@@ -531,8 +623,25 @@ export default function App() {
       languages: [],
       certifications: [],
       references: [],
-      sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications"],
+      sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references"],
     };
+
+    if (isOfflineMode) {
+      const updatedResumes = [newResume, ...resumes];
+      setResumes(updatedResumes);
+      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
+      
+      const newCount = (user.creationsCount || 0) + 1;
+      const updatedUser = { ...user, creationsCount: newCount };
+      setUser(updatedUser);
+      localStorage.setItem("cvcraft_local_user", JSON.stringify(updatedUser));
+      
+      setSelectedResumeId(newId);
+      setCurrentView("resume-editor");
+      return;
+    }
+
+    if (!auth.currentUser) return;
     try {
       await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", newId), newResume);
       const newCount = (user.creationsCount || 0) + 1;
@@ -547,7 +656,7 @@ export default function App() {
   };
 
   const handleCreateLetter = async (title: string, company: string, role: string) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
     const newId = crypto.randomUUID();
     const newLetter: CoverLetterData = {
       id: newId,
@@ -564,6 +673,23 @@ export default function App() {
         location: "",
       },
     };
+
+    if (isOfflineMode) {
+      const updatedLetters = [newLetter, ...letters];
+      setLetters(updatedLetters);
+      localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updatedLetters));
+
+      const newCount = (user.creationsCount || 0) + 1;
+      const updatedUser = { ...user, creationsCount: newCount };
+      setUser(updatedUser);
+      localStorage.setItem("cvcraft_local_user", JSON.stringify(updatedUser));
+
+      setSelectedLetterId(newId);
+      setCurrentView("letter-editor");
+      return;
+    }
+
+    if (!auth.currentUser) return;
     try {
       await setDoc(doc(db, "users", auth.currentUser.uid, "letters", newId), newLetter);
       const newCount = (user.creationsCount || 0) + 1;
@@ -578,7 +704,7 @@ export default function App() {
   };
 
   const handleDuplicateResume = async (target: ResumeData) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
     const newId = crypto.randomUUID();
     const dup: ResumeData = {
       ...target,
@@ -586,6 +712,15 @@ export default function App() {
       title: `${target.title} Copy`,
       updatedAt: new Date().toISOString(),
     };
+
+    if (isOfflineMode) {
+      const updatedResumes = [dup, ...resumes];
+      setResumes(updatedResumes);
+      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
+      return;
+    }
+
+    if (!auth.currentUser) return;
     try {
       await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", newId), dup);
     } catch (err) {
@@ -594,7 +729,16 @@ export default function App() {
   };
 
   const handleDeleteResume = async (id: string) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
+    if (isOfflineMode) {
+      const updatedResumes = resumes.filter(r => r.id !== id);
+      setResumes(updatedResumes);
+      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
+      if (selectedResumeId === id) setSelectedResumeId(null);
+      return;
+    }
+
+    if (!auth.currentUser) return;
     try {
       await deleteDoc(doc(db, "users", auth.currentUser.uid, "resumes", id));
       if (selectedResumeId === id) setSelectedResumeId(null);
@@ -604,7 +748,16 @@ export default function App() {
   };
 
   const handleDeleteLetter = async (id: string) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
+    if (isOfflineMode) {
+      const updatedLetters = letters.filter(l => l.id !== id);
+      setLetters(updatedLetters);
+      localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updatedLetters));
+      if (selectedLetterId === id) setSelectedLetterId(null);
+      return;
+    }
+
+    if (!auth.currentUser) return;
     try {
       await deleteDoc(doc(db, "users", auth.currentUser.uid, "letters", id));
       if (selectedLetterId === id) setSelectedLetterId(null);
@@ -614,8 +767,17 @@ export default function App() {
   };
 
   const handleSaveActiveResume = async (updated: ResumeData) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
     const updatedWithTime = { ...updated, updatedAt: new Date().toISOString() };
+
+    if (isOfflineMode) {
+      const updatedResumes = resumes.map(r => r.id === updated.id ? updatedWithTime : r);
+      setResumes(updatedResumes);
+      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
+      return;
+    }
+
+    if (!auth.currentUser) return;
     try {
       await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", updated.id), updatedWithTime);
     } catch (err) {
@@ -624,8 +786,17 @@ export default function App() {
   };
 
   const handleSaveActiveLetter = async (updated: CoverLetterData) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
     const updatedWithTime = { ...updated, updatedAt: new Date().toISOString() };
+
+    if (isOfflineMode) {
+      const updatedLetters = letters.map(l => l.id === updated.id ? updatedWithTime : l);
+      setLetters(updatedLetters);
+      localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updatedLetters));
+      return;
+    }
+
+    if (!auth.currentUser) return;
     try {
       await setDoc(doc(db, "users", auth.currentUser.uid, "letters", updated.id), updatedWithTime);
     } catch (err) {
@@ -655,7 +826,17 @@ export default function App() {
   };
 
   const handleImportBackup = async (backupData: { resumes: ResumeData[]; letters: CoverLetterData[] }) => {
-    if (!user || !auth.currentUser) return;
+    if (!user) return;
+    if (isOfflineMode) {
+      const mergedResumes = [...backupData.resumes, ...resumes.filter(r => !backupData.resumes.some(br => br.id === r.id))];
+      const mergedLetters = [...backupData.letters, ...letters.filter(l => !backupData.letters.some(bl => bl.id === l.id))];
+      setResumes(mergedResumes);
+      setLetters(mergedLetters);
+      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(mergedResumes));
+      localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(mergedLetters));
+      return;
+    }
+    if (!auth.currentUser) return;
     try {
       for (const res of backupData.resumes) {
         await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", res.id), res);
@@ -674,10 +855,9 @@ export default function App() {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
           <div className="relative flex items-center justify-center">
-            <div className="h-16 w-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
-            <Sparkles className="h-6 w-6 text-indigo-400 absolute animate-pulse" />
+            <div className="h-12 w-12 rounded-full border-2 border-slate-800 border-t-indigo-500 animate-spin" />
           </div>
-          <span className="text-slate-400 font-mono text-xs tracking-widest uppercase animate-pulse">Initializing Secure Session...</span>
+          <span className="text-slate-400 text-xs tracking-wide">Loading your workspace...</span>
         </div>
       </div>
     );
@@ -697,19 +877,32 @@ export default function App() {
   const activeLetter = letters.find((l) => l.id === selectedLetterId) || letters[0];
 
   const activeThemeObj = THEMES.find((t) => t.id === currentTheme) || THEMES[0];
+  const gridClass = activeThemeObj.isDark ? "subtle-grid" : "subtle-grid-light";
+  const glowClass = activeThemeObj.isDark ? "ambient-glow" : "ambient-glow-light";
 
   return (
-    <div className={`min-h-screen ${activeThemeObj.bgClass} flex flex-col md:flex-row font-sans transition-colors duration-300`}>
+    <div className={`min-h-screen ${activeThemeObj.bgClass} flex flex-col md:flex-row font-sans transition-colors duration-300 relative overflow-x-hidden`}>
+      {/* Decorative Grid and Glow Backdrops */}
+      <div className={`absolute inset-0 ${gridClass} pointer-events-none opacity-80 z-0`} />
+      <div className={`absolute inset-0 ${glowClass} pointer-events-none z-0`} />
       
       {/* Sidebar Navigation */}
-      <aside className={`w-full md:w-64 ${activeThemeObj.sidebarClass} border-b md:border-b-0 md:border-r p-5 flex flex-col justify-between shrink-0 no-print transition-colors duration-300`}>
+      <aside className={`w-full md:w-64 ${activeThemeObj.sidebarClass} border-b md:border-b-0 md:border-r p-5 flex flex-col justify-between shrink-0 no-print transition-colors duration-300 relative z-10`}>
         
         {/* Top brand */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-indigo-400" />
-              <span className="font-extrabold tracking-tight text-white font-display text-lg">CVCraft AI</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-6 w-6 text-indigo-400" />
+                <span className="font-extrabold tracking-tight text-white font-display text-lg">CVCraft AI</span>
+              </div>
+              {isOfflineMode && (
+                <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-[9px] font-semibold w-fit">
+                  <Activity className="h-2.5 w-2.5 animate-pulse text-amber-500" />
+                  Offline (Local Sync)
+                </div>
+              )}
             </div>
             {/* Mobile burger toggle */}
             <button
@@ -799,7 +992,8 @@ export default function App() {
               <Compass className="h-4.5 w-4.5" /> Career Recommender
             </button>
 
-            <button
+            {/* Commented out AI Career Coach as requested to optimize token limits */}
+            {/* <button
               onClick={() => {
                 setCurrentView("ai-chat");
                 setMobileMenuOpen(false);
@@ -808,8 +1002,8 @@ export default function App() {
                 currentView === "ai-chat" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
               }`}
             >
-              <Brain className="h-4.5 w-4.5 text-indigo-400 animate-pulse" /> AI Career Coach
-            </button>
+              <Brain className="h-4.5 w-4.5" /> AI Career Coach
+            </button> */}
 
             <button
               onClick={() => {
@@ -856,11 +1050,11 @@ export default function App() {
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Shield className="h-4.5 w-4.5 text-rose-500 animate-pulse" />
+                  <Shield className="h-4.5 w-4.5 text-rose-500" />
                   <span>Admin Panel</span>
                 </div>
                 {adminUnreadCount > 0 && (
-                  <span className="bg-rose-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-pulse">
+                  <span className="bg-rose-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px]">
                     {adminUnreadCount}
                   </span>
                 )}
@@ -895,7 +1089,7 @@ export default function App() {
       </aside>
 
       {/* Main View Area */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto relative z-10">
         {currentView === "dashboard" && (
           <Dashboard
             user={user}
@@ -1004,9 +1198,9 @@ export default function App() {
           <SupportFeedback user={user} />
         )}
 
-        {currentView === "ai-chat" && user && (
-          <AIChat user={user} resumes={resumes} />
-        )}
+        {/* {currentView === "ai-chat" && user && (
+          <AIChat user={user} resumes={resumes} isDark={activeThemeObj.isDark} />
+        )} */}
       </main>
 
       <PremiumModal

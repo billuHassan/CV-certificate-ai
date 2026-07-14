@@ -254,6 +254,75 @@ export default function ResumeBuilder({
     }));
   };
 
+  const deleteLanguage = (id: string) => {
+    setResume((prev) => ({
+      ...prev,
+      languages: prev.languages.filter((lang) => lang.id !== id),
+    }));
+  };
+
+  // --- CERTIFICATIONS HANDLERS ---
+  const addCertification = () => {
+    const newCert: Certification = {
+      id: crypto.randomUUID(),
+      name: "",
+      issuer: "",
+      date: "",
+    };
+    setResume((prev) => ({
+      ...prev,
+      certifications: [...(prev.certifications || []), newCert],
+    }));
+  };
+
+  const updateCertification = (id: string, field: keyof Certification, value: any) => {
+    setResume((prev) => ({
+      ...prev,
+      certifications: (prev.certifications || []).map((cert) =>
+        cert.id === id ? { ...cert, [field]: value } : cert
+      ),
+    }));
+  };
+
+  const deleteCertification = (id: string) => {
+    setResume((prev) => ({
+      ...prev,
+      certifications: (prev.certifications || []).filter((cert) => cert.id !== id),
+    }));
+  };
+
+  // --- REFERENCES HANDLERS ---
+  const addReference = () => {
+    const newRef: Reference = {
+      id: crypto.randomUUID(),
+      name: "",
+      company: "",
+      title: "",
+      email: "",
+      phone: "",
+    };
+    setResume((prev) => ({
+      ...prev,
+      references: [...(prev.references || []), newRef],
+    }));
+  };
+
+  const updateReference = (id: string, field: keyof Reference, value: any) => {
+    setResume((prev) => ({
+      ...prev,
+      references: (prev.references || []).map((ref) =>
+        ref.id === id ? { ...ref, [field]: value } : ref
+      ),
+    }));
+  };
+
+  const deleteReference = (id: string) => {
+    setResume((prev) => ({
+      ...prev,
+      references: (prev.references || []).filter((ref) => ref.id !== id),
+    }));
+  };
+
   // --- SECTION ORDER REORDERING ---
   const moveSection = (index: number, direction: "up" | "down") => {
     const newOrder = [...resume.sectionsOrder];
@@ -398,16 +467,6 @@ export default function ResumeBuilder({
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(resume, null, 2));
-    const link = document.createElement("a");
-    link.setAttribute("href", dataStr);
-    link.setAttribute("download", `${(resume.personalInfo.fullName || "User").replace(/\s+/g, "_")}_Resume_Backup.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const handleSectionToggle = (sect: string) => {
     setOpenSection(openSection === sect ? "" : sect);
   };
@@ -431,57 +490,26 @@ export default function ResumeBuilder({
   ];
 
   const templatesList = [
-    // --- ALL UNIFIED TEMPLATES ---
-    { id: "minimal", name: "Minimal ATS", desc: "Sleek, traditional single-column design maximizing readability and machine parsing.", isPremium: false },
-    { id: "classic", name: "Classic Corporate", desc: "Double line dividers with bold titles for high-volume recruitment.", isPremium: false },
-    { id: "professional", name: "Professional Executive", desc: "A beautifully structured executive template highlighting professional timelines.", isPremium: false },
-    { id: "modern", name: "Modern Technical", desc: "Features high-impact code-friendly blocks and robust tag layouts.", isPremium: false },
-    { id: "creative", name: "Creative Designer", desc: "Spacious header styling with a beautiful modular profile structure.", isPremium: false },
-    { id: "executive", name: "Executive Split", desc: "Sleek split layout placing contacts and skill chips in an elegant side rail.", isPremium: false },
-    { id: "elegant", name: "Warm Editorial", desc: "Soft amber tones paired with elegant serif typography for luxury listings.", isPremium: false },
-    { id: "clean", name: "Clean Functional", desc: "Highly structured standard format emphasizing operational milestones.", isPremium: false },
-    { id: "simple", name: "Simple Compact", desc: "Condensed single-page template with subtle borders and elegant typography.", isPremium: false },
-    { id: "standard", name: "Standard Business", desc: "Traditional layout suitable for legal, medical, and executive roles.", isPremium: false },
-    { id: "tokyo", name: "Tokyo Minimalist", desc: "Japanese-inspired layout utilizing ultra-thin borders and a neat visual grid.", isPremium: false },
-    { id: "paris", name: "Paris Fashion House", desc: "Chic, high-contrast editorial layout utilizing gorgeous serif typography.", isPremium: false },
-    { id: "silicon", name: "Silicon Valley Developer", desc: "Tech-focused developer resume with monospace typography and modern tag highlights.", isPremium: false },
-    { id: "ny_firm", name: "Wall Street Analyst", desc: "Authoritative design optimized with compact spacing and elegant traditional serif.", isPremium: false },
-    { id: "berlin", name: "Berlin Brutalist", desc: "Stark structural borders and asymmetrical lines for modern creative professionals.", isPremium: false },
-    { id: "swiss", name: "Swiss Bauhaus", desc: "A clean, avant-garde design following functional typographic grids with red color accents.", isPremium: false },
-    { id: "london", name: "London Academic", desc: "Refined double border header ideal for researchers, professors, and scholars.", isPremium: false },
-    { id: "nordic", name: "Nordic Clean", desc: "A friendly, geometric sans format utilizing cozy grey backdrops and forest-green headings.", isPremium: false },
-    { id: "sydney", name: "Sydney Startup Founder", desc: "Features bright custom gradient accent buttons, dynamic tags, and clean margins.", isPremium: false },
-    { id: "toronto", name: "Toronto Corporate Pro", desc: "Premium bold navy header style with structured alignment and clean margin layout.", isPremium: false },
-    { id: "aurora", name: "Aurora Holographic", desc: "Modern portfolio-style resume featuring sleek glowing highlights and a cosmic edge.", isPremium: false },
-    { id: "monochrome", name: "Monochrome Ink", desc: "An ultra-clean print-optimized template emphasizing high-contrast readability.", isPremium: false },
-    { id: "slate_pro", name: "Slate Pro Executive", desc: "Beautiful deep-charcoal split sidebars presenting a modern executive presence.", isPremium: false },
-    { id: "gold_luxe", name: "Golden Luxury", desc: "Elegant gold borders and typography on premium off-white cream paper styling.", isPremium: false },
-    { id: "royal", name: "Royal Heritage", desc: "Regal burgundy accents, formal editorial headers, and classic serif elegance.", isPremium: false },
-    { id: "cyber", name: "Cybersecurity Terminal", desc: "Green-on-black terminal design tailored for DevOps, security, and systems engineering.", isPremium: false },
-    { id: "vintage", name: "Vintage Press", desc: "Features slab-serif typography and warm textures mimicking traditional typewriters.", isPremium: false },
-    { id: "amsterdam", name: "Amsterdam Creative", desc: "Vibrant orange accent highlights with asymmetrical header placements.", isPremium: false },
-    { id: "vibrant", name: "Vibrant Violet", desc: "Neon violet accents, stylish rounded badge tags, and creative layouts.", isPremium: false },
-    { id: "teal_grid", name: "Teal Matrix", desc: "Advanced grid alignment presenting technical skills and stats in a structured list.", isPremium: false },
-    { id: "minimal_plus", name: "Minimal ATS Plus", desc: "Optimized with generous white space and professional margins for senior roles.", isPremium: false },
-    { id: "milano", name: "Milano Editorial", desc: "High-fashion aesthetic utilizing elegant italicized headers and luxury spacing.", isPremium: false },
-    { id: "chicago", name: "Chicago Legal", desc: "Highly professional, authoritative double-divided borders for law & consulting.", isPremium: false },
-    { id: "boston", name: "Boston Medical", desc: "A serene teal-toned medical template featuring professional structural grids.", isPremium: false },
-    { id: "austin", name: "Austin Indie Studio", desc: "Warm desert sunrise accents, energetic headers, and highly expressive labels.", isPremium: false },
-    { id: "san_fran", name: "San Francisco SaaS", desc: "Sleek, modern indigo-accented split sidebar tailored for startup career lines.", isPremium: false },
-    { id: "dublin", name: "Dublin Agency", desc: "Creative emerald-tinted headings and spacious modern grid layouts.", isPremium: false },
-    { id: "seattle", name: "Seattle Cloud Architect", desc: "High-impact tech design utilizing structured sky-blue highlights.", isPremium: false },
-    { id: "denver", name: "Rocky Mountain", desc: "Rugged serif headings paired with warm natural forest tones.", isPremium: false },
-    { id: "miami", name: "Miami Sunset", desc: "Vibrant gradient headers mimicking ocean sunsets, for lifestyle professionals.", isPremium: false },
-    { id: "singapore", name: "Singapore Venture", desc: "Corporate red-gold highlights designed for venture capital & fintech leaders.", isPremium: false },
-    { id: "munich", name: "Munich Engineering", desc: "Extremely structured layouts with precise division lines and high visual logic.", isPremium: false },
-    { id: "brussels", name: "Brussels Diplomat", desc: "Highly formal, gold-accented headers for diplomacy, NGO, and government roles.", isPremium: false },
-    { id: "geneva", name: "Geneva Watchmaker", desc: "Refined, ultra-thin grey line borders emphasizing master craftsmanship.", isPremium: false },
-    { id: "oslo", name: "Oslo Architect", desc: "Ultra-minimalistic geometric layout utilizing subtle grey typography.", isPremium: false },
-    { id: "vienna", name: "Vienna Opera", desc: "Classical editorial serif layout pairing deep crimson accents and cream paper.", isPremium: false },
-    { id: "copenhagen", name: "Copenhagen Hygge", desc: "Warm grey backgrounds paired with soft charcoal typography and cozy spacing.", isPremium: false },
-    { id: "mumbai", name: "Mumbai Tech Hub", desc: "Dynamic orange-blue developer split layout highlighting project portfolios.", isPremium: false },
-    { id: "shanghai", name: "Shanghai Executive", desc: "Bold corporate layout pairing deep crimson highlights and structured sections.", isPremium: false },
-    { id: "sao_paulo", name: "São Paulo Creative", desc: "Energetic green-yellow highlights and fresh asymmetrical heading styling.", isPremium: false }
+    { id: "minimal", name: "Minimalist ATS Pro", desc: "Ultra-clean chronological layout optimized for maximum machine readability and applicant tracking systems.", isPremium: false },
+    { id: "executive", name: "Executive Split Slate", desc: "A sleek split-pane layout highlighting core attributes in a deep charcoal side rail.", isPremium: false },
+    { id: "elegant", name: "Warm Editorial Cream", desc: "Soft warm tones paired with elegant serif typography and double margins for creative leaders.", isPremium: false },
+    { id: "silicon", name: "Silicon Valley Developer", desc: "Tech-forward format with monospace typography, tags, and clean layout optimized for engineers.", isPremium: false },
+    { id: "cyber", name: "Cyberpunk Terminal", desc: "A radical green-on-black retro-futuristic terminal theme tailored for DevOps and security pros.", isPremium: true },
+    { id: "berlin", name: "Berlin Neo-Brutalist", desc: "Stark, high-contrast black borders and bold asymmetrical accents for design renegades.", isPremium: true },
+    { id: "tokyo", name: "Tokyo Zen Minimalist", desc: "An elegant, clean layout incorporating Japanese architectural symmetry and subtle red accents.", isPremium: false },
+    { id: "sydney", name: "Sydney Startup Founder", desc: "Vibrant custom gradient headers, clean borders, and highly energetic layouts for innovators.", isPremium: false },
+    { id: "gold_luxe", name: "Golden Luxury Royal", desc: "Opulent gold borders on warm cream paper styled with regal double-ruled divisions.", isPremium: true },
+    { id: "vintage", name: "Vintage Press Typewriter", desc: "Typewriter monospace aesthetics and warm parchment styling resembling traditional print presses.", isPremium: false },
+    { id: "toronto", name: "Toronto Corporate Navy", desc: "An authoritative deep navy banner header presenting strong corporate stability.", isPremium: false },
+    { id: "aurora", name: "Aurora Cosmic Glow", desc: "Deep space-dark paper paired with glowing neon highlights for a truly distinctive portfolio.", isPremium: true },
+    { id: "munich", name: "Munich Engineering Grid", desc: "Highly structured engineering format with technical quadrants and high-logic division lines.", isPremium: false },
+    { id: "chicago", name: "Chicago Legal Executive", desc: "Highly professional double-divided margins suited for law firms, medical experts, and elite advisory.", isPremium: false },
+    { id: "milano", name: "Milano Fashion Editorial", desc: "Luxurious, spacious spacing utilizing stunning italicized serif headings for premium lifestyle brands.", isPremium: true },
+    { id: "austin", name: "Austin Terracotta Indie", desc: "Warm southwestern sunset clay tones and highly expressive, energetic label tags.", isPremium: false },
+    { id: "royal", name: "Royal Heritage Burgundy", desc: "Regal crimson borders, formal divided banners, and classical editorial dignity.", isPremium: false },
+    { id: "teal_grid", name: "Teal Matrix Columnar", desc: "Dual columns presenting complex tech skills and project histories in a structured layout.", isPremium: false },
+    { id: "oslo", name: "Oslo Nordic Architect", desc: "An ultra-minimalistic geometric sans format styled with subtle grey backdrops and forest-green headings.", isPremium: false },
+    { id: "swiss", name: "Swiss Bauhaus Avant-Garde", desc: "Iconic Swiss design principles pairing stark bold headings, red highlights, and architectural grids.", isPremium: true }
   ];
 
   return (
@@ -515,13 +543,6 @@ export default function ResumeBuilder({
             title="Open the browser print/PDF dialog directly"
           >
             <Printer className="h-3.5 w-3.5" /> Print
-          </button>
-          <button
-            onClick={handleDownloadJSON}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg transition border border-slate-700"
-            title="Export raw resume data to a JSON backup file"
-          >
-            Backup JSON
           </button>
         </div>
       </div>
@@ -1075,7 +1096,7 @@ export default function ResumeBuilder({
                           <select
                             value={lang.proficiency}
                             onChange={(e) => updateLanguage(lang.id, "proficiency", e.target.value)}
-                            className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-slate-300"
+                            className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-slate-300 animate-fade-in"
                           >
                             <option value="Native">Native</option>
                             <option value="Fluent">Fluent</option>
@@ -1083,6 +1104,14 @@ export default function ResumeBuilder({
                             <option value="Conversational">Conversational</option>
                             <option value="Elementary">Elementary</option>
                           </select>
+                          <button
+                            type="button"
+                            onClick={() => deleteLanguage(lang.id)}
+                            className="text-slate-600 hover:text-rose-400 p-1.5 transition"
+                            title="Delete Language"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       ))}
                       <button
@@ -1090,6 +1119,154 @@ export default function ResumeBuilder({
                         className="w-full py-2 border border-dashed border-slate-800 hover:border-slate-600 rounded-xl text-xs text-slate-400 hover:text-white transition"
                       >
                         Add Language
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 8. CERTIFICATIONS */}
+                <div className="border border-slate-800 rounded-xl bg-slate-900/40 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => handleSectionToggle("certifications")}
+                    className="w-full p-4 flex items-center justify-between text-left font-bold text-slate-200 hover:bg-slate-900/80 transition"
+                  >
+                    <span className="flex items-center gap-2 text-sm">
+                      <Award className="h-4.5 w-4.5 text-indigo-400" /> Certifications
+                    </span>
+                    {openSection === "certifications" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
+
+                  {openSection === "certifications" && (
+                    <div className="p-4 border-t border-slate-800 space-y-4 bg-slate-950/40">
+                      {(resume.certifications || []).map((cert, idx) => (
+                        <div key={cert.id} className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3 relative group">
+                          <button
+                            type="button"
+                            onClick={() => deleteCertification(cert.id)}
+                            className="absolute top-2 right-2 text-slate-600 hover:text-rose-400 transition"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+
+                          <span className="text-[10px] font-mono text-slate-500 uppercase font-bold">Certification #{idx + 1}</span>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={cert.name}
+                              onChange={(e) => updateCertification(cert.id, "name", e.target.value)}
+                              placeholder="Certification Name (e.g. AWS Solutions Architect)"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={cert.issuer}
+                              onChange={(e) => updateCertification(cert.id, "issuer", e.target.value)}
+                              placeholder="Issuer (e.g. Amazon Web Services)"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2">
+                            <input
+                              type="text"
+                              value={cert.date}
+                              onChange={(e) => updateCertification(cert.id, "date", e.target.value)}
+                              placeholder="Date Earned / Year (e.g. 2023)"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={addCertification}
+                        className="w-full py-2.5 border border-dashed border-slate-800 hover:border-slate-600 hover:bg-slate-900/40 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Certification
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 9. REFERENCES */}
+                <div className="border border-slate-800 rounded-xl bg-slate-900/40 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => handleSectionToggle("references")}
+                    className="w-full p-4 flex items-center justify-between text-left font-bold text-slate-200 hover:bg-slate-900/80 transition"
+                  >
+                    <span className="flex items-center gap-2 text-sm">
+                      <Users className="h-4.5 w-4.5 text-indigo-400" /> References
+                    </span>
+                    {openSection === "references" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
+
+                  {openSection === "references" && (
+                    <div className="p-4 border-t border-slate-800 space-y-4 bg-slate-950/40">
+                      {(resume.references || []).map((ref, idx) => (
+                        <div key={ref.id} className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3 relative group">
+                          <button
+                            type="button"
+                            onClick={() => deleteReference(ref.id)}
+                            className="absolute top-2 right-2 text-slate-600 hover:text-rose-400 transition"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+
+                          <span className="text-[10px] font-mono text-slate-500 uppercase font-bold">Reference #{idx + 1}</span>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={ref.name}
+                              onChange={(e) => updateReference(ref.id, "name", e.target.value)}
+                              placeholder="Reference Person Name"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600 focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={ref.company}
+                              onChange={(e) => updateReference(ref.id, "company", e.target.value)}
+                              placeholder="Company"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600 focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              type="text"
+                              value={ref.title}
+                              onChange={(e) => updateReference(ref.id, "title", e.target.value)}
+                              placeholder="Job Title"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600"
+                            />
+                            <input
+                              type="email"
+                              value={ref.email}
+                              onChange={(e) => updateReference(ref.id, "email", e.target.value)}
+                              placeholder="Email Address"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600"
+                            />
+                            <input
+                              type="text"
+                              value={ref.phone}
+                              onChange={(e) => updateReference(ref.id, "phone", e.target.value)}
+                              placeholder="Phone Number"
+                              className="bg-slate-950 border border-slate-850 rounded p-2 text-xs text-white placeholder-slate-600"
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={addReference}
+                        className="w-full py-2.5 border border-dashed border-slate-800 hover:border-slate-600 hover:bg-slate-900/40 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Reference
                       </button>
                     </div>
                   )}
@@ -1109,7 +1286,7 @@ export default function ResumeBuilder({
                   <div className="space-y-2">
                     <input
                       type="text"
-                      placeholder="Search 50 templates..."
+                      placeholder="Search 20 premium templates..."
                       value={templateSearch}
                       onChange={(e) => setTemplateSearch(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
