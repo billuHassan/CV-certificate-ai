@@ -961,6 +961,7 @@ export default function App() {
               <Sparkles className="h-4.5 w-4.5" /> Cover Letters
             </button>
 
+            {/* Hidden ATS Score Audit and Career Recommender for future continuation
             <button
               onClick={() => {
                 if (resumes.length > 0) {
@@ -989,6 +990,7 @@ export default function App() {
             >
               <Compass className="h-4.5 w-4.5" /> Career Recommender
             </button>
+            */}
 
             {/* Commented out AI Career Coach as requested to optimize token limits */}
             {/* <button

@@ -39,6 +39,11 @@ service cloud.firestore {
       allow delete: if false; // Profiles are permanent once created
     }
 
+    // Health/Connection Check Rules
+    match /test/connection {
+      allow read: if true;
+    }
+
     // Resumes Sub-collection Rules
     match /users/{userId}/resumes/{resumeId} {
       allow read, list: if isOwner(userId) || isAdmin();

@@ -93,7 +93,7 @@ export default function Dashboard({
               <h2 className="text-xl font-bold text-white font-display">Hello, {user.displayName}</h2>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Access all professional templates, ATS score analyzer, and cover letter creator at any time.
+              Access all professional templates and cover letter creator at any time.
             </p>
           </div>
         </div>
@@ -183,6 +183,7 @@ export default function Dashboard({
                     >
                       <Copy className="h-4 w-4" />
                     </button>
+                    {/* Hidden ATS Audit button for future continuation
                     <button
                       onClick={() => {
                         onSelectResume(res.id);
@@ -193,6 +194,7 @@ export default function Dashboard({
                     >
                       <BarChart2 className="h-4 w-4" />
                     </button>
+                    */}
                     <button
                       type="button"
                       onClick={() => {
