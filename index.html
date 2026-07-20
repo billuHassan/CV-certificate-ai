@@ -48,6 +48,25 @@
     <!-- Google AdSense Live Script Auto-Loader -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1642294829104829" crossorigin="anonymous"></script>
     <script>
+      // Mute benign Vite HMR WebSocket connection errors and unhandled rejections
+      (function() {
+        window.addEventListener('unhandledrejection', function(event) {
+          var msg = (event.reason && (event.reason.message || event.reason.toString())) || '';
+          if (msg.includes('WebSocket closed') || msg.includes('websocket') || msg.includes('vite')) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, true);
+
+        window.addEventListener('error', function(event) {
+          var msg = event.message || '';
+          if (msg.includes('WebSocket') || msg.includes('websocket') || msg.includes('vite') || (event.target && event.target.tagName === 'SCRIPT' && event.target.src && event.target.src.includes('vite'))) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, true);
+      })();
+
       // Automatically load custom AdSense Publisher ID if set in localStorage
       (function() {
         try {

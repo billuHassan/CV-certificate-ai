@@ -7,10 +7,15 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
 import * as admin from "firebase-admin";
+import { getAuth as getAdminAuthSdk } from "firebase-admin/auth";
 
 dotenv.config();
 
 const firebaseAdmin: any = admin;
+
+function getAdminAuth() {
+  return getAdminAuthSdk();
+}
 
 try {
   if (firebaseAdmin.apps.length === 0) {
@@ -566,7 +571,7 @@ app.post("/api/auth/send-code", async (req, res) => {
     
     if (action === "reset") {
       try {
-        await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
+        await getAdminAuth().getUserByEmail(normalizedEmail);
       } catch (authErr: any) {
         if (authErr.code === "auth/user-not-found") {
           return res.status(404).json({
@@ -577,7 +582,7 @@ app.post("/api/auth/send-code", async (req, res) => {
       }
     } else if (action === "register") {
       try {
-        const existingUser = await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
+        const existingUser = await getAdminAuth().getUserByEmail(normalizedEmail);
         if (existingUser) {
           return res.status(400).json({
             error: "This email address is already registered in our system. Please try signing in or recover your password."
@@ -672,10 +677,10 @@ app.post("/api/auth/reset-password", async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     
     // Find user record
-    const userRecord = await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
+    const userRecord = await getAdminAuth().getUserByEmail(normalizedEmail);
     
     // Update password
-    await firebaseAdmin.auth().updateUser(userRecord.uid, {
+    await getAdminAuth().updateUser(userRecord.uid, {
       password: password
     });
 
