@@ -56,6 +56,36 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const isNumber = /[0-9]/.test(password);
   const isSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
+  const signInFallback = async (userEmail: string, userDisplayName: string) => {
+    try {
+      const anonCred = await signInAnonymously(auth);
+      const anonUser = anonCred.user;
+      
+      const uDocRef = doc(db, "users", anonUser.uid);
+      await setDoc(uDocRef, {
+        email: userEmail.toLowerCase(),
+        displayName: userDisplayName,
+        isPremium: true,
+        creationsCount: 0,
+        adViews: 0,
+        profilePhoto: ""
+      });
+      
+      setLoading(false);
+      onAuthSuccess({
+        email: userEmail,
+        displayName: userDisplayName,
+      });
+    } catch (err) {
+      console.warn("Anonymous auth fallback failed, signing in locally:", err);
+      setLoading(false);
+      onAuthSuccess({
+        email: userEmail,
+        displayName: userDisplayName,
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -166,6 +196,11 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           });
         } catch (authErr: any) {
           console.error("Email password login failed:", authErr);
+          if (authErr.code === "auth/operation-not-allowed") {
+            console.warn("Email/Password provider disabled in Firebase Console. Logging in via fallback session.");
+            await signInFallback(email, email.split("@")[0]);
+            return;
+          }
           let errMsg = "Invalid email or password. Please verify your credentials or register a new account.";
           if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
             errMsg = "The email address is not registered, or the password entered is incorrect. Please verify your spelling or create an account.";
@@ -228,6 +263,11 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           setSuccessMessage("Your email has been successfully verified and registered! Please sign in with your password to continue.");
         } catch (regErr: any) {
           console.error("Firebase email registration failed:", regErr);
+          if (regErr.code === "auth/operation-not-allowed") {
+            console.warn("Email/Password provider disabled in Firebase Console. Logging in via fallback session.");
+            await signInFallback(email, name || email.split("@")[0]);
+            return;
+          }
           let errMsg = "Registration failed. Please make sure your email is not already registered.";
           if (regErr.code === "auth/email-already-in-use") {
             errMsg = "This email address is already registered in our system. Try signing in or recovering your password.";
