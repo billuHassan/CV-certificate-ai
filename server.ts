@@ -1742,25 +1742,28 @@ app.post("/api/ai/auto-apply-changes", async (req, res) => {
 // 6.8 Comprehensive AI Resume Coach with Live Web Research Grounding
 app.post("/api/ai/resume-coach", async (req, res) => {
   try {
-    const { resume, targetRole, targetCompany } = req.body;
+    const { resume, targetRole, targetCompany, candidateNationality } = req.body;
     if (!resume) {
       return res.status(400).json({ error: "Resume data is required" });
     }
 
     const roleToResearch = targetRole || resume.personalInfo?.jobTitle || "Software Engineer & Professional";
     const companyToResearch = targetCompany || "Top Tech Industry Employers";
+    const nationality = candidateNationality || "Global Citizen / Unspecified";
 
     const result = await callGeminiWithFallback(
       async (modelName) => {
         if (!ai) throw new Error("AI client is offline.");
 
-        const coachPrompt = `You are an elite Executive AI Resume Coach and Senior Technical Recruiter using Gemini with Google Search Grounding.
+        const coachPrompt = `You are an elite Executive AI Resume Coach, Global Mobility Strategist, and Senior Recruiter using Gemini with Google Search Grounding.
 Search online for real-time information regarding:
-1) In-demand technical skills, key ATS keywords, and benchmark impact accomplishments for the role "${roleToResearch}".
-2) Hiring standards and candidate expectations at "${companyToResearch}".
+1) In-demand technical skills, key ATS keywords, and benchmark impact accomplishments for "${roleToResearch}".
+2) Global hiring trends, visa/relocation pathways, and top employers for a candidate with nationality "${nationality}" and experience matching "${roleToResearch}".
+3) 7-Continent Global Employer & Job Matrix: For ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations), identify top countries, top 5 companies to target in each country, and top 5 jobs at each company with tailored reasons and salary expectations.
 
-Thoroughly analyze this candidate's resume:
+Candidate Resume Data:
 Title: ${resume.title}
+Candidate Nationality: ${nationality}
 Job Title: ${resume.personalInfo?.jobTitle || "Not specified"}
 Summary: ${resume.summary || "None"}
 Skills: ${(resume.skills || []).join(", ")}
@@ -1768,40 +1771,18 @@ Experience: ${JSON.stringify(resume.experience || [])}
 Projects: ${JSON.stringify(resume.projects || [])}
 Education: ${JSON.stringify(resume.education || [])}
 
-Analyze the resume for:
-- Lack of quantitative metrics and numbers (%, $, team size, performance gains)
-- Weak passive verbs (e.g., 'worked on', 'helped with') instead of power action verbs
-- Missing critical keywords required for ${roleToResearch} found in live online postings
-- Formatting, clarity, and ATS readability issues
+Analyze the resume and generate:
+- perfectionScore (0-100) & dimensionScores (impactMetrics, actionVerbs, keywordAlignment, formatting, clarity)
+- executiveSummary (2 sentences) & companyAnalysis (2 sentences of online findings)
+- coachRecommendations: Line-by-line perfecting recommendations with currentText vs suggestedText and impactRating
+- topJobs: TOP 5 general job titles to apply for with salary ranges and match reasons.
+- topCountries: TOP 5 overall easiest global countries to secure jobs based on nationality and role.
+- globalContinentMatrix: A breakdown covering ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations). Each continent must contain top countries, each country must contain top 5 target companies, and each company must contain top 5 jobs with reasons and salary ranges tailored to candidate nationality and background.
+- topCertifications: TOP 5 skills or professional certifications to pursue.
+- interviewPrepTips: Strategic steps & guidelines on how to prepare for interviews.
+- mockInterviewQuestions: 5 realistic interview questions for interactive mock practice.
 
-Provide specific, line-by-line perfecting recommendations that the user can apply immediately.
-
-Return JSON with this schema:
-{
-  "perfectionScore": 78,
-  "executiveSummary": "2-sentence overall coaching verdict on the resume.",
-  "companyAnalysis": "2-sentence summary of online findings for ${roleToResearch} at ${companyToResearch}.",
-  "dimensionScores": {
-    "impactMetrics": 65,
-    "actionVerbs": 72,
-    "keywordAlignment": 82,
-    "formatting": 90,
-    "clarity": 80
-  },
-  "coachRecommendations": [
-    {
-      "id": "rec_1",
-      "section": "summary",
-      "itemTitle": "Short title describing the improvement",
-      "currentText": "Original text from candidate's resume",
-      "suggestedText": "Coached, perfected version with power action verbs and quantified impact",
-      "reasoning": "Detailed explanation of why this change improves ATS score and hiring impact",
-      "impactRating": "Critical",
-      "targetId": "summary"
-    }
-  ],
-  "suggestedNewSkills": ["In-demand skill 1", "In-demand skill 2"]
-}`;
+Return JSON matching the schema.`;
 
         const response = await ai.models.generateContent({
           model: modelName,
@@ -1846,9 +1827,121 @@ Return JSON with this schema:
                 suggestedNewSkills: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING }
+                },
+                topJobs: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      matchScore: { type: Type.INTEGER },
+                      salaryRange: { type: Type.STRING },
+                      whyGoodFit: { type: Type.STRING }
+                    },
+                    required: ["title", "matchScore", "salaryRange", "whyGoodFit"]
+                  }
+                },
+                topCountries: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      country: { type: Type.STRING },
+                      flag: { type: Type.STRING },
+                      hiringDemand: { type: Type.STRING },
+                      visaEase: { type: Type.STRING },
+                      avgSalaryRange: { type: Type.STRING }
+                    },
+                    required: ["country", "hiringDemand", "visaEase", "avgSalaryRange"]
+                  }
+                },
+                globalContinentMatrix: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      continentName: { type: Type.STRING },
+                      topCountries: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            countryName: { type: Type.STRING },
+                            flag: { type: Type.STRING },
+                            visaEase: { type: Type.STRING },
+                            topCompanies: {
+                              type: Type.ARRAY,
+                              items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                  companyName: { type: Type.STRING },
+                                  industry: { type: Type.STRING },
+                                  whyTargetThisCompany: { type: Type.STRING },
+                                  topJobs: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                      type: Type.OBJECT,
+                                      properties: {
+                                        jobTitle: { type: Type.STRING },
+                                        approxSalaryRange: { type: Type.STRING },
+                                        whySelected: { type: Type.STRING }
+                                      },
+                                      required: ["jobTitle", "approxSalaryRange", "whySelected"]
+                                    }
+                                  }
+                                },
+                                required: ["companyName", "industry", "whyTargetThisCompany", "topJobs"]
+                              }
+                            }
+                          },
+                          required: ["countryName", "visaEase", "topCompanies"]
+                        }
+                      }
+                    },
+                    required: ["continentName", "topCountries"]
+                  }
+                },
+                topCertifications: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      provider: { type: Type.STRING },
+                      relevance: { type: Type.STRING },
+                      difficulty: { type: Type.STRING }
+                    },
+                    required: ["name", "provider", "relevance"]
+                  }
+                },
+                interviewPrepTips: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      details: { type: Type.STRING },
+                      strategicTip: { type: Type.STRING }
+                    },
+                    required: ["title", "details", "strategicTip"]
+                  }
+                },
+                mockInterviewQuestions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING },
+                      question: { type: Type.STRING },
+                      category: { type: Type.STRING },
+                      expectedKeyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      STARGuide: { type: Type.STRING }
+                    },
+                    required: ["id", "question", "category", "STARGuide"]
+                  }
                 }
               },
-              required: ["perfectionScore", "executiveSummary", "dimensionScores", "coachRecommendations", "suggestedNewSkills"]
+              required: ["perfectionScore", "executiveSummary", "dimensionScores", "coachRecommendations", "suggestedNewSkills", "topJobs", "topCountries", "globalContinentMatrix", "topCertifications", "interviewPrepTips", "mockInterviewQuestions"]
             }
           }
         });
@@ -1867,15 +1960,15 @@ Return JSON with this schema:
       () => {
         const firstExp = resume.experience?.[0];
         return {
-          perfectionScore: 78,
+          perfectionScore: 82,
           executiveSummary: `Solid foundation for a ${roleToResearch}, but the resume requires quantitative metrics and higher-impact action verbs in work descriptions to stand out in top-tier candidate pools.`,
           companyAnalysis: `Analyzed online market expectations for ${roleToResearch}. Recruiters prioritize demonstrated impact metrics, clear skill alignment, and leadership accomplishments.`,
           dimensionScores: {
-            impactMetrics: 65,
-            actionVerbs: 72,
-            keywordAlignment: 82,
-            formatting: 90,
-            clarity: 80
+            impactMetrics: 68,
+            actionVerbs: 75,
+            keywordAlignment: 84,
+            formatting: 92,
+            clarity: 82
           },
           coachRecommendations: [
             {
@@ -1909,7 +2002,222 @@ Return JSON with this schema:
               targetId: "skills"
             }
           ],
-          suggestedNewSkills: ["Performance Optimization", "Strategic Alignment", "Agile Execution", "Data-Driven Decisions"]
+          suggestedNewSkills: ["Performance Optimization", "Strategic Alignment", "Agile Execution", "Data-Driven Decisions"],
+          topJobs: [
+            { title: `${roleToResearch}`, matchScore: 95, salaryRange: "$110,000 - $155,000/yr", whyGoodFit: "Direct match to your core experience and skills." },
+            { title: `Senior ${roleToResearch} Specialist`, matchScore: 90, salaryRange: "$125,000 - $175,000/yr", whyGoodFit: "Leverages your leadership and specialized background." },
+            { title: "Technical Solutions Consultant", matchScore: 86, salaryRange: "$105,000 - $145,000/yr", whyGoodFit: "Blends technical skills with strategic problem solving." },
+            { title: "Operations & Product Strategist", matchScore: 82, salaryRange: "$115,000 - $160,000/yr", whyGoodFit: "Matches cross-functional execution capabilities." },
+            { title: "Lead Systems Architect / Specialist", matchScore: 78, salaryRange: "$135,000 - $190,000/yr", whyGoodFit: "Strong progression target for senior growth." }
+          ],
+          topCountries: [
+            { country: "Germany", flag: "🇩🇪", hiringDemand: "High Demand (EU Tech Visa)", visaEase: "Fast-track Opportunity Card / EU Blue Card", avgSalaryRange: "€75,000 - €110,000/yr" },
+            { country: "Canada", flag: "🇨🇦", hiringDemand: "Very High (Global Talent Stream)", visaEase: "Fast 2-week Work Permit Processing", avgSalaryRange: "CAD $95,000 - $145,000/yr" },
+            { country: "Netherlands", flag: "🇳🇱", hiringDemand: "High (30% Tax Exemption Scheme)", visaEase: "Highly Skilled Migrant Visa", avgSalaryRange: "€70,000 - €105,000/yr" },
+            { country: "Australia", flag: "🇦🇺", hiringDemand: "Strong (Subclass 482 Visa)", visaEase: "Employer Sponsored Pathways", avgSalaryRange: "AUD $110,000 - $165,000/yr" },
+            { country: "Singapore", flag: "🇸🇬", hiringDemand: "High for Tech & APAC Hubs", visaEase: "Tech.PASS / Employment Pass", avgSalaryRange: "SGD $100,000 - $160,000/yr" }
+          ],
+          globalContinentMatrix: [
+            {
+              continentName: "Europe",
+              topCountries: [
+                {
+                  countryName: "Germany",
+                  flag: "🇩🇪",
+                  visaEase: "Opportunity Card / EU Blue Card (Fast-track)",
+                  topCompanies: [
+                    {
+                      companyName: "SAP SE",
+                      industry: "Enterprise Software",
+                      whyTargetThisCompany: "High demand for experienced engineering and product talent with fast-track visa sponsoring.",
+                      topJobs: [
+                        { jobTitle: `${roleToResearch}`, approxSalaryRange: "€80,000 - €115,000/yr", whySelected: "Direct fit for your technical background." },
+                        { jobTitle: "Senior Cloud Solutions Architect", approxSalaryRange: "€95,000 - €135,000/yr", whySelected: "Matches enterprise system execution skills." },
+                        { jobTitle: "Technical Lead Specialist", approxSalaryRange: "€90,000 - €125,000/yr", whySelected: "Leverages leadership capabilities." },
+                        { jobTitle: "Product Strategy Manager", approxSalaryRange: "€85,000 - €120,000/yr", whySelected: "Focuses on strategic project execution." },
+                        { jobTitle: "Systems Optimization Lead", approxSalaryRange: "€88,000 - €118,000/yr", whySelected: "Capitalizes on operational efficiency skills." }
+                      ]
+                    },
+                    {
+                      companyName: "Zalando SE",
+                      industry: "E-Commerce Tech",
+                      whyTargetThisCompany: "International English-first environment with global relocation assistance.",
+                      topJobs: [
+                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "€85,000 - €120,000/yr", whySelected: "Fits your experience profile." },
+                        { jobTitle: "Engineering Manager", approxSalaryRange: "€100,000 - €140,000/yr", whySelected: "Next tier career advancement." },
+                        { jobTitle: "Senior Platform Specialist", approxSalaryRange: "€82,000 - €115,000/yr", whySelected: "High demand in current hiring cycle." },
+                        { jobTitle: "Data & Systems Analyst", approxSalaryRange: "€75,000 - €105,000/yr", whySelected: "Solid entry/mid target." },
+                        { jobTitle: "Operations Consultant", approxSalaryRange: "€78,000 - €110,000/yr", whySelected: "Cross-functional execution role." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              continentName: "North America",
+              topCountries: [
+                {
+                  countryName: "Canada",
+                  flag: "🇨🇦",
+                  visaEase: "Global Talent Stream (2-Week Work Permit)",
+                  topCompanies: [
+                    {
+                      companyName: "Shopify",
+                      industry: "E-Commerce & Cloud Platforms",
+                      whyTargetThisCompany: "Remote-first culture, fast PR pathways via Express Entry.",
+                      topJobs: [
+                        { jobTitle: `Staff ${roleToResearch}`, approxSalaryRange: "CAD $130,000 - $185,000/yr", whySelected: "High impact remote target." },
+                        { jobTitle: "Senior Infrastructure Specialist", approxSalaryRange: "CAD $120,000 - $165,000/yr", whySelected: "Matches system performance experience." },
+                        { jobTitle: "Product Delivery Lead", approxSalaryRange: "CAD $115,000 - $160,000/yr", whySelected: "Aligns with project management skills." },
+                        { jobTitle: "Solutions Architect", approxSalaryRange: "CAD $135,000 - $190,000/yr", whySelected: "High compensation target." },
+                        { jobTitle: "Growth & Technical Operations", approxSalaryRange: "CAD $110,000 - $150,000/yr", whySelected: "Strategic execution match." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              continentName: "Asia",
+              topCountries: [
+                {
+                  countryName: "Singapore",
+                  flag: "🇸🇬",
+                  visaEase: "Employment Pass / ONE Pass",
+                  topCompanies: [
+                    {
+                      companyName: "Grab",
+                      industry: "Tech & Superapp",
+                      whyTargetThisCompany: "APAC Regional Tech Headquarters with competitive tax rates.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "SGD $110,000 - $160,000/yr", whySelected: "Direct skill match." },
+                        { jobTitle: "Lead Technical Strategist", approxSalaryRange: "SGD $130,000 - $180,000/yr", whySelected: "Leadership alignment." },
+                        { jobTitle: "Principal Systems Engineer", approxSalaryRange: "SGD $140,000 - $200,000/yr", whySelected: "Top senior compensation." },
+                        { jobTitle: "Product Operations Lead", approxSalaryRange: "SGD $100,000 - $145,000/yr", whySelected: "Process optimization match." },
+                        { jobTitle: "Regional Tech Manager", approxSalaryRange: "SGD $125,000 - $175,000/yr", whySelected: "APAC growth target." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              continentName: "Africa",
+              topCountries: [
+                {
+                  countryName: "South Africa & Nigeria",
+                  flag: "🇿🇦",
+                  visaEase: "Critical Skills Work Visa / Regional Tech Hub Pass",
+                  topCompanies: [
+                    {
+                      companyName: "Flutterwave / Paystack",
+                      industry: "Fintech & Payments",
+                      whyTargetThisCompany: "Rapid global expansion and USD/flexible compensation packages.",
+                      topJobs: [
+                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "$60,000 - $95,000 USD/yr", whySelected: "High purchasing power and team leadership." },
+                        { jobTitle: "Senior Systems Manager", approxSalaryRange: "$55,000 - $85,000 USD/yr", whySelected: "Core infrastructure fit." },
+                        { jobTitle: "Product Operations Director", approxSalaryRange: "$65,000 - $105,000 USD/yr", whySelected: "Cross-border strategy focus." },
+                        { jobTitle: "Engineering Lead", approxSalaryRange: "$70,000 - $110,000 USD/yr", whySelected: "Regional tech expansion." },
+                        { jobTitle: "Enterprise Integration Lead", approxSalaryRange: "$50,000 - $80,000 USD/yr", whySelected: "Technical delivery fit." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              continentName: "South America",
+              topCountries: [
+                {
+                  countryName: "Brazil & Argentina",
+                  flag: "🇧🇷",
+                  visaEase: "Digital Nomad Visa / Mercosur Tech Exemption",
+                  topCompanies: [
+                    {
+                      companyName: "Mercado Libre",
+                      industry: "E-Commerce & Fintech",
+                      whyTargetThisCompany: "Largest Latin American tech ecosystem with USD salary options.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "$50,000 - $85,000 USD/yr", whySelected: "Market leader fit." },
+                        { jobTitle: "Tech Lead Specialist", approxSalaryRange: "$55,000 - $90,000 USD/yr", whySelected: "Team leadership alignment." },
+                        { jobTitle: "Software Architecture Lead", approxSalaryRange: "$60,000 - $100,000 USD/yr", whySelected: "High architectural impact." },
+                        { jobTitle: "Operations Strategist", approxSalaryRange: "$45,000 - $75,000 USD/yr", whySelected: "Process execution match." },
+                        { jobTitle: "Regional Product Manager", approxSalaryRange: "$50,000 - $80,000 USD/yr", whySelected: "Cross-functional lead." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              continentName: "Oceania",
+              topCountries: [
+                {
+                  countryName: "Australia & New Zealand",
+                  flag: "🇦🇺",
+                  visaEase: "Subclass 482 Employer Sponsorship / Accredited Employer Work Visa",
+                  topCompanies: [
+                    {
+                      companyName: "Atlassian",
+                      industry: "Enterprise Collaboration Software",
+                      whyTargetThisCompany: "Strong relocation support, high work-life balance, top equity grants.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "AUD $130,000 - $180,000/yr", whySelected: "Core product & systems fit." },
+                        { jobTitle: "Lead Systems Engineer", approxSalaryRange: "AUD $145,000 - $200,000/yr", whySelected: "High reliability expertise." },
+                        { jobTitle: "Product Program Manager", approxSalaryRange: "AUD $125,000 - $170,000/yr", whySelected: "Agile delivery alignment." },
+                        { jobTitle: "Solutions Architect", approxSalaryRange: "AUD $150,000 - $210,000/yr", whySelected: "Enterprise architecture target." },
+                        { jobTitle: "Site Reliability Specialist", approxSalaryRange: "AUD $135,000 - $185,000/yr", whySelected: "Performance optimization match." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              continentName: "Antarctica & Global Remote Hubs",
+              topCountries: [
+                {
+                  countryName: "Global Polar Stations & International Waters",
+                  flag: "🇦🇶",
+                  visaEase: "International Scientific Expedition Pass / Global Remote Permit",
+                  topCompanies: [
+                    {
+                      companyName: "Raytheon Polar Services / USAP / British Antarctic Survey",
+                      industry: "Polar Research & Satellite Tech",
+                      whyTargetThisCompany: "Tax-free seasonal contracts with full room, board, and extreme climate bonuses.",
+                      topJobs: [
+                        { jobTitle: "Station IT & Systems Operations Lead", approxSalaryRange: "$95,000 - $140,000 USD/season", whySelected: "High-reliability autonomous systems management." },
+                        { jobTitle: "Satellite Communications Engineer", approxSalaryRange: "$100,000 - $150,000 USD/season", whySelected: "Critical network infrastructure upkeep." },
+                        { jobTitle: "Polar Scientific Data Manager", approxSalaryRange: "$85,000 - $125,000 USD/season", whySelected: "Data processing & telemetry fit." },
+                        { jobTitle: "Expedition Technical Coordinator", approxSalaryRange: "$90,000 - $130,000 USD/season", whySelected: "Logistics and technical troubleshooting." },
+                        { jobTitle: "Remote Infrastructure Specialist", approxSalaryRange: "$95,000 - $135,000 USD/season", whySelected: "High uptime hardware & software maintenance." }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          topCertifications: [
+            { name: "AWS Certified Solutions Architect / Cloud Professional", provider: "Amazon Web Services", relevance: "High demand across 80%+ of top employer postings.", difficulty: "Intermediate" },
+            { name: "Project Management Professional (PMP) / Agile Certified", provider: "PMI / Scrum.org", relevance: "Demonstrates structured project execution & leadership.", difficulty: "Advanced" },
+            { name: "Certified Kubernetes Administrator (CKA)", provider: "CNCF", relevance: "Crucial for modern infrastructure & systems engineering.", difficulty: "Advanced" },
+            { name: "Google Data Analytics & Cloud Engineer Professional", provider: "Google Cloud", relevance: "Strong proof of data-driven decision making.", difficulty: "Intermediate" },
+            { name: "Certified Information Systems Security Professional (CISSP)", provider: "(ISC)²", relevance: "Gold standard for security compliance & systems trust.", difficulty: "Expert" }
+          ],
+          interviewPrepTips: [
+            { title: "Master the STAR Method Format", details: "Structure every answer as Situation (15%), Task (15%), Action (50%), and Result (20%). Ensure your Action highlights YOUR personal contribution.", strategicTip: "Quantify the result with specific percentages or dollar savings." },
+            { title: "Research Target Company & Recent News", details: "Look up recent product releases, tech blogs, funding announcements, and core cultural values before the interview.", strategicTip: "Mention 1 specific news item during your introductory response." },
+            { title: "Prepare 3 High-Impact Technical Stories", details: "Prepare detailed examples of a project that failed and how you recovered, a complex technical challenge solved, and a cross-team conflict resolved.", strategicTip: "Focus on learnings and constructive resolutions." }
+          ],
+          mockInterviewQuestions: [
+            { id: "q1", question: `Can you describe a challenging project in your work as a ${roleToResearch} where you had to make a high-stakes trade-off under tight deadlines?`, category: "Behavioral", expectedKeyPoints: ["Trade-off analysis", "Stakeholder communication", "Quantified outcome"], STARGuide: "Situation: Context & timeline. Task: What was expected. Action: Specific steps taken. Result: Final operational impact." },
+            { id: "q2", question: `How do you ensure code quality, performance optimization, and architectural scalability when building mission-critical features?`, category: "Technical", expectedKeyPoints: ["Testing strategies", "Performance profiling", "Scalability standards"], STARGuide: "Focus on automated testing, bottleneck analysis, and measurable performance gains." },
+            { id: "q3", question: `Describe a situation where you had a strong disagreement with a team member or project manager on technical direction. How did you resolve it?`, category: "Situational", expectedKeyPoints: ["Empathy", "Data-driven persuasion", "Team alignment"], STARGuide: "Show how you evaluated objectively with benchmarks without personal friction." },
+            { id: "q4", question: `How do you prioritize technical debt versus delivering rapid user features under business pressure?`, category: "Leadership", expectedKeyPoints: ["Risk assessment", "Incremental refactoring", "Business value alignment"], STARGuide: "Explain your framework for scoring tech debt and negotiating refactoring Sprints." },
+            { id: "q5", question: `What is the most complex bug or performance outage you diagnosed in production, and how did you prevent it from recurring?`, category: "Technical", expectedKeyPoints: ["Root cause analysis", "Blameless post-mortem", "Automated prevention"], STARGuide: "Detail monitoring tools used, fast mitigation steps, and permanent automated fixes." }
+          ]
         };
       },
       ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
@@ -1919,6 +2227,83 @@ Return JSON with this schema:
   } catch (error: any) {
     console.error("AI Resume Coach Error:", error);
     res.status(500).json({ error: error?.message || "Failed to process request" });
+  }
+});
+
+// 6.9 AI Interactive Mock Interview Evaluator
+app.post("/api/ai/evaluate-interview-answer", async (req, res) => {
+  try {
+    const { question, userAnswer, targetRole, resumeSummary } = req.body;
+    if (!question || !userAnswer) {
+      return res.status(400).json({ error: "Question and candidate answer are required" });
+    }
+
+    const result = await callGeminiWithFallback(
+      async (modelName) => {
+        if (!ai) throw new Error("AI client is offline.");
+
+        const evalPrompt = `You are a Senior Technical Recruiter & Hiring Manager interviewing a candidate for the role "${targetRole || "Professional"}".
+Candidate Profile Context: "${resumeSummary || "Standard background"}"
+
+Interview Question Asked: "${question}"
+Candidate's Spoken/Typed Answer: "${userAnswer}"
+
+Evaluate the candidate's response rigorously.
+Analyze:
+- STAR methodology structure (Situation, Task, Action, Result)
+- Relevance to ${targetRole || "the role"}
+- Presence of quantitative results and metrics
+- Professional clarity, conciseness, and confidence
+
+Return JSON matching this schema:
+{
+  "score": 85,
+  "verdict": "Strong candidate answer with clear action steps, but needs a more quantified result.",
+  "strengths": ["Clear structure", "Highlighting personal ownership"],
+  "areasToImprove": ["Add quantitative metrics (e.g., % improvement)", "Explain why that specific technology was chosen"],
+  "exemplarAnswer": "An example of a 100/100 world-class answer to this question using STAR format.",
+  "recruiterFeedback": "Detailed recruiter coaching advice on how to deliver this answer in a live interview."
+}`;
+
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: evalPrompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                score: { type: Type.INTEGER },
+                verdict: { type: Type.STRING },
+                strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                areasToImprove: { type: Type.ARRAY, items: { type: Type.STRING } },
+                exemplarAnswer: { type: Type.STRING },
+                recruiterFeedback: { type: Type.STRING }
+              },
+              required: ["score", "verdict", "strengths", "areasToImprove", "exemplarAnswer", "recruiterFeedback"]
+            }
+          }
+        });
+
+        return JSON.parse(response.text || "{}");
+      },
+      () => {
+        return {
+          score: 82,
+          verdict: "Good clear answer that addresses the prompt directly. To achieve a top score, quantify the impact with metrics.",
+          strengths: ["Directly addresses the situation", "Demonstrates problem solving and ownership"],
+          areasToImprove: ["Include specific metric outcomes (e.g., % speedup, revenue boost)", "Mention technical tools used in detail"],
+          exemplarAnswer: `In my role as ${targetRole || "Engineer"}, I faced a situation where critical production workflows slowed down under high load. I conducted performance profiling to identify the database indexing bottleneck. I refactored the query structure and introduced caching, which improved system throughput by 42% and eliminated latency spikes during peak hours.`,
+          recruiterFeedback: "Solid communication style! Ensure you emphasize the STAR 'Result' phase with numbers during your real interview."
+        };
+      },
+      ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("AI Interview Evaluator Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to evaluate answer" });
   }
 });
 
