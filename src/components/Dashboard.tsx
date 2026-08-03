@@ -17,7 +17,7 @@ interface DashboardProps {
   onDuplicateResume: (resume: ResumeData) => void;
   onDeleteResume: (id: string) => void;
   onDeleteLetter: (id: string) => void;
-  onSelectView: (view: "resumes" | "letters" | "score" | "settings") => void;
+  onSelectView: (view: "resumes" | "letters" | "score" | "settings" | "resume-coach" | any) => void;
   onUpgrade: () => void;
 }
 
@@ -100,7 +100,7 @@ export default function Dashboard({
       </div>
 
       {/* Grid of Creators */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Creator 1: Resume */}
         <button
           onClick={() => setShowCreateResumeModal(true)}
@@ -130,12 +130,31 @@ export default function Dashboard({
               <Sparkles className="h-5.5 w-5.5" />
             </div>
             <span className="text-[10px] font-mono tracking-widest text-emerald-400 bg-emerald-950 border border-emerald-900 px-2 py-0.5 rounded uppercase font-bold">
-              Gemini AI
+              Search Grounded
             </span>
           </div>
           <h3 className="text-md font-bold text-white group-hover:text-emerald-400 transition font-display">New Cover Letter</h3>
           <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-            Compose tailored, persuasive cover letters specific to your target job descriptions with Gemini AI.
+            Researches real online company data & job postings to draft authentic, highly customized cover letters.
+          </p>
+        </button>
+
+        {/* Creator 3: AI Resume Coach */}
+        <button
+          onClick={() => onSelectView("resume-coach")}
+          className="p-6 bg-purple-600/10 border border-purple-500/20 hover:border-purple-500 rounded-2xl text-left transition group shadow-md"
+        >
+          <div className="flex justify-between items-start">
+            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-4 border border-purple-500/20">
+              <Sparkles className="h-5.5 w-5.5 text-purple-400 animate-pulse" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-purple-300 bg-purple-950 border border-purple-900 px-2 py-0.5 rounded uppercase font-bold">
+              AI Coach
+            </span>
+          </div>
+          <h3 className="text-md font-bold text-white group-hover:text-purple-400 transition font-display">AI Resume Coach</h3>
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+            Analyzes real online market trends to perfect your resume line-by-line with 1-click instant updates.
           </p>
         </button>
       </div>

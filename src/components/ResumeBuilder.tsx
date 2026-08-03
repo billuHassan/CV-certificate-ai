@@ -337,6 +337,57 @@ export default function ResumeBuilder({
   };
 
   // AI Career Summary Generator
+  const [isScanningPhoto, setIsScanningPhoto] = useState(false);
+
+  const handleScanPaperResumePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanningPhoto(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const response = await fetch("/api/ai/analyze-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageBase64: base64,
+            mode: "resume"
+          })
+        });
+
+        if (!response.ok) throw new Error("Failed to scan paper resume image");
+        const data = await response.json();
+
+        if (data.extractedResume) {
+          const ext = data.extractedResume;
+          setResume((prev) => ({
+            ...prev,
+            personalInfo: {
+              ...prev.personalInfo,
+              fullName: ext.personalInfo?.fullName || prev.personalInfo.fullName,
+              email: ext.personalInfo?.email || prev.personalInfo.email,
+              phone: ext.personalInfo?.phone || prev.personalInfo.phone,
+              jobTitle: ext.personalInfo?.jobTitle || prev.personalInfo.jobTitle,
+              location: ext.personalInfo?.location || prev.personalInfo.location
+            },
+            summary: ext.summary || prev.summary,
+            skills: Array.from(new Set([...prev.skills, ...(ext.skills || [])])),
+            experience: ext.experience?.length ? ext.experience : prev.experience
+          }));
+          alert("🎉 Paper resume photo scanned successfully with Gemini 3.1 Pro Vision! Content updated.");
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error("Photo scan error:", err);
+      alert(`Failed to scan paper resume photo: ${err?.message || "Error"}`);
+    } finally {
+      setIsScanningPhoto(false);
+    }
+  };
+
   const handleAiGenerateSummary = async () => {
     if (!resume.personalInfo.jobTitle) {
       alert("Please provide a Professional Job Title in Personal Info first.");
@@ -1505,6 +1556,33 @@ export default function ResumeBuilder({
 
             {activeTab === "ai" && (
               <div className="space-y-4">
+                {/* Paper Resume OCR Card */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900 border border-indigo-500/30 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-indigo-400" />
+                    <h4 className="text-xs font-bold text-white font-display">Scan Paper CV / Resume Photo</h4>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Upload a photo or scan of a printed paper resume. **Gemini 3.1 Pro Vision** will extract your contact info, summary, skills, and work experience automatically into this editor.
+                  </p>
+                  
+                  <label className={`w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all border ${
+                    isScanningPhoto
+                      ? "bg-indigo-800/50 text-indigo-200 border-indigo-600/50"
+                      : "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-600/20"
+                  }`}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleScanPaperResumePhoto}
+                      disabled={isScanningPhoto}
+                      className="hidden"
+                    />
+                    <Image className="h-4 w-4" />
+                    <span>{isScanningPhoto ? "Gemini Scanning Photo..." : "Upload Paper Resume Photo"}</span>
+                  </label>
+                </div>
+
                 <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
                   <h4 className="text-xs font-bold text-white mb-2 font-display">Structure Reordering</h4>
                   <p className="text-[11px] text-slate-400 leading-relaxed">

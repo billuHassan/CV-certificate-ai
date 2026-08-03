@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Sparkles, Printer, Copy, RefreshCw, Send, CheckCircle, ChevronLeft, Mail, Phone, MapPin, Download } from "lucide-react";
+import { Sparkles, Printer, Copy, RefreshCw, Send, CheckCircle, ChevronLeft, Mail, Phone, MapPin, Download, Globe, ExternalLink, ShieldCheck } from "lucide-react";
 import { CoverLetterData, ResumeData } from "../types";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
+
+interface GroundingSource {
+  title: string;
+  uri: string;
+}
 
 interface CoverLetterBuilderProps {
   initialLetter: CoverLetterData;
@@ -24,6 +29,11 @@ export default function CoverLetterBuilder({
   const [selectedResumeId, setSelectedResumeId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Live Grounding online analysis state
+  const [groundingSources, setGroundingSources] = useState<GroundingSource[]>([]);
+  const [companyAnalysis, setCompanyAnalysis] = useState<string | null>(null);
+  const [keyKeywordsUsed, setKeyKeywordsUsed] = useState<string[]>([]);
 
   useEffect(() => {
     onSave(letter);
@@ -50,6 +60,10 @@ export default function CoverLetterBuilder({
 
     const generateAction = async () => {
       setGenerating(true);
+      setGroundingSources([]);
+      setCompanyAnalysis(null);
+      setKeyKeywordsUsed([]);
+
       try {
         // Find selected resume summary context
         let resumeContext = "";
@@ -77,6 +91,15 @@ export default function CoverLetterBuilder({
         const data = await response.json();
         if (data.content) {
           setLetter((prev) => ({ ...prev, content: data.content }));
+        }
+        if (data.groundingSources) {
+          setGroundingSources(data.groundingSources);
+        }
+        if (data.companyAnalysis) {
+          setCompanyAnalysis(data.companyAnalysis);
+        }
+        if (data.keyKeywordsUsed) {
+          setKeyKeywordsUsed(data.keyKeywordsUsed);
         }
       } catch (err) {
         console.error(err);
@@ -363,14 +386,61 @@ export default function CoverLetterBuilder({
             >
               {generating ? (
                 <>
-                  <RefreshCw className="h-4 w-4 animate-spin" /> Gemini is Drafting...
+                  <RefreshCw className="h-4 w-4 animate-spin" /> Gemini Searching Online & Drafting...
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" /> Draft Cover Letter
+                  <Sparkles className="h-4 w-4" /> Research Online & Draft Letter
                 </>
               )}
             </button>
+
+            {/* Live Web Research Insights */}
+            {(companyAnalysis || groundingSources.length > 0) && (
+              <div className="p-3.5 bg-emerald-950/30 border border-emerald-500/20 rounded-xl space-y-2.5 mt-3 text-xs">
+                <div className="flex items-center justify-between text-emerald-400 font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <Globe className="h-4 w-4 text-emerald-400" /> Live Web Research Grounded
+                  </span>
+                  <span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                    <ShieldCheck className="h-3 w-3 text-emerald-400" /> Verified Online
+                  </span>
+                </div>
+                {companyAnalysis && (
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    {companyAnalysis}
+                  </p>
+                )}
+                {keyKeywordsUsed.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {keyKeywordsUsed.map((kw, i) => (
+                      <span key={i} className="text-[10px] bg-slate-900 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">
+                        #{kw}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {groundingSources.length > 0 && (
+                  <div className="pt-2 border-t border-emerald-900/40">
+                    <span className="text-[10px] text-slate-400 font-medium block mb-1">Online Sources Analyzed by Gemini:</span>
+                    <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                      {groundingSources.map((source, idx) => (
+                        <a
+                          key={idx}
+                          href={source.uri}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 truncate"
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{source.title || source.uri}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Letter Editor block */}

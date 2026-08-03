@@ -12,12 +12,13 @@ import ResumeBuilder from "./components/ResumeBuilder";
 import CoverLetterBuilder from "./components/CoverLetterBuilder";
 import ScoreAnalyzer from "./components/ScoreAnalyzer";
 import CareerRecommender from "./components/CareerRecommender";
+import ResumeCoach from "./components/ResumeCoach";
 import Settings, { THEMES, WORLD_LANGUAGES } from "./components/Settings";
 import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
-// import AIChat from "./components/AIChat";
+import AIChat from "./components/AIChat";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, query, where } from "firebase/firestore";
@@ -127,7 +128,7 @@ export default function App() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
   const [scoreReport, setScoreReport] = useState<ScoreReport | null>(null);
-  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach">("dashboard");
   const [userUnreadCount, setUserUnreadCount] = useState<number>(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
   const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" } | null>(null);
@@ -745,6 +746,23 @@ export default function App() {
     }
   };
 
+  const handleImportScannedResume = async (scannedResume: ResumeData) => {
+    if (!user) return;
+    if (isOfflineMode) {
+      const updated = [scannedResume, ...resumes];
+      setResumes(updated);
+      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updated));
+    } else if (auth.currentUser) {
+      try {
+        await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", scannedResume.id), scannedResume);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/resumes/${scannedResume.id}`);
+      }
+    }
+    setSelectedResumeId(scannedResume.id);
+    setCurrentView("resume-editor");
+  };
+
   const handleDeleteLetter = async (id: string) => {
     if (!user) return;
     if (isOfflineMode) {
@@ -961,6 +979,29 @@ export default function App() {
               <Sparkles className="h-4.5 w-4.5" /> Cover Letters
             </button>
 
+            <button
+              onClick={() => {
+                if (resumes.length > 0) {
+                  if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
+                  setCurrentView("resume-coach");
+                } else {
+                  alert("Please create or scan a resume first from the dashboard!");
+                }
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "resume-coach" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="h-4.5 w-4.5 text-indigo-400 animate-pulse" />
+                <span>AI Resume Coach</span>
+              </div>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 uppercase">
+                Live Grounding
+              </span>
+            </button>
+
             {/* Hidden ATS Score Audit and Career Recommender for future continuation
             <button
               onClick={() => {
@@ -1135,6 +1176,16 @@ export default function App() {
           />
         )}
 
+        {currentView === "resume-coach" && activeResume && (
+          <ResumeCoach
+            resume={activeResume}
+            onUpdateResume={handleSaveActiveResume}
+            isPremium={user.isPremium}
+            onUpgrade={handleUpgradeElite}
+            onBackToDashboard={() => setCurrentView("dashboard")}
+          />
+        )}
+
         {currentView === "score" && (
           <div className="max-w-4xl mx-auto p-4 sm:p-8 space-y-6">
             <h2 className="text-xl font-bold text-white font-display">Resume ATS Compatibility</h2>
@@ -1198,9 +1249,14 @@ export default function App() {
           <SupportFeedback user={user} />
         )}
 
-        {/* {currentView === "ai-chat" && user && (
-          <AIChat user={user} resumes={resumes} isDark={activeThemeObj.isDark} />
-        )} */}
+        {currentView === "ai-chat" && user && (
+          <AIChat
+            user={user}
+            resumes={resumes}
+            isDark={activeThemeObj.isDark}
+            onImportScannedResume={handleImportScannedResume}
+          />
+        )}
       </main>
 
       <PremiumModal
