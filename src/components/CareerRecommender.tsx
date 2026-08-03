@@ -4,6 +4,7 @@ import {
   TrendingUp, Download, Trash2, Calendar, CheckCircle, ArrowRight, Star, Globe
 } from "lucide-react";
 import { ResumeData, UserSession, CareerRecommendation } from "../types";
+import { getRoleDomainInfo } from "../utils/roleAnalyzer";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { collection, setDoc, onSnapshot, query, orderBy, deleteDoc, doc } from "firebase/firestore";
 
@@ -101,86 +102,16 @@ export default function CareerRecommender({ user, resumes }: CareerRecommenderPr
 
       // If server failed or payload is invalid, generate high-quality custom local matches
       if (!report || !report.recommendedRoles || report.recommendedRoles.length === 0) {
-        const jobTitle = targetResume.personalInfo?.jobTitle || "Professional";
-        const industry = "Technology";
-        const resumeSkills = targetResume.skills || [];
-        const primarySkill = resumeSkills[0] || "Advanced Execution";
-        const secondarySkill = resumeSkills[1] || "Project Management";
+        const jobTitle = targetResume.personalInfo?.jobTitle || targetResume.title || "Professional";
+        const roleDomain = getRoleDomainInfo(jobTitle);
+        const resumeSkills = targetResume.skills && targetResume.skills.length > 0 ? targetResume.skills : roleDomain.coreSkills;
+        const primarySkill = resumeSkills[0] || roleDomain.coreSkills[0];
+        const secondarySkill = resumeSkills[1] || roleDomain.coreSkills[1];
 
         report = {
-          overallFitSummary: `Based on your profile as a ${jobTitle} (focusing on ${industry}), you demonstrate strong foundations in ${primarySkill} and ${secondarySkill}. This optimized tactical analysis highlights the top 5 tailored matches and concrete pathways aligned with your unique skill profile.`,
-          recommendedRoles: [
-            {
-              title: `Senior ${jobTitle}`,
-              fitScore: 95,
-              rationale: `Capitalizes directly on your existing experiences in ${industry} and leverages your background in ${primarySkill} for senior technical execution.`,
-              expectedSalaryRange: "$120,000 - $155,000",
-              skillsToAcquire: ["System Architecture", "Leadership & Mentorship", "Stakeholder Communication"],
-              topCompanies: ["Stripe", "Google", "Microsoft", "Amazon", "Meta"],
-              skillsToUpgrade: [
-                { skillName: "High-Scale Distributed Systems", whyItStandsOut: "Essential for leadership in modern enterprise engineering teams." },
-                { skillName: "Agile Project Governance", whyItStandsOut: "Validates your capability to drive projects from concept to production delivery." }
-              ]
-            },
-            {
-              title: "Technical Lead / Operations Manager",
-              fitScore: 88,
-              rationale: `Enables you to bridge the gap between technical complexity and business logic, leveraging your established expertise in ${secondarySkill}.`,
-              expectedSalaryRange: "$130,000 - $165,000",
-              skillsToAcquire: ["Team Management", "Solution Delivery", "System Scalability"],
-              topCompanies: ["Atlassian", "Salesforce", "Datadog", "Snowflake", "Canva"],
-              skillsToUpgrade: [
-                { skillName: "Technical Mentoring", whyItStandsOut: "Proves you are ready to scale junior members and elevate overall team performance." }
-              ]
-            },
-            {
-              title: `Lead ${industry} Strategist`,
-              fitScore: 84,
-              rationale: `A highly advisory role focusing on strategic solution design, perfectly matching your experience in ${primarySkill}.`,
-              expectedSalaryRange: "$115,000 - $145,000",
-              skillsToAcquire: ["Client Strategy", "Risk Management", "Business Case Modeling"],
-              topCompanies: ["Accenture", "McKinsey & Company", "Deloitte", "PwC", "EY"],
-              skillsToUpgrade: [
-                { skillName: "Executive Presentation", whyItStandsOut: "Critical for persuading C-suite stakeholders and winning enterprise deals." }
-              ]
-            },
-            {
-              title: "Solutions Architect",
-              fitScore: 82,
-              rationale: `Combines deep engineering capabilities with customer-facing consultative skills, building directly upon ${secondarySkill}.`,
-              expectedSalaryRange: "$125,000 - $160,000",
-              skillsToAcquire: ["Enterprise Design Patterns", "Cloud Security Standards", "Cost-Optimization Strategy"],
-              topCompanies: ["HashiCorp", "Vercel", "Supabase", "Confluent", "MongoDB"],
-              skillsToUpgrade: [
-                { skillName: "Multi-Cloud Architecture", whyItStandsOut: "Positions you as a versatile architect capable of crossing AWS, GCP, and Azure." }
-              ]
-            },
-            {
-              title: "Product Engineer",
-              fitScore: 78,
-              rationale: `Focuses on shipping high-fidelity features with an emphasis on end-user value, drawing from your background.`,
-              expectedSalaryRange: "$110,000 - $140,000",
-              skillsToAcquire: ["User Experience (UX) Design", "Analytics Tracking", "Product Lifecycle Management"],
-              topCompanies: ["Linear", "Figma", "Spotify", "Vercel", "Airbnb"],
-              skillsToUpgrade: [
-                { skillName: "Frontend/User-Centric Architecture", whyItStandsOut: "Differentiates you by proving your appreciation for fine polish and performance." }
-              ]
-            }
-          ],
-          recommendedCompanies: [
-            {
-              companyName: "Leading Tech Enterprises",
-              fitRationale: "High-scale engineering environments value structured ownership, clean code practices, and solid communication.",
-              positionsToWatch: ["Senior Software Developer", "Technical Specialist", "Infrastructure Engineer"],
-              interviewTips: "Focus heavily on behavioral questions using the STAR method. Be prepared to talk about conflict resolution, architectural trade-offs, and mentoring younger developers."
-            },
-            {
-              companyName: "Fintech & SaaS Scale-ups",
-              fitRationale: "Fast-moving, medium-sized companies look for adaptive generalists who can wear multiple hats and drive features from design to deployment.",
-              positionsToWatch: ["Product Engineer", "Full-Stack Developer", "Platform Advocate"],
-              interviewTips: "Prepare for dynamic live-coding assessments and database architectural challenges. Highlight your agility and experience delivering high-quality client value quickly."
-            }
-          ],
+          overallFitSummary: `Based on your profile as a ${jobTitle} (domain: ${roleDomain.domainName}), you demonstrate strong foundations in ${primarySkill} and ${secondarySkill}. This optimized analysis highlights tailored matches and concrete career pathways aligned with your unique role profile.`,
+          recommendedRoles: roleDomain.recommendedRoles,
+          recommendedCompanies: roleDomain.recommendedCompanies,
           recommendedCountries: [
             { country: "United States", rationale: "The largest global tech ecosystem with peak compensations and high innovation density.", topCities: ["San Francisco, CA", "New York, NY", "Seattle, WA"], averageSalaryLevel: "$130,000 - $180,000" },
             { country: "Germany", rationale: "Thriving European hub with stable work hours, high visa approval rates, and massive demand for talent.", topCities: ["Berlin", "Munich", "Frankfurt"], averageSalaryLevel: "€75,000 - €95,000" },

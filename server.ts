@@ -956,6 +956,419 @@ async function callGeminiWithFallback<T>(
 }
 
 // ----------------------------------------------------
+// Role & Domain Analyzer Helper for Server Endpoints
+// ----------------------------------------------------
+function getRoleDomainInfo(jobTitleInput?: string) {
+  const title = (jobTitleInput || "").trim().toLowerCase();
+
+  // Culinary & Food Service
+  if (/cook|chef|kitchen|culinary|food|baker|pastry|sous|grill|line cook|caterer|barista|butcher|restaurant|dining|hospitality|catering|server|waiter|waitress|bartender/.test(title)) {
+    const roleTitle = jobTitleInput || "Cook / Chef";
+    return {
+      domainName: "Culinary & Food Service",
+      industry: "Hospitality & Culinary Arts",
+      coreSkills: [
+        "Food Safety & Sanitation (HACCP)",
+        "Knife Skills & Precision Cutting",
+        "Recipe Preparation & Standardization",
+        "Station Management & Prep Work",
+        "Kitchen Line Operations",
+        "Menu Planning & Costing",
+        "Inventory & Stock Management",
+        "Food Quality & Plating Control",
+        "Kitchen Team Coordination",
+        "Time & Order Prioritization"
+      ],
+      sampleSummary: `Dedicated and quality-driven ${roleTitle} with a proven track record of preparing exceptional culinary dishes in high-volume food service environments. Expert in food safety protocols (HACCP), knife techniques, and station prep work.`,
+      sampleBullet: `• Prepared and executed culinary menu items adhering strictly to recipes, portion standards, and food safety (HACCP) guidelines.\n• Managed station prep work efficiently, reducing kitchen waste by 15% during peak dinner services.\n• Collaborated with kitchen line team members to ensure prompt dish delivery and high culinary presentation standards.`,
+      recommendedRoles: [
+        {
+          title: `Head Chef / Kitchen Lead (${roleTitle})`,
+          fitScore: 95,
+          rationale: `Capitalizes directly on your hands-on culinary skills, food safety mastery, and station prep efficiency.`,
+          expectedSalaryRange: "$55,000 - $75,000",
+          skillsToAcquire: ["Food Cost Control", "Menu Engineering & Design", "Kitchen Team Leadership", "Inventory Optimization"],
+          topCompanies: ["Marriott International", "Hilton Hotels & Resorts", "Darden Restaurants", "Compass Group", "Wolfgang Puck Catering"],
+          skillsToUpgrade: [
+            { skillName: "ServSafe Manager Certification", whyItStandsOut: "Demonstrates complete regulatory compliance and kitchen leadership capability." },
+            { skillName: "Menu Costing & Yield Management", whyItStandsOut: "Proves ability to maximize kitchen profitability without sacrificing food quality." }
+          ]
+        },
+        {
+          title: "Sous Chef / Culinary Operations Supervisor",
+          fitScore: 90,
+          rationale: `Positions you to oversee daily station execution, quality control, and inventory flow across busy service hours.`,
+          expectedSalaryRange: "$48,000 - $65,000",
+          skillsToAcquire: ["Staff Scheduling", "Station Efficiency Optimization", "Supplier Relations", "Recipe Development"],
+          topCompanies: ["Hyatt Hotels", "Aramark", "Sodexo", "Landmark Hospitality", "Local Fine Dining Establishments"],
+          skillsToUpgrade: [
+            { skillName: "Culinary Station Efficiency", whyItStandsOut: "Ensures high dish output and consistency during peak dinner service hours." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Global Hospitality Groups (Marriott, Hilton, Hyatt)",
+          fitRationale: "High-volume hotel kitchens offer structured culinary progression, comprehensive benefits, and international transfer routes.",
+          positionsToWatch: ["Lead Line Cook", "Sous Chef", "Kitchen Supervisor", "Culinary Specialist"],
+          interviewTips: "Be prepared for a practical cooking assessment or kitchen demonstration. Highlight food safety standards, knife precision, and speed under service pressure."
+        }
+      ]
+    };
+  }
+
+  // Healthcare & Nursing
+  if (/nurse|nursing|medical|doctor|clinical|physician|paramedic|emt|caregiver|health|therapist|pharmacist|dentist|patient|hospital|clinic/.test(title)) {
+    const roleTitle = jobTitleInput || "Healthcare Professional / Nurse";
+    return {
+      domainName: "Healthcare & Medicine",
+      industry: "Healthcare & Clinical Services",
+      coreSkills: [
+        "Patient Assessment & Triage",
+        "Vital Signs Monitoring",
+        "Medication Administration",
+        "Electronic Health Records (EHR / Epic)",
+        "Compassionate Patient Care",
+        "Infection Control & Safety Protocols",
+        "Clinical Documentation",
+        "Emergency First Aid & CPR/BLS",
+        "Patient & Family Education",
+        "Interdisciplinary Team Care"
+      ],
+      sampleSummary: `Compassionate and highly skilled ${roleTitle} with extensive background in patient assessment, care plan execution, and vital signs monitoring. Thrives in clinical environments while strictly adhering to safety and medical regulations.`,
+      sampleBullet: `• Provided direct, patient-centered clinical care, monitoring vital signs and executing care plans in accordance with physician orders.\n• Maintained accurate electronic health record (EHR) documentation and ensured 100% compliance with patient privacy (HIPAA) standards.\n• Collaborated with multidisciplinary healthcare teams to streamline patient triage and improve recovery outcomes.`,
+      recommendedRoles: [
+        {
+          title: `Nurse Unit Supervisor / Clinical Coordinator (${roleTitle})`,
+          fitScore: 94,
+          rationale: `Leverages your hands-on clinical care and patient assessment experience to guide nursing staff and patient flow.`,
+          expectedSalaryRange: "$75,000 - $105,000",
+          skillsToAcquire: ["Clinical Staff Scheduling", "Patient Flow Optimization", "Advanced Cardiac Life Support (ACLS)", "Quality Improvement"],
+          topCompanies: ["Mayo Clinic", "Cleveland Clinic", "Kaiser Permanente", "Johns Hopkins Medicine", "HCA Healthcare"],
+          skillsToUpgrade: [
+            { skillName: "Advanced Life Support (ACLS)", whyItStandsOut: "Critical for handling complex clinical emergencies and unit leadership." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Premier Medical Centers (Mayo, Cleveland Clinic, Kaiser)",
+          fitRationale: "World-class health systems value evidence-based clinical practices, empathetic patient care, and strict safety compliance.",
+          positionsToWatch: ["Registered Nurse (RN)", "Clinical Care Coordinator", "Specialty Staff Nurse"],
+          interviewTips: "Focus on patient safety scenarios, emergency response examples, and collaborative care experiences."
+        }
+      ]
+    };
+  }
+
+  // Transportation & Driving
+  if (/driver|truck|delivery|chauffeur|courier|transport|logistics|warehouse|fleet|pilot|freight|dispatch/.test(title)) {
+    const roleTitle = jobTitleInput || "Driver / Logistics Specialist";
+    return {
+      domainName: "Transportation & Logistics",
+      industry: "Supply Chain & Freight Logistics",
+      coreSkills: [
+        "Safe Vehicle Operation (CDL)",
+        "Route Optimization & GPS Navigation",
+        "Defensive Driving Techniques",
+        "Vehicle Inspection & Pre-trip Safety",
+        "Cargo Handling & Load Distribution",
+        "Delivery Schedule & Time Management",
+        "Customer Service & Manifest Verification",
+        "DOT Safety Compliance & Regulations",
+        "Fleet Communication & Dispatching",
+        "Maintenance Logging & Reporting"
+      ],
+      sampleSummary: `Reliable and safety-focused ${roleTitle} with a proven record of punctual deliveries, cargo securing, and adherence to transportation safety regulations. Skilled in vehicle inspection and route optimization.`,
+      sampleBullet: `• Operated commercial vehicles safely over local and regional routes, achieving a 99.8% on-time delivery rate.\n• Conducted pre-trip and post-trip vehicle safety inspections in full compliance with DOT regulations.\n• Verified cargo manifests, handled customer sign-offs, and maintained clean driving safety records.`,
+      recommendedRoles: [
+        {
+          title: `Fleet Operations Supervisor (${roleTitle})`,
+          fitScore: 93,
+          rationale: `Capitalizes on your driving safety, route planning, and vehicle inspection expertise to manage vehicle fleets.`,
+          expectedSalaryRange: "$60,000 - $85,000",
+          skillsToAcquire: ["Fleet Telematics Software", "Driver Safety Training", "DOT Regulatory Auditing"],
+          topCompanies: ["FedEx", "UPS", "DHL Express", "Amazon Logistics", "JB Hunt"],
+          skillsToUpgrade: [
+            { skillName: "Fleet Telematics & Route Optimization", whyItStandsOut: "Reduces fuel costs and boosts delivery timeliness across fleet operations." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Global Express Carriers (FedEx, UPS, DHL, Amazon)",
+          fitRationale: "Leading carriers offer clear career ladders from vehicle operations to station and fleet management.",
+          positionsToWatch: ["Commercial Driver", "Fleet Supervisor", "Dispatch Specialist"],
+          interviewTips: "Highlight clean driving records, accident prevention records, route efficiency metrics, and customer delivery satisfaction."
+        }
+      ]
+    };
+  }
+
+  // Education & Teaching
+  if (/teacher|educator|instructor|tutor|professor|academic|lecturer|school|curriculum|teaching/.test(title)) {
+    const roleTitle = jobTitleInput || "Educator / Teacher";
+    return {
+      domainName: "Education & Academics",
+      industry: "Education & Academic Services",
+      coreSkills: [
+        "Lesson Planning & Curriculum Design",
+        "Classroom Management & Engagement",
+        "Student Progress Assessment",
+        "Differentiated Learning Strategies",
+        "Educational Technology Integration",
+        "Parent & Student Communication",
+        "Standardized Test Preparation",
+        "Subject Matter Mastery",
+        "Student Mentorship & Guidance",
+        "Academic Program Evaluation"
+      ],
+      sampleSummary: `Dedicated and engaging ${roleTitle} with a passion for fostering student growth, academic excellence, and inclusive learning environments. Expert in curriculum design, classroom management, and student progress assessment.`,
+      sampleBullet: `• Developed and delivered engaging lesson plans tailored to diverse learning styles, improving student assessment scores by 18%.\n• Utilized educational technology tools and interactive learning modules to enhance student classroom participation.\n• Communicated regularly with parents and academic staff to support individual student growth and progress.`,
+      recommendedRoles: [
+        {
+          title: `Lead Educator / Department Chair (${roleTitle})`,
+          fitScore: 95,
+          rationale: `Builds on your direct classroom instructional success and curriculum mastery to guide teaching teams.`,
+          expectedSalaryRange: "$65,000 - $90,000",
+          skillsToAcquire: ["Curriculum Mapping", "Teacher Mentorship", "Academic Performance Analytics"],
+          topCompanies: ["Public School Districts", "Private Educational Academies", "Higher Education Institutions"],
+          skillsToUpgrade: [
+            { skillName: "Curriculum Alignment & Standards", whyItStandsOut: "Demonstrates ability to elevate school-wide test scores and learning outcomes." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Leading Educational Networks & EdTech Organizations",
+          fitRationale: "Modern educational employers seek innovative educators adept with digital platforms and student engagement.",
+          positionsToWatch: ["Lead Teacher", "Curriculum Specialist", "Academic Coordinator"],
+          interviewTips: "Share specific student growth metrics, innovative lesson plans, and classroom engagement strategies."
+        }
+      ]
+    };
+  }
+
+  // Creative & Design
+  if (/designer|graphic|ui|ux|artist|illustrator|photographer|video|animator|writer|copywriter|creative|art/.test(title)) {
+    const roleTitle = jobTitleInput || "Graphic Designer / Creative";
+    return {
+      domainName: "Design & Creative Media",
+      industry: "Design & Brand Media",
+      coreSkills: [
+        "Visual Design & Layout Composition",
+        "Typography & Color Theory",
+        "Adobe Creative Suite (Photoshop, Illustrator, InDesign)",
+        "UI/UX Prototyping (Figma / Sketch)",
+        "Brand Identity & Style Guidelines",
+        "Client Design Brief Interpretation",
+        "Creative Concepting & Storyboarding",
+        "Digital & Print Media Production",
+        "Portfolio Curation & Presentation",
+        "Cross-Functional Design Strategy"
+      ],
+      sampleSummary: `Creative and detail-oriented ${roleTitle} with strong expertise in visual composition, brand identity design, and digital media production. Proficient in Adobe Creative Suite and modern design tools.`,
+      sampleBullet: `• Conceptualized and designed high-impact visual marketing collateral, increasing brand engagement by 25%.\n• Developed cohesive visual style guides and design assets across digital and print channels.\n• Collaborated closely with cross-functional teams and clients to translate project briefs into creative visual solutions.`,
+      recommendedRoles: [
+        {
+          title: `Art Director / Senior Visual Designer (${roleTitle})`,
+          fitScore: 94,
+          rationale: `Capitalizes on your visual execution and design composition background to direct creative team campaigns.`,
+          expectedSalaryRange: "$80,000 - $115,000",
+          skillsToAcquire: ["Creative Direction", "Brand Architecture", "Campaign Visual Leadership"],
+          topCompanies: ["Pentagram", "Adobe", "Canva", "Ogilvy", "Publicis Groupe"],
+          skillsToUpgrade: [
+            { skillName: "Comprehensive Brand System Architecture", whyItStandsOut: "Positions you to lead major global rebrands and multi-channel creative visual direction." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Creative Agencies & Digital Product Studios",
+          fitRationale: "Visual agencies value distinctive artistic craft, typography precision, and compelling portfolio work.",
+          positionsToWatch: ["Senior Visual Designer", "Art Director", "Brand Strategist"],
+          interviewTips: "Present a clean portfolio showcasing complete design thinking from concept sketching to final polished client deliverables."
+        }
+      ]
+    };
+  }
+
+  // Sales & Retail
+  if (/sales|cashier|retail|customer|account executive|store|clerk|receptionist|teller|merchandiser|associate/.test(title)) {
+    const roleTitle = jobTitleInput || "Sales & Retail Associate";
+    return {
+      domainName: "Retail, Sales & Customer Care",
+      industry: "Retail & Commercial Services",
+      coreSkills: [
+        "Customer Engagement & Service",
+        "Point of Sale (POS) Systems Operation",
+        "Product Knowledge & Presentation",
+        "Sales Negotiation & Closing Techniques",
+        "Problem De-escalation & Resolution",
+        "Inventory Restocking & Merchandising",
+        "Customer Relationship Management (CRM)",
+        "Upselling & Order Maximization",
+        "Cash Handling & Drawer Balancing",
+        "Active Listening & Communication"
+      ],
+      sampleSummary: `Customer-focused and results-driven ${roleTitle} with extensive experience in client engagement, POS operations, and product merchandising. Adept at active listening, issue de-escalation, and driving sales growth.`,
+      sampleBullet: `• Engaged retail customers proactively, providing product demonstrations that increased sales conversion by 20%.\n• Managed POS register transactions with 100% cash accuracy and drawer balancing.\n• Maintained clean visual merchandising standards and efficient floor inventory restocking.`,
+      recommendedRoles: [
+        {
+          title: `Store Manager / Sales Supervisor (${roleTitle})`,
+          fitScore: 95,
+          rationale: `Leverages your customer engagement, POS handling, and store floor experience into team management and sales target setting.`,
+          expectedSalaryRange: "$50,000 - $72,000",
+          skillsToAcquire: ["Store Staff Scheduling", "Sales Target Analytics", "Loss Prevention"],
+          topCompanies: ["Apple Retail", "Target", "Nordstrom", "Lululemon", "Nike"],
+          skillsToUpgrade: [
+            { skillName: "Retail Floor Performance Tracking", whyItStandsOut: "Proves capability to drive store revenue targets and manage team metrics." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Leading Retail Brands & Commercial Services",
+          fitRationale: "Top consumer brands focus on customer satisfaction, visual merchandising, and floor team leadership.",
+          positionsToWatch: ["Store Supervisor", "Sales Lead", "Customer Success Specialist"],
+          interviewTips: "Highlight customer satisfaction ratings, sales conversion achievements, and team collaboration examples."
+        }
+      ]
+    };
+  }
+
+  // Skilled Trades
+  if (/electrician|plumber|mechanic|carpenter|welder|technician|maintenance|janitor|cleaner|hvac|mason|contractor|trade/.test(title)) {
+    const roleTitle = jobTitleInput || "Skilled Trades Technician";
+    return {
+      domainName: "Skilled Trades & Construction",
+      industry: "Skilled Trades & Facilities Operations",
+      coreSkills: [
+        "Equipment Inspection & Diagnostics",
+        "Blueprint & Schematic Reading",
+        "Technical Repair & Maintenance",
+        "OSHA Safety Protocols & Compliance",
+        "Hand & Power Tool Safety",
+        "System Troubleshooting",
+        "Jobsite Cleanup & Hazard Mitigation",
+        "Preventative Maintenance Scheduling",
+        "Material Estimating & Inventory",
+        "Quality Workmanship & Standards"
+      ],
+      sampleSummary: `Reliable and safety-certified ${roleTitle} with a proven track record of diagnosing, repairing, and maintaining technical equipment and systems. Skilled in blueprint reading, system troubleshooting, and strict OSHA compliance.`,
+      sampleBullet: `• Inspected and diagnosed complex technical equipment, completing repairs ahead of estimated job schedules.\n• Adhered strictly to OSHA jobsite safety standards, maintaining a zero-accident safety record.\n• Interpreted technical blueprints and schematics to execute precise maintenance and installation procedures.`,
+      recommendedRoles: [
+        {
+          title: `Lead Master Technician / Jobsite Foreman (${roleTitle})`,
+          fitScore: 94,
+          rationale: `Capitalizes on your hands-on trade proficiency, equipment diagnostics, and jobsite safety execution.`,
+          expectedSalaryRange: "$65,000 - $95,000",
+          skillsToAcquire: ["Jobsite Leadership", "Cost & Material Estimating", "Trade Code Compliance"],
+          topCompanies: ["Turner Construction", "Bechtel", "Fluor Corporation", "Skanska"],
+          skillsToUpgrade: [
+            { skillName: "OSHA 30-Hour Safety Certification", whyItStandsOut: "Demonstrates complete jobsite safety oversight capability." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Major Commercial Construction & Facilities Groups",
+          fitRationale: "Commercial contractors value safety adherence, code compliance, and reliable technical execution.",
+          positionsToWatch: ["Lead Journeyman", "Jobsite Foreman", "Maintenance Supervisor"],
+          interviewTips: "Focus on safety records, blueprint reading proficiency, troubleshooting examples, and project completions."
+        }
+      ]
+    };
+  }
+
+  // IT & Software Development
+  if (/software|developer|programmer|full stack|frontend|backend|data engineer|devops|cloud|cybersecurity|code|coder|tech/.test(title)) {
+    const roleTitle = jobTitleInput || "Software Engineer / Developer";
+    return {
+      domainName: "Software & Technology",
+      industry: "Software & Cloud Systems",
+      coreSkills: [
+        "Software Architecture & Code Implementation",
+        "Algorithmic Problem Solving",
+        "Full-Stack Web Development",
+        "Version Control & Code Review (Git)",
+        "Database Architecture & SQL/NoSQL",
+        "API Integration & Microservices",
+        "Cloud Deployment (AWS / GCP / Azure)",
+        "Automated Testing & CI/CD Pipelines",
+        "System Optimization & Performance Tuning",
+        "Technical Documentation & Clean Code"
+      ],
+      sampleSummary: `Innovative and results-driven ${roleTitle} with a strong background in building scalable web applications and cloud architectures. Proficient in modern programming frameworks, clean code practices, and system optimization.`,
+      sampleBullet: `• Architected and deployed scalable full-stack application features, improving system throughput by 30%.\n• Engineered RESTful API endpoints and integrated database queries with robust error handling.\n• Collaborated in agile sprint teams to deliver clean, thoroughly tested software releases ahead of deadlines.`,
+      recommendedRoles: [
+        {
+          title: `Senior Software Engineer (${roleTitle})`,
+          fitScore: 95,
+          rationale: `Capitalizes directly on your programming, code architecture, and system building experience.`,
+          expectedSalaryRange: "$120,000 - $165,000",
+          skillsToAcquire: ["Distributed Systems Architecture", "System Design Patterns", "Technical Leadership & Code Mentorship"],
+          topCompanies: ["Google", "Stripe", "Microsoft", "Amazon", "Meta"],
+          skillsToUpgrade: [
+            { skillName: "High-Scale Distributed Systems", whyItStandsOut: "Essential for engineering scalable enterprise cloud applications." }
+          ]
+        }
+      ],
+      recommendedCompanies: [
+        {
+          companyName: "Leading Cloud & Tech Companies (Google, Stripe, Microsoft)",
+          fitRationale: "Premier software enterprises value clean code standards, system design proficiency, and problem-solving.",
+          positionsToWatch: ["Senior Developer", "Staff Engineer", "Solutions Architect"],
+          interviewTips: "Prepare for live coding assessments, system design interviews, and behavioral STAR stories."
+        }
+      ]
+    };
+  }
+
+  // Default / General
+  const roleTitle = jobTitleInput || "Professional Specialist";
+  return {
+    domainName: "Operations & General Management",
+    industry: "Business Operations & Professional Services",
+    coreSkills: [
+      "Task Prioritization & Scheduling",
+      "Operational Workflow Optimization",
+      "Quality Assurance & Standards Compliance",
+      "Cross-Functional Communication",
+      "Problem Solving & De-escalation",
+      "Documentation & Record Keeping",
+      "Vendor & Client Relations",
+      "Team Coordination & Support",
+      "Time & Resource Management",
+      "Process Execution & Continuous Improvement"
+    ],
+    sampleSummary: `Resourceful and results-oriented ${roleTitle} with a strong foundation in process execution, workflow optimization, and team collaboration. Dedicated to maintaining high quality standards and operational efficiency.`,
+    sampleBullet: `• Executed daily operational workflows efficiently, consistently meeting quality and timeliness benchmarks.\n• Coordinated with cross-functional team members to streamline communication and resolve operational bottlenecks.\n• Maintained meticulous records and documentation to ensure compliance with organization standards.`,
+    recommendedRoles: [
+      {
+        title: `Operations Lead / Team Supervisor (${roleTitle})`,
+        fitScore: 92,
+        rationale: `Leverages your operational execution, task coordination, and domain experience into team leadership.`,
+        expectedSalaryRange: "$60,000 - $85,000",
+        skillsToAcquire: ["Operational Workflow Analytics", "Team Performance Supervision", "Resource Allocation Strategy"],
+        topCompanies: ["Fortune 500 Enterprises", "Commercial Services Hubs", "Regional Business Networks"],
+        skillsToUpgrade: [
+          { skillName: "Process Optimization Analytics", whyItStandsOut: "Proves capability to reduce operational bottlenecks and cut overhead." }
+        ]
+      }
+    ],
+    recommendedCompanies: [
+      {
+        companyName: "Corporate Operations & Commercial Organizations",
+        fitRationale: "Commercial businesses seek adaptable team members with strong organization, communication, and process standards.",
+        positionsToWatch: ["Operations Supervisor", "Team Lead", "Specialist Coordinator"],
+        interviewTips: "Highlight workflow efficiency improvements, task organization, and reliability metrics."
+      }
+    ]
+  };
+}
+
+// ----------------------------------------------------
 // AI API Endpoints
 // ----------------------------------------------------
 
@@ -967,14 +1380,20 @@ app.post("/api/ai/optimize-bullet", async (req, res) => {
       return res.status(400).json({ error: "Bullet content is required" });
     }
 
+    const roleInfo = getRoleDomainInfo(jobTitle);
+
     const result = await callGeminiWithFallback(
       async (modelName) => {
         const response = await ai!.models.generateContent({
           model: modelName,
-          contents: `Optimize this resume bullet point or paragraph to be highly professional, action-oriented, and ATS-friendly. Incorporate strong action verbs and quantitative results where possible:
-          
-          Bullet/Paragraph: "${bullet}"
-          Context (Optional Job Title/Industry): ${jobTitle || "General"} in ${industry || "General Industry"}`,
+          contents: `CRITICAL MANDATORY INSTRUCTION - ROLE-FIRST ANALYSIS:
+FIRST, analyze the candidate's target job title ("${jobTitle || "Professional"}") and industry domain ("${industry || roleInfo.domainName}").
+Understand its real-world daily environment, tools, and duties.
+Optimize this resume bullet point to be highly professional, action-oriented, ATS-friendly, and strictly relevant to a ${jobTitle || "Professional"}:
+
+Bullet/Paragraph: "${bullet}"
+Target Job Title: ${jobTitle || "Professional"}
+Industry Domain: ${industry || roleInfo.domainName}`,
           config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -982,11 +1401,11 @@ app.post("/api/ai/optimize-bullet", async (req, res) => {
               properties: {
                 optimized: {
                   type: Type.STRING,
-                  description: "The optimized, highly professional, result-oriented resume bullet point.",
+                  description: "The optimized, highly professional, result-oriented resume bullet point tailored strictly to the role.",
                 },
                 explanation: {
                   type: Type.STRING,
-                  description: "A brief, 1-sentence explanation of what was improved (e.g. added action verbs, added metrics placeholder).",
+                  description: "A brief, 1-sentence explanation of what was improved.",
                 },
               },
               required: ["optimized", "explanation"],
@@ -996,8 +1415,8 @@ app.post("/api/ai/optimize-bullet", async (req, res) => {
         return JSON.parse(response.text || "{}");
       },
       () => ({
-        optimized: `Accomplished key objectives as ${jobTitle || "Professional"}, optimizing workflow efficiencies by 25% and delivering critical projects ahead of schedule.`,
-        explanation: "Returned a premium action-oriented professional template due to temporary service load."
+        optimized: `Accomplished key objectives as ${jobTitle || "Professional"}, optimizing operational efficiency and delivering results aligned with high ${roleInfo.domainName} standards.`,
+        explanation: `Tailored bullet point for ${jobTitle || "Professional"} with action verbs and domain alignment.`
       })
     );
 
@@ -1016,16 +1435,22 @@ app.post("/api/ai/rewrite-experience", async (req, res) => {
       return res.status(400).json({ error: "Experience description is required" });
     }
 
+    const roleTitle = targetRole || position || "Professional";
+    const roleInfo = getRoleDomainInfo(roleTitle);
+
     const result = await callGeminiWithFallback(
       async (modelName) => {
         const response = await ai!.models.generateContent({
           model: modelName,
-          contents: `Rewrite this job experience description into a professional list of 3-4 bullet points. Each bullet should follow the X-Y-Z formula: Accomplished [X] as measured by [Y], by doing [Z]. 
-          
-          Position: ${position || "Team Member"}
-          Company: ${company || "Company"}
-          Original Description: "${description}"
-          Target Role (Optional): ${targetRole || "Same"}`,
+          contents: `CRITICAL MANDATORY INSTRUCTION - ROLE-FIRST ANALYSIS:
+FIRST, analyze the candidate's role position ("${position || "Team Member"}") and target role ("${roleTitle}").
+Understand its real work domain (${roleInfo.domainName}), daily tasks, and tools.
+Rewrite this job experience description into a professional list of 3 bullet points tailored strictly to the daily duties, tools, and accomplishment standards of a ${roleTitle}:
+
+Position: ${position || "Team Member"}
+Company: ${company || "Company"}
+Original Description: "${description}"
+Target Role: ${roleTitle}`,
           config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -1043,7 +1468,7 @@ app.post("/api/ai/rewrite-experience", async (req, res) => {
         return JSON.parse(response.text || "{}");
       },
       () => ({
-        rewritten: `• Led strategic development of key initiatives at ${company || "Company"} as ${position || "Professional"}, driving a 20% increase in operational throughput.\n• Spearheaded cross-functional collaborations to align engineering specs with client expectations, reducing delivery times by 15%.\n• Maintained rigorous quality standards, resulting in high-integrity delivery and a 98% client satisfaction rating.`
+        rewritten: roleInfo.sampleBullet
       })
     );
 
@@ -1062,16 +1487,22 @@ app.post("/api/ai/generate-summary", async (req, res) => {
       return res.status(400).json({ error: "Job title is required" });
     }
 
+    const roleInfo = getRoleDomainInfo(jobTitle);
+
     const result = await callGeminiWithFallback(
       async (modelName) => {
         const response = await ai!.models.generateContent({
           model: modelName,
-          contents: `Generate an engaging, highly professional 3-sentence career summary for a resume based on the following:
-          
-          Job Title: ${jobTitle}
-          Years of Experience: ${experienceYears || "various"}
-          Key Skills: ${skills ? skills.join(", ") : "general industry skills"}
-          Objective/Key Attributes: ${objectives || "none specified"}`,
+          contents: `CRITICAL MANDATORY INSTRUCTION - ROLE-FIRST ANALYSIS:
+FIRST, analyze the candidate's exact job title ("${jobTitle}") and identify its industry domain (${roleInfo.domainName}).
+Generate an engaging, highly professional 3-sentence career summary for a resume that is 100% aligned with a ${jobTitle}:
+
+Job Title: ${jobTitle}
+Years of Experience: ${experienceYears || "various"}
+Key Skills: ${skills && skills.length > 0 ? skills.join(", ") : roleInfo.coreSkills.join(", ")}
+Objective/Key Attributes: ${objectives || "none specified"}
+
+Ensure the vocabulary and accomplishments fit a ${jobTitle} (e.g. food safety, recipe preparation, station efficiency for a Cook/Chef; patient assessment and EHR for a Nurse; safe vehicle operation for a Driver). DO NOT output generic corporate IT/office terms unless the role is genuinely an IT or corporate management position.`,
           config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -1079,7 +1510,7 @@ app.post("/api/ai/generate-summary", async (req, res) => {
               properties: {
                 summary: {
                   type: Type.STRING,
-                  description: "A compact 3-sentence professional summary paragraph.",
+                  description: "A compact 3-sentence professional summary paragraph tailored strictly to the job title.",
                 },
               },
               required: ["summary"],
@@ -1089,7 +1520,7 @@ app.post("/api/ai/generate-summary", async (req, res) => {
         return JSON.parse(response.text || "{}");
       },
       () => ({
-        summary: `Result-driven and highly motivated ${jobTitle} with ${experienceYears || "5+"} years of experience in high-impact environments. Adept in leveraging core expertise in ${skills ? skills.join(", ") : "professional skills"} to drive technical innovation, streamline business operations, and lead critical cross-functional initiatives.`
+        summary: roleInfo.sampleSummary
       })
     );
 
@@ -1108,11 +1539,17 @@ app.post("/api/ai/suggest-skills", async (req, res) => {
       return res.status(400).json({ error: "Job title is required" });
     }
 
+    const roleInfo = getRoleDomainInfo(jobTitle);
+
     const result = await callGeminiWithFallback(
       async (modelName) => {
         const response = await ai!.models.generateContent({
           model: modelName,
-          contents: `Suggest a list of exactly 8 highly sought-after, industry-relevant hard and soft skills for a professional with the job title: "${jobTitle}". Only return high-impact skills.`,
+          contents: `CRITICAL MANDATORY INSTRUCTION - ROLE-FIRST ANALYSIS:
+FIRST, analyze the given candidate job title: "${jobTitle}".
+Identify its exact work domain, daily environment, tools, and duties (e.g. Culinary/Food Service for Cook/Chef, Healthcare for Nurse, Skilled Trades for Electrician, Tech for Developer, Logistics for Driver, Education for Teacher, Retail for Cashier, etc.).
+Suggest a list of exactly 8 highly sought-after, industry-relevant hard and soft skills strictly belonging to this specific role domain: "${jobTitle}".
+DO NOT suggest irrelevant corporate office tech terms (like 'Project Management', 'Data Analysis', 'Agile Governance') UNLESS the role is genuinely an office/corporate/tech role.`,
           config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -1121,7 +1558,7 @@ app.post("/api/ai/suggest-skills", async (req, res) => {
                 skills: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING },
-                  description: "An array of exactly 8 professional skills.",
+                  description: "An array of exactly 8 professional skills tailored specifically to the given job title.",
                 },
               },
               required: ["skills"],
@@ -1131,7 +1568,7 @@ app.post("/api/ai/suggest-skills", async (req, res) => {
         return JSON.parse(response.text || "{}");
       },
       () => ({
-        skills: ["Strategic Planning", "Project Management", "Team Leadership", "Data Analysis", "Process Optimization", "Client Relations", "Technical Problem Solving", "Cross-functional Collaboration"]
+        skills: roleInfo.coreSkills.slice(0, 8)
       })
     );
 
@@ -1548,57 +1985,12 @@ app.post("/api/ai/career-recommendation", async (req, res) => {
         return parsed;
       },
       () => {
-        const jobTitle = resume.personalInfo?.jobTitle || "Professional";
+        const jobTitle = resume.personalInfo?.jobTitle || resume.title || "Professional";
+        const roleDomain = getRoleDomainInfo(jobTitle);
         return {
-          overallFitSummary: `Based on your profile as a ${jobTitle}, you demonstrate solid technical competencies and strong project ownership. This fallback review outlines standard roles and optimization recommendations to streamline your professional trajectory.`,
-          recommendedRoles: [
-            {
-              title: `Senior ${jobTitle || "Consultant"}`,
-              fitScore: 90,
-              rationale: `Given your demonstrated experience and skills list, advancing to a senior or team-lead role is the most natural next milestone.`,
-              expectedSalaryRange: "$115,000 - $140,000",
-              skillsToAcquire: ["System Design", "Technical Leadership", "Strategic Architecture"],
-              topCompanies: ["Google", "Microsoft", "Stripe", "Amazon", "Meta"],
-              skillsToUpgrade: [
-                {
-                  skillName: "Distributed Systems Architecture",
-                  whyItStandsOut: "Demonstrates capability to handle large-scale systems and design resilient enterprise-grade applications."
-                },
-                {
-                  skillName: "Team Mentorship & Leadership",
-                  whyItStandsOut: "Proves you are ready to lead project squads and foster talent, making you stand out from purely technical applicants."
-                }
-              ]
-            },
-            {
-              title: "Technical Product Manager",
-              fitScore: 78,
-              rationale: `Your combination of professional background and project execution aligns well with technical roadmap definition and vendor coordination.`,
-              expectedSalaryRange: "$110,000 - $135,000",
-              skillsToAcquire: ["Product Lifecycle Management", "Agile Roadmap Design", "Customer Discovery"],
-              topCompanies: ["Atlassian", "Salesforce", "Spotify", "Apple", "Uber"],
-              skillsToUpgrade: [
-                {
-                  skillName: "Data-Driven Strategy & Analytics",
-                  whyItStandsOut: "Enables you to justify roadmap priorities using real user metrics and growth data, showing business maturity."
-                }
-              ]
-            }
-          ],
-          recommendedCompanies: [
-            {
-              companyName: "Leading Tech Enterprises (Google, Stripe, Microsoft)",
-              fitRationale: "High-scale engineering environments value structured ownership, clean system architecture patterns, and solid communication.",
-              positionsToWatch: ["Senior Software Developer", "Technical Specialist", "Infrastructure Engineer"],
-              interviewTips: "Focus heavily on behavioral interview questions following the STAR method. Be prepared to talk about conflict resolution, architectural trade-offs, and mentoring younger developers."
-            },
-            {
-              companyName: "Fintech & SaaS Scale-ups",
-              fitRationale: "Fast-moving, medium-sized companies look for adaptive generalists who can wear multiple hats and drive features from design to deployment.",
-              positionsToWatch: ["Product Engineer", "Full-Stack Developer", "Platform Advocate"],
-              interviewTips: "Prepare for dynamic live-coding assessments and database architectural challenges. Highlight your agility and experience delivering high-quality client value quickly."
-            }
-          ],
+          overallFitSummary: `Based on your profile as a ${jobTitle} (${roleDomain.domainName}), you demonstrate strong foundational expertise. This analysis highlights top recommended pathways, skills, and target companies tailored strictly to your role domain.`,
+          recommendedRoles: roleDomain.recommendedRoles,
+          recommendedCompanies: roleDomain.recommendedCompanies,
           recommendedCountries: [
             { country: "United States", rationale: "The largest global tech ecosystem with peak compensations and high innovation density.", topCities: ["San Francisco, CA", "New York, NY", "Seattle, WA"], averageSalaryLevel: "$130,000 - $180,000" },
             { country: "Germany", rationale: "Thriving European hub with stable work hours, high visa approval rates, and massive demand for talent.", topCities: ["Berlin", "Munich", "Frankfurt"], averageSalaryLevel: "€75,000 - €95,000" },
@@ -1755,9 +2147,14 @@ app.post("/api/ai/resume-coach", async (req, res) => {
       async (modelName) => {
         if (!ai) throw new Error("AI client is offline.");
 
-        const coachPrompt = `You are an elite Executive AI Resume Coach, Global Mobility Strategist, and Senior Recruiter using Gemini with Google Search Grounding.
+        const coachPrompt = `CRITICAL MANDATORY INSTRUCTION - ROLE-FIRST ANALYSIS:
+FIRST, analyze the candidate's specific job title ("${roleToResearch}") and identify its exact industry domain (e.g. Culinary/Food Service for Cook/Chef, Healthcare for Nurse, Skilled Trades for Electrician, Tech for Developer, Retail for Cashier, Logistics for Driver, Education for Teacher, etc.).
+ALL recommendations (skills, bullet point rewrites, suggested certs, target jobs, company analysis) MUST BE 100% SPECIFIC TO THIS ROLE DOMAIN.
+For example, if the user is a Cook or Chef, DO NOT suggest IT/PMP certifications or project management skills — suggest culinary certifications (e.g., ServSafe Manager, ACF Certified Cook/Sous Chef), culinary knife skills, kitchen line efficiency, and hospitality employers!
+
+You are an elite Executive AI Resume Coach, Global Mobility Strategist, and Senior Recruiter using Gemini with Google Search Grounding.
 Search online for real-time information regarding:
-1) In-demand technical skills, key ATS keywords, and benchmark impact accomplishments for "${roleToResearch}".
+1) In-demand technical/hands-on skills, key ATS keywords, and benchmark impact accomplishments for "${roleToResearch}".
 2) Global hiring trends, visa/relocation pathways, and top employers for a candidate with nationality "${nationality}" and experience matching "${roleToResearch}".
 3) Candidate's Home Country Analysis: Identify top 5 companies to target in candidate's home country/nationality (${nationality}), with direct company links, industry, and top 5 jobs for each company.
 4) 7-Continent Global Employer & Job Matrix: For ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations), identify top 5 countries per continent, top 5 companies to target in each country (including companyUrl link), and top 5 jobs at each company with tailored reasons and salary expectations.
@@ -1776,13 +2173,13 @@ Analyze the resume and generate:
 - perfectionScore (0-100) & dimensionScores (impactMetrics, actionVerbs, keywordAlignment, formatting, clarity)
 - executiveSummary (2 sentences) & companyAnalysis (2 sentences of online findings)
 - coachRecommendations: Line-by-line perfecting recommendations with currentText vs suggestedText and impactRating
-- topJobs: TOP 5 general job titles to apply for with salary ranges and match reasons.
+- topJobs: TOP 5 role-aligned job titles to apply for with salary ranges and match reasons.
 - topCountries: TOP 5 overall easiest global countries to secure jobs based on nationality and role.
 - homeCountryAnalysis: Top 5 companies and top 5 target jobs in candidate's home country (${nationality}) with companyUrl links and reasons.
 - globalContinentMatrix: A breakdown covering ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations). Each continent must contain top 5 countries, each country must contain top 5 target companies (with companyUrl link), and each company must contain top 5 jobs with reasons and salary ranges.
-- topCertifications: TOP 5 skills or professional certifications to pursue.
-- interviewPrepTips: Strategic steps & guidelines on how to prepare for interviews.
-- mockInterviewQuestions: 5 realistic interview questions for interactive mock practice.
+- topCertifications: TOP 5 skills or professional certifications to pursue directly relevant to ${roleToResearch}.
+- interviewPrepTips: Strategic steps & guidelines on how to prepare for interviews in this field.
+- mockInterviewQuestions: 5 realistic interview questions for interactive mock practice tailored to ${roleToResearch}.
 
 Return JSON matching the schema.`;
 
@@ -1996,10 +2393,11 @@ Return JSON matching the schema.`;
       },
       () => {
         const firstExp = resume.experience?.[0];
+        const roleDomain = getRoleDomainInfo(roleToResearch);
         return {
           perfectionScore: 82,
-          executiveSummary: `Solid foundation for a ${roleToResearch}, but the resume requires quantitative metrics and higher-impact action verbs in work descriptions to stand out in top-tier candidate pools.`,
-          companyAnalysis: `Analyzed online market expectations for ${roleToResearch}. Recruiters prioritize demonstrated impact metrics, clear skill alignment, and leadership accomplishments.`,
+          executiveSummary: `Solid foundation for a ${roleToResearch} (${roleDomain.domainName}), but the resume requires quantitative metrics and higher-impact action verbs in work descriptions to stand out in top-tier candidate pools.`,
+          companyAnalysis: `Analyzed online market expectations for ${roleToResearch}. Recruiters prioritize demonstrated domain accomplishments, clean skill alignment, and operational efficiency.`,
           dimensionScores: {
             impactMetrics: 68,
             actionVerbs: 75,
@@ -2013,18 +2411,18 @@ Return JSON matching the schema.`;
               section: "summary",
               itemTitle: "Elevate Professional Summary with Quantitative Focus",
               currentText: resume.summary || "Experienced professional seeking new opportunities.",
-              suggestedText: `Results-driven ${roleToResearch} with expertise in optimizing operational performance, driving cross-functional initiatives, and delivering scalable solutions that increase throughput by over 25%.`,
-              reasoning: "A stronger summary immediately hooks hiring managers by highlighting quantitative outcomes within the first 5 seconds.",
+              suggestedText: roleDomain.sampleSummary,
+              reasoning: "A stronger summary immediately hooks hiring managers by highlighting quantitative outcomes and role mastery within the first 5 seconds.",
               impactRating: "Critical",
               targetId: "summary"
             },
             {
               id: "rec_exp1",
               section: "experience",
-              itemTitle: "Transform Experience Bullet to X-Y-Z Metric Formula",
-              currentText: firstExp?.description || "Worked on team projects and handled daily tasks.",
-              suggestedText: `• Spearheaded key workflow optimization initiatives as ${firstExp?.position || roleToResearch}, improving delivery speed by 30% and reducing error rates.\n• Orchestrated cross-functional collaboration across engineering and product teams to streamline core operations.\n• Implemented automated quality monitoring checks, resulting in a 99.2% uptime reliability rating.`,
-              reasoning: "Replacing passive phrases like 'worked on' with power verbs (Spearheaded, Orchestrated) and specific percentages boosts recruiter response rates significantly.",
+              itemTitle: "Transform Experience Bullet to Metric-Driven Formula",
+              currentText: firstExp?.description || "Handled daily duties and team projects.",
+              suggestedText: roleDomain.sampleBullet,
+              reasoning: "Replacing passive phrases with high-impact domain action verbs and specific percentages boosts recruiter response rates significantly.",
               impactRating: "High",
               targetId: firstExp?.id || "exp_1"
             },
@@ -2033,26 +2431,26 @@ Return JSON matching the schema.`;
               section: "skills",
               itemTitle: "Add Missing Industry-Specific ATS Keywords",
               currentText: (resume.skills || []).slice(0, 4).join(", ") || "General Skills",
-              suggestedText: Array.from(new Set([...(resume.skills || []), "ATS Optimization", "Performance Metrics", "Cross-Functional Leadership"])).join(", "),
+              suggestedText: Array.from(new Set([...(resume.skills || []), ...roleDomain.coreSkills.slice(0, 5)])).join(", "),
               reasoning: "These high-frequency keywords were detected in live online job listings for this exact role.",
               impactRating: "High",
               targetId: "skills"
             }
           ],
-          suggestedNewSkills: ["Performance Optimization", "Strategic Alignment", "Agile Execution", "Data-Driven Decisions"],
+          suggestedNewSkills: roleDomain.coreSkills.slice(0, 5),
           topJobs: [
-            { title: `${roleToResearch}`, matchScore: 95, salaryRange: "$110,000 - $155,000/yr", whyGoodFit: "Direct match to your core experience and skills." },
-            { title: `Senior ${roleToResearch} Specialist`, matchScore: 90, salaryRange: "$125,000 - $175,000/yr", whyGoodFit: "Leverages your leadership and specialized background." },
-            { title: "Technical Solutions Consultant", matchScore: 86, salaryRange: "$105,000 - $145,000/yr", whyGoodFit: "Blends technical skills with strategic problem solving." },
-            { title: "Operations & Product Strategist", matchScore: 82, salaryRange: "$115,000 - $160,000/yr", whyGoodFit: "Matches cross-functional execution capabilities." },
-            { title: "Lead Systems Architect / Specialist", matchScore: 78, salaryRange: "$135,000 - $190,000/yr", whyGoodFit: "Strong progression target for senior growth." }
+            { title: `${roleToResearch}`, matchScore: 95, salaryRange: "$50,000 - $95,000/yr", whyGoodFit: "Direct match to your core experience and role domain." },
+            { title: `Senior / Lead ${roleToResearch}`, matchScore: 90, salaryRange: "$65,000 - $115,000/yr", whyGoodFit: "Leverages your leadership and specialized domain background." },
+            { title: `${roleDomain.domainName} Operations Lead`, matchScore: 86, salaryRange: "$55,000 - $90,000/yr", whyGoodFit: "Blends hands-on skills with team coordination." },
+            { title: `Specialist ${roleToResearch}`, matchScore: 82, salaryRange: "$48,000 - $85,000/yr", whyGoodFit: "Focuses on high-quality domain execution." },
+            { title: `Department Supervisor (${roleToResearch})`, matchScore: 78, salaryRange: "$60,000 - $105,000/yr", whyGoodFit: "Strong career progression target." }
           ],
           topCountries: [
-            { country: "Germany", flag: "🇩🇪", hiringDemand: "High Demand (EU Tech Visa)", visaEase: "Fast-track Opportunity Card / EU Blue Card", avgSalaryRange: "€75,000 - €110,000/yr" },
-            { country: "Canada", flag: "🇨🇦", hiringDemand: "Very High (Global Talent Stream)", visaEase: "Fast 2-week Work Permit Processing", avgSalaryRange: "CAD $95,000 - $145,000/yr" },
-            { country: "Netherlands", flag: "🇳🇱", hiringDemand: "High (30% Tax Exemption Scheme)", visaEase: "Highly Skilled Migrant Visa", avgSalaryRange: "€70,000 - €105,000/yr" },
-            { country: "Australia", flag: "🇦🇺", hiringDemand: "Strong (Subclass 482 Visa)", visaEase: "Employer Sponsored Pathways", avgSalaryRange: "AUD $110,000 - $165,000/yr" },
-            { country: "Singapore", flag: "🇸🇬", hiringDemand: "High for Tech & APAC Hubs", visaEase: "Tech.PASS / Employment Pass", avgSalaryRange: "SGD $100,000 - $160,000/yr" }
+            { country: "Germany", flag: "🇩🇪", hiringDemand: "High Demand", visaEase: "Opportunity Card / Skilled Worker Visa", avgSalaryRange: "€45,000 - €85,000/yr" },
+            { country: "Canada", flag: "🇨🇦", hiringDemand: "Very High", visaEase: "Global Talent Stream & Express Entry", avgSalaryRange: "CAD $50,000 - $95,000/yr" },
+            { country: "United Kingdom", flag: "🇬🇧", hiringDemand: "High Demand", visaEase: "Skilled Worker Visa Stream", avgSalaryRange: "£35,000 - £75,000/yr" },
+            { country: "Australia", flag: "🇦🇺", hiringDemand: "Strong Demand", visaEase: "Subclass 482 Employer Sponsored Pathways", avgSalaryRange: "AUD $60,000 - $110,000/yr" },
+            { country: "United States", flag: "🇺🇸", hiringDemand: "High Demand", visaEase: "H-1B / O-1 / EB Visa Pathways", avgSalaryRange: "$55,000 - $120,000/yr" }
           ],
           homeCountryAnalysis: {
             countryName: nationality !== "Global Citizen / Unspecified" ? nationality : "Candidate's Home Country",
@@ -2060,374 +2458,57 @@ Return JSON matching the schema.`;
             overview: `Targeting top employers in ${nationality} allows leveraging local language fluency, established professional networks, and immediate employment eligibility without visa friction.`,
             topCompanies: [
               {
-                companyName: "Leading National Industry Hub",
-                industry: "Enterprise Technology & Financial Services",
-                companyUrl: `https://www.google.com/search?q=${encodeURIComponent(nationality + " top tech employers careers")}`,
-                whyTargetThisCompany: "Top domestic employer hiring senior professionals with competitive local market packages.",
+                companyName: `Leading National ${roleDomain.industry} Enterprise`,
+                industry: roleDomain.industry,
+                companyUrl: `https://www.google.com/search?q=${encodeURIComponent(nationality + " " + roleToResearch + " careers")}`,
+                whyTargetThisCompany: "Top domestic employer hiring professionals with competitive local market packages.",
                 topJobs: [
-                  { jobTitle: `${roleToResearch}`, approxSalaryRange: "Competitive Domestic Market Rate", whySelected: "Direct fit for local career leadership." },
-                  { jobTitle: "Senior Systems Manager", approxSalaryRange: "Upper Tier National Band", whySelected: "Strong management progression." },
-                  { jobTitle: "Lead Operations Consultant", approxSalaryRange: "Senior Scale", whySelected: "Strategic project execution." },
-                  { jobTitle: "Product Delivery Lead", approxSalaryRange: "Upper Domestic Band", whySelected: "Cross-functional team alignment." },
-                  { jobTitle: "Technical Enterprise Lead", approxSalaryRange: "Executive Band", whySelected: "Scalable infrastructure management." }
-                ]
-              },
-              {
-                companyName: "Regional Innovation Group",
-                industry: "Digital Services & Cloud Systems",
-                companyUrl: `https://www.google.com/search?q=${encodeURIComponent(nationality + " innovation tech companies careers")}`,
-                whyTargetThisCompany: "Expanding regional market leader offering high autonomy and hybrid remote flexibility.",
-                topJobs: [
-                  { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "Top Tier National Package", whySelected: "Ideal match for core background." },
-                  { jobTitle: "Solutions Architect", approxSalaryRange: "Senior Specialist Rate", whySelected: "Technical architecture execution." },
-                  { jobTitle: "Head of Technical Delivery", approxSalaryRange: "Executive Band", whySelected: "Next stage career advancement." },
-                  { jobTitle: "Digital Strategy Manager", approxSalaryRange: "Upper Tier Band", whySelected: "Business transformation focus." },
-                  { jobTitle: "Principal Systems Engineer", approxSalaryRange: "Senior Band", whySelected: "High uptime infrastructure impact." }
+                  { jobTitle: `${roleToResearch}`, approxSalaryRange: "Competitive Domestic Market Rate", whySelected: "Direct fit for local career execution." },
+                  { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "Upper Tier National Band", whySelected: "Strong career progression." },
+                  { jobTitle: "Department Supervisor", approxSalaryRange: "Senior Scale", whySelected: "Strategic team coordination." }
                 ]
               }
             ]
           },
           globalContinentMatrix: [
             {
-              continentName: "Europe",
-              topCountries: [
-                {
-                  countryName: "Germany",
-                  flag: "🇩🇪",
-                  visaEase: "Opportunity Card / EU Blue Card (Fast-track)",
-                  topCompanies: [
-                    {
-                      companyName: "SAP SE",
-                      industry: "Enterprise Software",
-                      companyUrl: "https://www.sap.com/about/careers.html",
-                      whyTargetThisCompany: "High demand for experienced engineering and product talent with fast-track visa sponsoring.",
-                      topJobs: [
-                        { jobTitle: `${roleToResearch}`, approxSalaryRange: "€80,000 - €115,000/yr", whySelected: "Direct fit for your technical background." },
-                        { jobTitle: "Senior Cloud Solutions Architect", approxSalaryRange: "€95,000 - €135,000/yr", whySelected: "Matches enterprise system execution skills." },
-                        { jobTitle: "Technical Lead Specialist", approxSalaryRange: "€90,000 - €125,000/yr", whySelected: "Leverages leadership capabilities." },
-                        { jobTitle: "Product Strategy Manager", approxSalaryRange: "€85,000 - €120,000/yr", whySelected: "Focuses on strategic project execution." },
-                        { jobTitle: "Systems Optimization Lead", approxSalaryRange: "€88,000 - €118,000/yr", whySelected: "Capitalizes on operational efficiency skills." }
-                      ]
-                    },
-                    {
-                      companyName: "Zalando SE",
-                      industry: "E-Commerce Tech",
-                      companyUrl: "https://jobs.zalando.com",
-                      whyTargetThisCompany: "International English-first environment with global relocation assistance.",
-                      topJobs: [
-                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "€85,000 - €120,000/yr", whySelected: "Fits your experience profile." },
-                        { jobTitle: "Engineering Manager", approxSalaryRange: "€100,000 - €140,000/yr", whySelected: "Next tier career advancement." },
-                        { jobTitle: "Senior Platform Specialist", approxSalaryRange: "€82,000 - €115,000/yr", whySelected: "High demand in current hiring cycle." },
-                        { jobTitle: "Data & Systems Analyst", approxSalaryRange: "€75,000 - €105,000/yr", whySelected: "Solid entry/mid target." },
-                        { jobTitle: "Operations Consultant", approxSalaryRange: "€78,000 - €110,000/yr", whySelected: "Cross-functional execution role." }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  countryName: "Netherlands",
-                  flag: "🇳🇱",
-                  visaEase: "Highly Skilled Migrant Scheme / 30% Tax Ruling",
-                  topCompanies: [
-                    {
-                      companyName: "ASML",
-                      industry: "Semiconductor & High Tech",
-                      companyUrl: "https://www.asml.com/en/careers",
-                      whyTargetThisCompany: "Global semiconductor leader offering world-class relocation packages and tax incentives.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "€85,000 - €125,000/yr", whySelected: "Core technological impact." },
-                        { jobTitle: "Systems Integration Specialist", approxSalaryRange: "€90,000 - €130,000/yr", whySelected: "High precision systems match." },
-                        { jobTitle: "Product Operations Lead", approxSalaryRange: "€80,000 - €115,000/yr", whySelected: "Process & project leadership." },
-                        { jobTitle: "Technical Program Manager", approxSalaryRange: "€95,000 - €135,000/yr", whySelected: "Cross-functional execution." },
-                        { jobTitle: "Quality & Systems Architect", approxSalaryRange: "€88,000 - €120,000/yr", whySelected: "Quality assurance alignment." }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
               continentName: "North America",
               topCountries: [
                 {
-                  countryName: "Canada",
-                  flag: "🇨🇦",
-                  visaEase: "Global Talent Stream (2-Week Work Permit)",
-                  topCompanies: [
-                    {
-                      companyName: "Shopify",
-                      industry: "E-Commerce & Cloud Platforms",
-                      companyUrl: "https://www.shopify.com/careers",
-                      whyTargetThisCompany: "Remote-first culture, fast PR pathways via Express Entry.",
-                      topJobs: [
-                        { jobTitle: `Staff ${roleToResearch}`, approxSalaryRange: "CAD $130,000 - $185,000/yr", whySelected: "High impact remote target." },
-                        { jobTitle: "Senior Infrastructure Specialist", approxSalaryRange: "CAD $120,000 - $165,000/yr", whySelected: "Matches system performance experience." },
-                        { jobTitle: "Product Delivery Lead", approxSalaryRange: "CAD $115,000 - $160,000/yr", whySelected: "Aligns with project management skills." },
-                        { jobTitle: "Solutions Architect", approxSalaryRange: "CAD $135,000 - $190,000/yr", whySelected: "High compensation target." },
-                        { jobTitle: "Growth & Technical Operations", approxSalaryRange: "CAD $110,000 - $150,000/yr", whySelected: "Strategic execution match." }
-                      ]
-                    }
-                  ]
-                },
-                {
                   countryName: "United States",
                   flag: "🇺🇸",
-                  visaEase: "O-1A / L-1 Intra-company Transfer / H-1B",
-                  topCompanies: [
-                    {
-                      companyName: "Microsoft",
-                      industry: "Cloud & Software Enterprise",
-                      companyUrl: "https://careers.microsoft.com",
-                      whyTargetThisCompany: "Premier employer with extensive global visa transfer and green card sponsorship programs.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "$150,000 - $220,000 USD/yr", whySelected: "Top tier career benchmark." },
-                        { jobTitle: "Principal Cloud Architect", approxSalaryRange: "$180,000 - $260,000 USD/yr", whySelected: "High architectural scale." },
-                        { jobTitle: "Technical Program Manager", approxSalaryRange: "$140,000 - $200,000 USD/yr", whySelected: "Strategic project execution." },
-                        { jobTitle: "Lead Systems Engineer", approxSalaryRange: "$160,000 - $230,000 USD/yr", whySelected: "Reliability and scale fit." },
-                        { jobTitle: "Product Operations Lead", approxSalaryRange: "$145,000 - $210,000 USD/yr", whySelected: "Cross-functional leadership." }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              continentName: "Asia",
-              topCountries: [
-                {
-                  countryName: "Singapore",
-                  flag: "🇸🇬",
-                  visaEase: "Employment Pass / ONE Pass",
-                  topCompanies: [
-                    {
-                      companyName: "Grab",
-                      industry: "Tech & Superapp",
-                      companyUrl: "https://grab.careers",
-                      whyTargetThisCompany: "APAC Regional Tech Headquarters with competitive tax rates.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "SGD $110,000 - $160,000/yr", whySelected: "Direct skill match." },
-                        { jobTitle: "Lead Technical Strategist", approxSalaryRange: "SGD $130,000 - $180,000/yr", whySelected: "Leadership alignment." },
-                        { jobTitle: "Principal Systems Engineer", approxSalaryRange: "SGD $140,000 - $200,000/yr", whySelected: "Top senior compensation." },
-                        { jobTitle: "Product Operations Lead", approxSalaryRange: "SGD $100,000 - $145,000/yr", whySelected: "Process optimization match." },
-                        { jobTitle: "Regional Tech Manager", approxSalaryRange: "SGD $125,000 - $175,000/yr", whySelected: "APAC growth target." }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  countryName: "United Arab Emirates (Dubai)",
-                  flag: "🇦🇪",
-                  visaEase: "10-Year Golden Visa / Green Visa for Skilled Talent",
-                  topCompanies: [
-                    {
-                      companyName: "G42 / Careem",
-                      industry: "AI & Mobility Tech",
-                      companyUrl: "https://careem.com/careers",
-                      whyTargetThisCompany: "0% Income Tax environment with high expat support and fast Golden Visa pathways.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "AED 30,000 - 45,000/mo (Tax Free)", whySelected: "Direct alignment & tax free savings." },
-                        { jobTitle: "Solutions Engineering Lead", approxSalaryRange: "AED 35,000 - 52,000/mo", whySelected: "High impact systems role." },
-                        { jobTitle: "Technical Delivery Lead", approxSalaryRange: "AED 32,000 - 48,000/mo", whySelected: "Cross-functional execution." },
-                        { jobTitle: "Head of Infrastructure Ops", approxSalaryRange: "AED 40,000 - 60,000/mo", whySelected: "Leadership progression." },
-                        { jobTitle: "Product Strategy Manager", approxSalaryRange: "AED 30,000 - 45,000/mo", whySelected: "Strategic product execution." }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              continentName: "Africa",
-              topCountries: [
-                {
-                  countryName: "South Africa",
-                  flag: "🇿🇦",
-                  visaEase: "Critical Skills Work Visa",
-                  topCompanies: [
-                    {
-                      companyName: "Takealot / Naspers",
-                      industry: "E-Commerce & Tech Investment",
-                      companyUrl: "https://www.takealot.com/careers",
-                      whyTargetThisCompany: "Largest regional e-commerce platform with strong technology engineering hubs.",
-                      topJobs: [
-                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "ZAR 850,000 - 1,300,000/yr", whySelected: "High regional leadership target." },
-                        { jobTitle: "Senior Systems Specialist", approxSalaryRange: "ZAR 750,000 - 1,100,000/yr", whySelected: "Infrastructure optimization." },
-                        { jobTitle: "Product Delivery Lead", approxSalaryRange: "ZAR 800,000 - 1,200,000/yr", whySelected: "Cross-team agile match." },
-                        { jobTitle: "Solutions Architect", approxSalaryRange: "ZAR 900,000 - 1,400,000/yr", whySelected: "High architectural scope." },
-                        { jobTitle: "Operations Strategy Lead", approxSalaryRange: "ZAR 700,000 - 1,050,000/yr", whySelected: "Process improvement fit." }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  countryName: "Nigeria",
-                  flag: "🇳🇬",
-                  visaEase: "Regional Tech Hub Pass / Expatriate Quota",
-                  topCompanies: [
-                    {
-                      companyName: "Flutterwave / Paystack",
-                      industry: "Fintech & Payments",
-                      companyUrl: "https://flutterwave.com/careers",
-                      whyTargetThisCompany: "Rapid global expansion and USD/flexible compensation packages.",
-                      topJobs: [
-                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "$60,000 - $95,000 USD/yr", whySelected: "High purchasing power and team leadership." },
-                        { jobTitle: "Senior Systems Manager", approxSalaryRange: "$55,000 - $85,000 USD/yr", whySelected: "Core infrastructure fit." },
-                        { jobTitle: "Product Operations Director", approxSalaryRange: "$65,000 - $105,000 USD/yr", whySelected: "Cross-border strategy focus." },
-                        { jobTitle: "Engineering Lead", approxSalaryRange: "$70,000 - $110,000 USD/yr", whySelected: "Regional tech expansion." },
-                        { jobTitle: "Enterprise Integration Lead", approxSalaryRange: "$50,000 - $80,000 USD/yr", whySelected: "Technical delivery fit." }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              continentName: "South America",
-              topCountries: [
-                {
-                  countryName: "Brazil",
-                  flag: "🇧🇷",
-                  visaEase: "Digital Nomad Visa / Tech Exemption",
-                  topCompanies: [
-                    {
-                      companyName: "Nubank",
-                      industry: "Fintech & Digital Banking",
-                      companyUrl: "https://nubank.com.br/en/careers",
-                      whyTargetThisCompany: "World's largest digital bank with global engineering operations and competitive USD/BRL packages.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "R$ 180,000 - 280,000/yr", whySelected: "Market leader fit." },
-                        { jobTitle: "Tech Lead Specialist", approxSalaryRange: "R$ 200,000 - 320,000/yr", whySelected: "Team leadership alignment." },
-                        { jobTitle: "Software Architecture Lead", approxSalaryRange: "R$ 220,000 - 350,000/yr", whySelected: "High architectural impact." },
-                        { jobTitle: "Operations Strategist", approxSalaryRange: "R$ 160,000 - 250,000/yr", whySelected: "Process execution match." },
-                        { jobTitle: "Regional Product Manager", approxSalaryRange: "R$ 190,000 - 300,000/yr", whySelected: "Cross-functional lead." }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  countryName: "Argentina",
-                  flag: "🇦🇷",
-                  visaEase: "Digital Nomad Visa / Mercosur Agreement",
-                  topCompanies: [
-                    {
-                      companyName: "Mercado Libre",
-                      industry: "E-Commerce & Fintech",
-                      companyUrl: "https://careers-details.mercadolibre.com",
-                      whyTargetThisCompany: "Largest Latin American tech ecosystem with USD salary options.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "$50,000 - $85,000 USD/yr", whySelected: "Market leader fit." },
-                        { jobTitle: "Tech Lead Specialist", approxSalaryRange: "$55,000 - $90,000 USD/yr", whySelected: "Team leadership alignment." },
-                        { jobTitle: "Software Architecture Lead", approxSalaryRange: "$60,000 - $100,000 USD/yr", whySelected: "High architectural impact." },
-                        { jobTitle: "Operations Strategist", approxSalaryRange: "$45,000 - $75,000 USD/yr", whySelected: "Process execution match." },
-                        { jobTitle: "Regional Product Manager", approxSalaryRange: "$50,000 - $80,000 USD/yr", whySelected: "Cross-functional lead." }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              continentName: "Oceania",
-              topCountries: [
-                {
-                  countryName: "Australia",
-                  flag: "🇦🇺",
-                  visaEase: "Subclass 482 Employer Sponsorship / PR Pathways",
-                  topCompanies: [
-                    {
-                      companyName: "Atlassian",
-                      industry: "Enterprise Collaboration Software",
-                      companyUrl: "https://www.atlassian.com/company/careers",
-                      whyTargetThisCompany: "Strong relocation support, high work-life balance, top equity grants.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "AUD $130,000 - $180,000/yr", whySelected: "Core product & systems fit." },
-                        { jobTitle: "Lead Systems Engineer", approxSalaryRange: "AUD $145,000 - $200,000/yr", whySelected: "High reliability expertise." },
-                        { jobTitle: "Product Program Manager", approxSalaryRange: "AUD $125,000 - $170,000/yr", whySelected: "Agile delivery alignment." },
-                        { jobTitle: "Solutions Architect", approxSalaryRange: "AUD $150,000 - $210,000/yr", whySelected: "Enterprise architecture target." },
-                        { jobTitle: "Site Reliability Specialist", approxSalaryRange: "AUD $135,000 - $185,000/yr", whySelected: "Performance optimization match." }
-                      ]
-                    },
-                    {
-                      companyName: "Canva",
-                      industry: "Design & Technology Platform",
-                      companyUrl: "https://www.canva.com/careers",
-                      whyTargetThisCompany: "Rapid global growth unicorn with top employee perks and visa sponsorship.",
-                      topJobs: [
-                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "AUD $140,000 - $195,000/yr", whySelected: "Product innovation fit." },
-                        { jobTitle: "Engineering Manager", approxSalaryRange: "AUD $160,000 - $220,000/yr", whySelected: "Leadership progression." },
-                        { jobTitle: "Senior Systems Specialist", approxSalaryRange: "AUD $130,000 - $180,000/yr", whySelected: "High scale infrastructure." },
-                        { jobTitle: "Product Delivery Lead", approxSalaryRange: "AUD $125,000 - $175,000/yr", whySelected: "Agile product focus." },
-                        { jobTitle: "Technical Architect", approxSalaryRange: "AUD $155,000 - $215,000/yr", whySelected: "Architectural strategy." }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  countryName: "New Zealand",
-                  flag: "🇳🇿",
-                  visaEase: "Accredited Employer Work Visa (AEWV) / Straight to Residence Tier 1",
-                  topCompanies: [
-                    {
-                      companyName: "Xero",
-                      industry: "Accounting & Fintech Tech",
-                      companyUrl: "https://www.xero.com/about/careers",
-                      whyTargetThisCompany: "Auckland/Wellington tech anchor with streamlined Tier 1 Green List residency paths.",
-                      topJobs: [
-                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "NZD $120,000 - $165,000/yr", whySelected: "Core product match." },
-                        { jobTitle: "Lead Systems Architect", approxSalaryRange: "NZD $140,000 - $190,000/yr", whySelected: "System reliability focus." },
-                        { jobTitle: "Product Program Manager", approxSalaryRange: "NZD $115,000 - $155,000/yr", whySelected: "Agile execution match." },
-                        { jobTitle: "Technical Lead Specialist", approxSalaryRange: "NZD $130,000 - $175,000/yr", whySelected: "Team mentorship." },
-                        { jobTitle: "Site Reliability Engineer", approxSalaryRange: "NZD $125,000 - $170,000/yr", whySelected: "High uptime alignment." }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              continentName: "Antarctica & Global Remote Hubs",
-              topCountries: [
-                {
-                  countryName: "Global Polar Stations & International Waters",
-                  flag: "🇦🇶",
-                  visaEase: "International Scientific Expedition Pass / Global Remote Permit",
-                  topCompanies: [
-                    {
-                      companyName: "Raytheon Polar Services / USAP / British Antarctic Survey",
-                      industry: "Polar Research & Satellite Tech",
-                      companyUrl: "https://www.usap.gov/jobsAndOpportunities",
-                      whyTargetThisCompany: "Tax-free seasonal contracts with full room, board, and extreme climate bonuses.",
-                      topJobs: [
-                        { jobTitle: "Station IT & Systems Operations Lead", approxSalaryRange: "$95,000 - $140,000 USD/season", whySelected: "High-reliability autonomous systems management." },
-                        { jobTitle: "Satellite Communications Engineer", approxSalaryRange: "$100,000 - $150,000 USD/season", whySelected: "Critical network infrastructure upkeep." },
-                        { jobTitle: "Polar Scientific Data Manager", approxSalaryRange: "$85,000 - $125,000 USD/season", whySelected: "Data processing & telemetry fit." },
-                        { jobTitle: "Expedition Technical Coordinator", approxSalaryRange: "$90,000 - $130,000 USD/season", whySelected: "Logistics and technical troubleshooting." },
-                        { jobTitle: "Remote Infrastructure Specialist", approxSalaryRange: "$95,000 - $135,000 USD/season", whySelected: "High uptime hardware & software maintenance." }
-                      ]
-                    }
-                  ]
+                  visaEase: "Standard Employer Visa / Exchange Stream",
+                  topCompanies: roleDomain.recommendedCompanies.map(c => ({
+                    companyName: c.companyName,
+                    industry: roleDomain.industry,
+                    companyUrl: `https://www.google.com/search?q=${encodeURIComponent(c.companyName + " " + roleToResearch + " jobs")}`,
+                    whyTargetThisCompany: c.fitRationale,
+                    topJobs: c.positionsToWatch.map(p => ({
+                      jobTitle: p,
+                      approxSalaryRange: "$50,000 - $95,000/yr",
+                      whySelected: `Aligned with ${roleToResearch} domain standards.`
+                    }))
+                  }))
                 }
               ]
             }
           ],
           topCertifications: [
-            { name: "AWS Certified Solutions Architect / Cloud Professional", provider: "Amazon Web Services", relevance: "High demand across 80%+ of top employer postings.", difficulty: "Intermediate" },
-            { name: "Project Management Professional (PMP) / Agile Certified", provider: "PMI / Scrum.org", relevance: "Demonstrates structured project execution & leadership.", difficulty: "Advanced" },
-            { name: "Certified Kubernetes Administrator (CKA)", provider: "CNCF", relevance: "Crucial for modern infrastructure & systems engineering.", difficulty: "Advanced" },
-            { name: "Google Data Analytics & Cloud Engineer Professional", provider: "Google Cloud", relevance: "Strong proof of data-driven decision making.", difficulty: "Intermediate" },
-            { name: "Certified Information Systems Security Professional (CISSP)", provider: "(ISC)²", relevance: "Gold standard for security compliance & systems trust.", difficulty: "Expert" }
+            { name: `Certified ${roleToResearch} Professional Standard`, provider: "National Industry Board", relevance: "High demand across major employer job postings.", difficulty: "Intermediate" },
+            { name: `Advanced ${roleDomain.domainName} Leadership & Safety`, provider: "Global Professional Association", relevance: "Demonstrates high regulatory compliance and team coordination.", difficulty: "Advanced" },
+            { name: "Quality Assurance & Standards Mastery", provider: "International Standards Institute", relevance: "Crucial for high-grade operational execution.", difficulty: "Intermediate" }
           ],
           interviewPrepTips: [
-            { title: "Master the STAR Method Format", details: "Structure every answer as Situation (15%), Task (15%), Action (50%), and Result (20%). Ensure your Action highlights YOUR personal contribution.", strategicTip: "Quantify the result with specific percentages or dollar savings." },
-            { title: "Research Target Company & Recent News", details: "Look up recent product releases, tech blogs, funding announcements, and core cultural values before the interview.", strategicTip: "Mention 1 specific news item during your introductory response." },
-            { title: "Prepare 3 High-Impact Technical Stories", details: "Prepare detailed examples of a project that failed and how you recovered, a complex technical challenge solved, and a cross-team conflict resolved.", strategicTip: "Focus on learnings and constructive resolutions." }
+            { title: "Master Practical Role Demonstrations", details: "Be ready to explain or demonstrate step-by-step how you perform core daily tasks, safety checks, and task prioritization under time pressure.", strategicTip: "Highlight accuracy, safety adherence, and efficiency metrics." },
+            { title: "Research Target Employer Standards & Reviews", details: "Look up employer standards, client reviews, and team expectations before interviewing.", strategicTip: "Mention 1 specific operational benchmark during your interview response." },
+            { title: "Prepare 3 High-Impact Work Stories", details: "Prepare concrete examples of how you handled peak demand, resolved an operational challenge, and maintained quality under pressure.", strategicTip: "Quantify your achievements with numbers (e.g. reduced waste, increased speed, 100% safety record)." }
           ],
           mockInterviewQuestions: [
-            { id: "q1", question: `Can you describe a challenging project in your work as a ${roleToResearch} where you had to make a high-stakes trade-off under tight deadlines?`, category: "Behavioral", expectedKeyPoints: ["Trade-off analysis", "Stakeholder communication", "Quantified outcome"], STARGuide: "Situation: Context & timeline. Task: What was expected. Action: Specific steps taken. Result: Final operational impact." },
-            { id: "q2", question: `How do you ensure code quality, performance optimization, and architectural scalability when building mission-critical features?`, category: "Technical", expectedKeyPoints: ["Testing strategies", "Performance profiling", "Scalability standards"], STARGuide: "Focus on automated testing, bottleneck analysis, and measurable performance gains." },
-            { id: "q3", question: `Describe a situation where you had a strong disagreement with a team member or project manager on technical direction. How did you resolve it?`, category: "Situational", expectedKeyPoints: ["Empathy", "Data-driven persuasion", "Team alignment"], STARGuide: "Show how you evaluated objectively with benchmarks without personal friction." },
-            { id: "q4", question: `How do you prioritize technical debt versus delivering rapid user features under business pressure?`, category: "Leadership", expectedKeyPoints: ["Risk assessment", "Incremental refactoring", "Business value alignment"], STARGuide: "Explain your framework for scoring tech debt and negotiating refactoring Sprints." },
-            { id: "q5", question: `What is the most complex bug or performance outage you diagnosed in production, and how did you prevent it from recurring?`, category: "Technical", expectedKeyPoints: ["Root cause analysis", "Blameless post-mortem", "Automated prevention"], STARGuide: "Detail monitoring tools used, fast mitigation steps, and permanent automated fixes." }
+            { id: "q1", question: `Can you walk me through your step-by-step process when executing a high-volume task or handling a peak-demand shift as a ${roleToResearch}?`, category: "Behavioral", expectedKeyPoints: ["Task prioritization", "Safety and quality control", "Team coordination"], STARGuide: "Situation: Peak load context. Task: Your assignment. Action: Step-by-step execution. Result: High quality delivery." },
+            { id: "q2", question: `How do you ensure strict quality control, safety compliance, and standards adherence in your daily work as a ${roleToResearch}?`, category: "Operational", expectedKeyPoints: ["Safety protocols", "Quality checks", "Consistency"], STARGuide: "Focus on protocol adherence, routine checks, and zero-error performance." },
+            { id: "q3", question: `Describe a time when a mistake or equipment/procedural issue occurred during work. How did you handle it and ensure smooth continuation?`, category: "Situational", expectedKeyPoints: ["Calm problem solving", "De-escalation", "Preventative measures"], STARGuide: "Explain quick corrective action and long-term prevention." },
+            { id: "q4", question: `How do you manage time, organize prep work, and prioritize tasks when multiple demands arise simultaneously?`, category: "Execution", expectedKeyPoints: ["Time management", "Order prioritization", "Efficiency"], STARGuide: "Detail your mental or structured checklist for prioritizing urgent vs important tasks." },
+            { id: "q5", question: `What step-by-step actions do you take to communicate effectively with team members and supervisors during high-pressure shifts?`, category: "Teamwork", expectedKeyPoints: ["Clear verbal communication", "Active listening", "Mutual support"], STARGuide: "Detail how clear communication prevented errors and improved team throughput." }
           ]
         };
       },
