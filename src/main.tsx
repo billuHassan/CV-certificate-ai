@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// Gracefully intercept and mute benign Vite HMR WebSocket connection closed errors
+// Gracefully intercept and silently handle benign Vite HMR WebSocket connection closed events
 if (typeof window !== "undefined") {
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
@@ -16,7 +16,6 @@ if (typeof window !== "undefined") {
     ) {
       event.preventDefault();
       event.stopPropagation();
-      console.warn("Muted benign Vite HMR WebSocket unhandled rejection:", msg);
     }
   });
 
@@ -30,7 +29,6 @@ if (typeof window !== "undefined") {
     ) {
       event.preventDefault();
       event.stopPropagation();
-      console.warn("Muted benign Vite HMR WebSocket error:", msg);
     }
   }, true);
 }
