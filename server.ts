@@ -1759,7 +1759,8 @@ app.post("/api/ai/resume-coach", async (req, res) => {
 Search online for real-time information regarding:
 1) In-demand technical skills, key ATS keywords, and benchmark impact accomplishments for "${roleToResearch}".
 2) Global hiring trends, visa/relocation pathways, and top employers for a candidate with nationality "${nationality}" and experience matching "${roleToResearch}".
-3) 7-Continent Global Employer & Job Matrix: For ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations), identify top countries, top 5 companies to target in each country, and top 5 jobs at each company with tailored reasons and salary expectations.
+3) Candidate's Home Country Analysis: Identify top 5 companies to target in candidate's home country/nationality (${nationality}), with direct company links, industry, and top 5 jobs for each company.
+4) 7-Continent Global Employer & Job Matrix: For ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations), identify top 5 countries per continent, top 5 companies to target in each country (including companyUrl link), and top 5 jobs at each company with tailored reasons and salary expectations.
 
 Candidate Resume Data:
 Title: ${resume.title}
@@ -1777,7 +1778,8 @@ Analyze the resume and generate:
 - coachRecommendations: Line-by-line perfecting recommendations with currentText vs suggestedText and impactRating
 - topJobs: TOP 5 general job titles to apply for with salary ranges and match reasons.
 - topCountries: TOP 5 overall easiest global countries to secure jobs based on nationality and role.
-- globalContinentMatrix: A breakdown covering ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations). Each continent must contain top countries, each country must contain top 5 target companies, and each company must contain top 5 jobs with reasons and salary ranges tailored to candidate nationality and background.
+- homeCountryAnalysis: Top 5 companies and top 5 target jobs in candidate's home country (${nationality}) with companyUrl links and reasons.
+- globalContinentMatrix: A breakdown covering ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations). Each continent must contain top 5 countries, each country must contain top 5 target companies (with companyUrl link), and each company must contain top 5 jobs with reasons and salary ranges.
 - topCertifications: TOP 5 skills or professional certifications to pursue.
 - interviewPrepTips: Strategic steps & guidelines on how to prepare for interviews.
 - mockInterviewQuestions: 5 realistic interview questions for interactive mock practice.
@@ -1855,6 +1857,40 @@ Return JSON matching the schema.`;
                     required: ["country", "hiringDemand", "visaEase", "avgSalaryRange"]
                   }
                 },
+                homeCountryAnalysis: {
+                  type: Type.OBJECT,
+                  properties: {
+                    countryName: { type: Type.STRING },
+                    flag: { type: Type.STRING },
+                    overview: { type: Type.STRING },
+                    topCompanies: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          companyName: { type: Type.STRING },
+                          industry: { type: Type.STRING },
+                          companyUrl: { type: Type.STRING },
+                          whyTargetThisCompany: { type: Type.STRING },
+                          topJobs: {
+                            type: Type.ARRAY,
+                            items: {
+                              type: Type.OBJECT,
+                              properties: {
+                                jobTitle: { type: Type.STRING },
+                                approxSalaryRange: { type: Type.STRING },
+                                whySelected: { type: Type.STRING }
+                              },
+                              required: ["jobTitle", "approxSalaryRange", "whySelected"]
+                            }
+                          }
+                        },
+                        required: ["companyName", "industry", "companyUrl", "whyTargetThisCompany", "topJobs"]
+                      }
+                    }
+                  },
+                  required: ["countryName", "overview", "topCompanies"]
+                },
                 globalContinentMatrix: {
                   type: Type.ARRAY,
                   items: {
@@ -1876,6 +1912,7 @@ Return JSON matching the schema.`;
                                 properties: {
                                   companyName: { type: Type.STRING },
                                   industry: { type: Type.STRING },
+                                  companyUrl: { type: Type.STRING },
                                   whyTargetThisCompany: { type: Type.STRING },
                                   topJobs: {
                                     type: Type.ARRAY,
@@ -1890,7 +1927,7 @@ Return JSON matching the schema.`;
                                     }
                                   }
                                 },
-                                required: ["companyName", "industry", "whyTargetThisCompany", "topJobs"]
+                                required: ["companyName", "industry", "companyUrl", "whyTargetThisCompany", "topJobs"]
                               }
                             }
                           },
@@ -1941,7 +1978,7 @@ Return JSON matching the schema.`;
                   }
                 }
               },
-              required: ["perfectionScore", "executiveSummary", "dimensionScores", "coachRecommendations", "suggestedNewSkills", "topJobs", "topCountries", "globalContinentMatrix", "topCertifications", "interviewPrepTips", "mockInterviewQuestions"]
+              required: ["perfectionScore", "executiveSummary", "dimensionScores", "coachRecommendations", "suggestedNewSkills", "topJobs", "topCountries", "homeCountryAnalysis", "globalContinentMatrix", "topCertifications", "interviewPrepTips", "mockInterviewQuestions"]
             }
           }
         });
@@ -2017,6 +2054,39 @@ Return JSON matching the schema.`;
             { country: "Australia", flag: "🇦🇺", hiringDemand: "Strong (Subclass 482 Visa)", visaEase: "Employer Sponsored Pathways", avgSalaryRange: "AUD $110,000 - $165,000/yr" },
             { country: "Singapore", flag: "🇸🇬", hiringDemand: "High for Tech & APAC Hubs", visaEase: "Tech.PASS / Employment Pass", avgSalaryRange: "SGD $100,000 - $160,000/yr" }
           ],
+          homeCountryAnalysis: {
+            countryName: nationality !== "Global Citizen / Unspecified" ? nationality : "Candidate's Home Country",
+            flag: "📍",
+            overview: `Targeting top employers in ${nationality} allows leveraging local language fluency, established professional networks, and immediate employment eligibility without visa friction.`,
+            topCompanies: [
+              {
+                companyName: "Leading National Industry Hub",
+                industry: "Enterprise Technology & Financial Services",
+                companyUrl: `https://www.google.com/search?q=${encodeURIComponent(nationality + " top tech employers careers")}`,
+                whyTargetThisCompany: "Top domestic employer hiring senior professionals with competitive local market packages.",
+                topJobs: [
+                  { jobTitle: `${roleToResearch}`, approxSalaryRange: "Competitive Domestic Market Rate", whySelected: "Direct fit for local career leadership." },
+                  { jobTitle: "Senior Systems Manager", approxSalaryRange: "Upper Tier National Band", whySelected: "Strong management progression." },
+                  { jobTitle: "Lead Operations Consultant", approxSalaryRange: "Senior Scale", whySelected: "Strategic project execution." },
+                  { jobTitle: "Product Delivery Lead", approxSalaryRange: "Upper Domestic Band", whySelected: "Cross-functional team alignment." },
+                  { jobTitle: "Technical Enterprise Lead", approxSalaryRange: "Executive Band", whySelected: "Scalable infrastructure management." }
+                ]
+              },
+              {
+                companyName: "Regional Innovation Group",
+                industry: "Digital Services & Cloud Systems",
+                companyUrl: `https://www.google.com/search?q=${encodeURIComponent(nationality + " innovation tech companies careers")}`,
+                whyTargetThisCompany: "Expanding regional market leader offering high autonomy and hybrid remote flexibility.",
+                topJobs: [
+                  { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "Top Tier National Package", whySelected: "Ideal match for core background." },
+                  { jobTitle: "Solutions Architect", approxSalaryRange: "Senior Specialist Rate", whySelected: "Technical architecture execution." },
+                  { jobTitle: "Head of Technical Delivery", approxSalaryRange: "Executive Band", whySelected: "Next stage career advancement." },
+                  { jobTitle: "Digital Strategy Manager", approxSalaryRange: "Upper Tier Band", whySelected: "Business transformation focus." },
+                  { jobTitle: "Principal Systems Engineer", approxSalaryRange: "Senior Band", whySelected: "High uptime infrastructure impact." }
+                ]
+              }
+            ]
+          },
           globalContinentMatrix: [
             {
               continentName: "Europe",
@@ -2029,6 +2099,7 @@ Return JSON matching the schema.`;
                     {
                       companyName: "SAP SE",
                       industry: "Enterprise Software",
+                      companyUrl: "https://www.sap.com/about/careers.html",
                       whyTargetThisCompany: "High demand for experienced engineering and product talent with fast-track visa sponsoring.",
                       topJobs: [
                         { jobTitle: `${roleToResearch}`, approxSalaryRange: "€80,000 - €115,000/yr", whySelected: "Direct fit for your technical background." },
@@ -2041,6 +2112,7 @@ Return JSON matching the schema.`;
                     {
                       companyName: "Zalando SE",
                       industry: "E-Commerce Tech",
+                      companyUrl: "https://jobs.zalando.com",
                       whyTargetThisCompany: "International English-first environment with global relocation assistance.",
                       topJobs: [
                         { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "€85,000 - €120,000/yr", whySelected: "Fits your experience profile." },
@@ -2048,6 +2120,26 @@ Return JSON matching the schema.`;
                         { jobTitle: "Senior Platform Specialist", approxSalaryRange: "€82,000 - €115,000/yr", whySelected: "High demand in current hiring cycle." },
                         { jobTitle: "Data & Systems Analyst", approxSalaryRange: "€75,000 - €105,000/yr", whySelected: "Solid entry/mid target." },
                         { jobTitle: "Operations Consultant", approxSalaryRange: "€78,000 - €110,000/yr", whySelected: "Cross-functional execution role." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  countryName: "Netherlands",
+                  flag: "🇳🇱",
+                  visaEase: "Highly Skilled Migrant Scheme / 30% Tax Ruling",
+                  topCompanies: [
+                    {
+                      companyName: "ASML",
+                      industry: "Semiconductor & High Tech",
+                      companyUrl: "https://www.asml.com/en/careers",
+                      whyTargetThisCompany: "Global semiconductor leader offering world-class relocation packages and tax incentives.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "€85,000 - €125,000/yr", whySelected: "Core technological impact." },
+                        { jobTitle: "Systems Integration Specialist", approxSalaryRange: "€90,000 - €130,000/yr", whySelected: "High precision systems match." },
+                        { jobTitle: "Product Operations Lead", approxSalaryRange: "€80,000 - €115,000/yr", whySelected: "Process & project leadership." },
+                        { jobTitle: "Technical Program Manager", approxSalaryRange: "€95,000 - €135,000/yr", whySelected: "Cross-functional execution." },
+                        { jobTitle: "Quality & Systems Architect", approxSalaryRange: "€88,000 - €120,000/yr", whySelected: "Quality assurance alignment." }
                       ]
                     }
                   ]
@@ -2065,6 +2157,7 @@ Return JSON matching the schema.`;
                     {
                       companyName: "Shopify",
                       industry: "E-Commerce & Cloud Platforms",
+                      companyUrl: "https://www.shopify.com/careers",
                       whyTargetThisCompany: "Remote-first culture, fast PR pathways via Express Entry.",
                       topJobs: [
                         { jobTitle: `Staff ${roleToResearch}`, approxSalaryRange: "CAD $130,000 - $185,000/yr", whySelected: "High impact remote target." },
@@ -2072,6 +2165,26 @@ Return JSON matching the schema.`;
                         { jobTitle: "Product Delivery Lead", approxSalaryRange: "CAD $115,000 - $160,000/yr", whySelected: "Aligns with project management skills." },
                         { jobTitle: "Solutions Architect", approxSalaryRange: "CAD $135,000 - $190,000/yr", whySelected: "High compensation target." },
                         { jobTitle: "Growth & Technical Operations", approxSalaryRange: "CAD $110,000 - $150,000/yr", whySelected: "Strategic execution match." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  countryName: "United States",
+                  flag: "🇺🇸",
+                  visaEase: "O-1A / L-1 Intra-company Transfer / H-1B",
+                  topCompanies: [
+                    {
+                      companyName: "Microsoft",
+                      industry: "Cloud & Software Enterprise",
+                      companyUrl: "https://careers.microsoft.com",
+                      whyTargetThisCompany: "Premier employer with extensive global visa transfer and green card sponsorship programs.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "$150,000 - $220,000 USD/yr", whySelected: "Top tier career benchmark." },
+                        { jobTitle: "Principal Cloud Architect", approxSalaryRange: "$180,000 - $260,000 USD/yr", whySelected: "High architectural scale." },
+                        { jobTitle: "Technical Program Manager", approxSalaryRange: "$140,000 - $200,000 USD/yr", whySelected: "Strategic project execution." },
+                        { jobTitle: "Lead Systems Engineer", approxSalaryRange: "$160,000 - $230,000 USD/yr", whySelected: "Reliability and scale fit." },
+                        { jobTitle: "Product Operations Lead", approxSalaryRange: "$145,000 - $210,000 USD/yr", whySelected: "Cross-functional leadership." }
                       ]
                     }
                   ]
@@ -2089,6 +2202,7 @@ Return JSON matching the schema.`;
                     {
                       companyName: "Grab",
                       industry: "Tech & Superapp",
+                      companyUrl: "https://grab.careers",
                       whyTargetThisCompany: "APAC Regional Tech Headquarters with competitive tax rates.",
                       topJobs: [
                         { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "SGD $110,000 - $160,000/yr", whySelected: "Direct skill match." },
@@ -2099,6 +2213,26 @@ Return JSON matching the schema.`;
                       ]
                     }
                   ]
+                },
+                {
+                  countryName: "United Arab Emirates (Dubai)",
+                  flag: "🇦🇪",
+                  visaEase: "10-Year Golden Visa / Green Visa for Skilled Talent",
+                  topCompanies: [
+                    {
+                      companyName: "G42 / Careem",
+                      industry: "AI & Mobility Tech",
+                      companyUrl: "https://careem.com/careers",
+                      whyTargetThisCompany: "0% Income Tax environment with high expat support and fast Golden Visa pathways.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "AED 30,000 - 45,000/mo (Tax Free)", whySelected: "Direct alignment & tax free savings." },
+                        { jobTitle: "Solutions Engineering Lead", approxSalaryRange: "AED 35,000 - 52,000/mo", whySelected: "High impact systems role." },
+                        { jobTitle: "Technical Delivery Lead", approxSalaryRange: "AED 32,000 - 48,000/mo", whySelected: "Cross-functional execution." },
+                        { jobTitle: "Head of Infrastructure Ops", approxSalaryRange: "AED 40,000 - 60,000/mo", whySelected: "Leadership progression." },
+                        { jobTitle: "Product Strategy Manager", approxSalaryRange: "AED 30,000 - 45,000/mo", whySelected: "Strategic product execution." }
+                      ]
+                    }
+                  ]
                 }
               ]
             },
@@ -2106,13 +2240,34 @@ Return JSON matching the schema.`;
               continentName: "Africa",
               topCountries: [
                 {
-                  countryName: "South Africa & Nigeria",
+                  countryName: "South Africa",
                   flag: "🇿🇦",
-                  visaEase: "Critical Skills Work Visa / Regional Tech Hub Pass",
+                  visaEase: "Critical Skills Work Visa",
+                  topCompanies: [
+                    {
+                      companyName: "Takealot / Naspers",
+                      industry: "E-Commerce & Tech Investment",
+                      companyUrl: "https://www.takealot.com/careers",
+                      whyTargetThisCompany: "Largest regional e-commerce platform with strong technology engineering hubs.",
+                      topJobs: [
+                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "ZAR 850,000 - 1,300,000/yr", whySelected: "High regional leadership target." },
+                        { jobTitle: "Senior Systems Specialist", approxSalaryRange: "ZAR 750,000 - 1,100,000/yr", whySelected: "Infrastructure optimization." },
+                        { jobTitle: "Product Delivery Lead", approxSalaryRange: "ZAR 800,000 - 1,200,000/yr", whySelected: "Cross-team agile match." },
+                        { jobTitle: "Solutions Architect", approxSalaryRange: "ZAR 900,000 - 1,400,000/yr", whySelected: "High architectural scope." },
+                        { jobTitle: "Operations Strategy Lead", approxSalaryRange: "ZAR 700,000 - 1,050,000/yr", whySelected: "Process improvement fit." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  countryName: "Nigeria",
+                  flag: "🇳🇬",
+                  visaEase: "Regional Tech Hub Pass / Expatriate Quota",
                   topCompanies: [
                     {
                       companyName: "Flutterwave / Paystack",
                       industry: "Fintech & Payments",
+                      companyUrl: "https://flutterwave.com/careers",
                       whyTargetThisCompany: "Rapid global expansion and USD/flexible compensation packages.",
                       topJobs: [
                         { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "$60,000 - $95,000 USD/yr", whySelected: "High purchasing power and team leadership." },
@@ -2130,13 +2285,34 @@ Return JSON matching the schema.`;
               continentName: "South America",
               topCountries: [
                 {
-                  countryName: "Brazil & Argentina",
+                  countryName: "Brazil",
                   flag: "🇧🇷",
-                  visaEase: "Digital Nomad Visa / Mercosur Tech Exemption",
+                  visaEase: "Digital Nomad Visa / Tech Exemption",
+                  topCompanies: [
+                    {
+                      companyName: "Nubank",
+                      industry: "Fintech & Digital Banking",
+                      companyUrl: "https://nubank.com.br/en/careers",
+                      whyTargetThisCompany: "World's largest digital bank with global engineering operations and competitive USD/BRL packages.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "R$ 180,000 - 280,000/yr", whySelected: "Market leader fit." },
+                        { jobTitle: "Tech Lead Specialist", approxSalaryRange: "R$ 200,000 - 320,000/yr", whySelected: "Team leadership alignment." },
+                        { jobTitle: "Software Architecture Lead", approxSalaryRange: "R$ 220,000 - 350,000/yr", whySelected: "High architectural impact." },
+                        { jobTitle: "Operations Strategist", approxSalaryRange: "R$ 160,000 - 250,000/yr", whySelected: "Process execution match." },
+                        { jobTitle: "Regional Product Manager", approxSalaryRange: "R$ 190,000 - 300,000/yr", whySelected: "Cross-functional lead." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  countryName: "Argentina",
+                  flag: "🇦🇷",
+                  visaEase: "Digital Nomad Visa / Mercosur Agreement",
                   topCompanies: [
                     {
                       companyName: "Mercado Libre",
                       industry: "E-Commerce & Fintech",
+                      companyUrl: "https://careers-details.mercadolibre.com",
                       whyTargetThisCompany: "Largest Latin American tech ecosystem with USD salary options.",
                       topJobs: [
                         { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "$50,000 - $85,000 USD/yr", whySelected: "Market leader fit." },
@@ -2154,13 +2330,14 @@ Return JSON matching the schema.`;
               continentName: "Oceania",
               topCountries: [
                 {
-                  countryName: "Australia & New Zealand",
+                  countryName: "Australia",
                   flag: "🇦🇺",
-                  visaEase: "Subclass 482 Employer Sponsorship / Accredited Employer Work Visa",
+                  visaEase: "Subclass 482 Employer Sponsorship / PR Pathways",
                   topCompanies: [
                     {
                       companyName: "Atlassian",
                       industry: "Enterprise Collaboration Software",
+                      companyUrl: "https://www.atlassian.com/company/careers",
                       whyTargetThisCompany: "Strong relocation support, high work-life balance, top equity grants.",
                       topJobs: [
                         { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "AUD $130,000 - $180,000/yr", whySelected: "Core product & systems fit." },
@@ -2168,6 +2345,39 @@ Return JSON matching the schema.`;
                         { jobTitle: "Product Program Manager", approxSalaryRange: "AUD $125,000 - $170,000/yr", whySelected: "Agile delivery alignment." },
                         { jobTitle: "Solutions Architect", approxSalaryRange: "AUD $150,000 - $210,000/yr", whySelected: "Enterprise architecture target." },
                         { jobTitle: "Site Reliability Specialist", approxSalaryRange: "AUD $135,000 - $185,000/yr", whySelected: "Performance optimization match." }
+                      ]
+                    },
+                    {
+                      companyName: "Canva",
+                      industry: "Design & Technology Platform",
+                      companyUrl: "https://www.canva.com/careers",
+                      whyTargetThisCompany: "Rapid global growth unicorn with top employee perks and visa sponsorship.",
+                      topJobs: [
+                        { jobTitle: `Lead ${roleToResearch}`, approxSalaryRange: "AUD $140,000 - $195,000/yr", whySelected: "Product innovation fit." },
+                        { jobTitle: "Engineering Manager", approxSalaryRange: "AUD $160,000 - $220,000/yr", whySelected: "Leadership progression." },
+                        { jobTitle: "Senior Systems Specialist", approxSalaryRange: "AUD $130,000 - $180,000/yr", whySelected: "High scale infrastructure." },
+                        { jobTitle: "Product Delivery Lead", approxSalaryRange: "AUD $125,000 - $175,000/yr", whySelected: "Agile product focus." },
+                        { jobTitle: "Technical Architect", approxSalaryRange: "AUD $155,000 - $215,000/yr", whySelected: "Architectural strategy." }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  countryName: "New Zealand",
+                  flag: "🇳🇿",
+                  visaEase: "Accredited Employer Work Visa (AEWV) / Straight to Residence Tier 1",
+                  topCompanies: [
+                    {
+                      companyName: "Xero",
+                      industry: "Accounting & Fintech Tech",
+                      companyUrl: "https://www.xero.com/about/careers",
+                      whyTargetThisCompany: "Auckland/Wellington tech anchor with streamlined Tier 1 Green List residency paths.",
+                      topJobs: [
+                        { jobTitle: `Senior ${roleToResearch}`, approxSalaryRange: "NZD $120,000 - $165,000/yr", whySelected: "Core product match." },
+                        { jobTitle: "Lead Systems Architect", approxSalaryRange: "NZD $140,000 - $190,000/yr", whySelected: "System reliability focus." },
+                        { jobTitle: "Product Program Manager", approxSalaryRange: "NZD $115,000 - $155,000/yr", whySelected: "Agile execution match." },
+                        { jobTitle: "Technical Lead Specialist", approxSalaryRange: "NZD $130,000 - $175,000/yr", whySelected: "Team mentorship." },
+                        { jobTitle: "Site Reliability Engineer", approxSalaryRange: "NZD $125,000 - $170,000/yr", whySelected: "High uptime alignment." }
                       ]
                     }
                   ]
@@ -2185,6 +2395,7 @@ Return JSON matching the schema.`;
                     {
                       companyName: "Raytheon Polar Services / USAP / British Antarctic Survey",
                       industry: "Polar Research & Satellite Tech",
+                      companyUrl: "https://www.usap.gov/jobsAndOpportunities",
                       whyTargetThisCompany: "Tax-free seasonal contracts with full room, board, and extreme climate bonuses.",
                       topJobs: [
                         { jobTitle: "Station IT & Systems Operations Lead", approxSalaryRange: "$95,000 - $140,000 USD/season", whySelected: "High-reliability autonomous systems management." },

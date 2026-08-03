@@ -73,6 +73,7 @@ interface GlobalCompanyJob {
 interface GlobalCompany {
   companyName: string;
   industry: string;
+  companyUrl?: string;
   whyTargetThisCompany: string;
   topJobs: GlobalCompanyJob[];
 }
@@ -87,6 +88,13 @@ interface GlobalCountry {
 interface GlobalContinent {
   continentName: string;
   topCountries: GlobalCountry[];
+}
+
+interface HomeCountryAnalysis {
+  countryName: string;
+  flag?: string;
+  overview: string;
+  topCompanies: GlobalCompany[];
 }
 
 interface ResumeCoachResult {
@@ -104,6 +112,7 @@ interface ResumeCoachResult {
   suggestedNewSkills: string[];
   topJobs?: TopJob[];
   topCountries?: TopCountry[];
+  homeCountryAnalysis?: HomeCountryAnalysis;
   globalContinentMatrix?: GlobalContinent[];
   topCertifications?: TopCert[];
   interviewPrepTips?: PrepTip[];
@@ -137,6 +146,7 @@ export default function ResumeCoach({
   const [applyingAll, setApplyingAll] = useState(false);
   const [activeTab, setActiveTab] = useState<CoachTab>("coach");
   const [selectedContinentIdx, setSelectedContinentIdx] = useState(0);
+  const [selectedCountryFilter, setSelectedCountryFilter] = useState<string>("ALL");
 
   // Mock interview state
   const [selectedQuestionIdx, setSelectedQuestionIdx] = useState(0);
@@ -726,33 +736,124 @@ export default function ResumeCoach({
 
           {/* TAB 7-CONTINENT GLOBAL MATRIX */}
           {activeTab === "global-matrix" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="space-y-1">
                 <h3 className="text-base sm:text-lg font-bold text-white font-display flex items-center gap-2">
                   <Globe className="h-5 w-5 text-purple-400" /> 7 Continents Target Company & Job Matrix
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Top 5 countries per continent (Africa to Antarctica), with top 5 target companies per country and top 5 jobs per company matched to candidate experience and nationality ({candidateNationality || "All Passports"}).
+                  Select continents and top countries to explore top 5 companies and top 5 jobs tailored to your background and passport ({candidateNationality || "All Passports"}). Click any company link to research them directly.
                 </p>
               </div>
 
+              {/* CANDIDATE HOME COUNTRY TARGET COMPANIES SECTION */}
+              {analysisResult.homeCountryAnalysis && (
+                <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 space-y-5 shadow-2xl">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-500/20 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-2xl">{analysisResult.homeCountryAnalysis.flag || "📍"}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-white font-display">
+                            Home Country Spotlight: {analysisResult.homeCountryAnalysis.countryName}
+                          </h4>
+                          <span className="text-[10px] font-bold text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded border border-indigo-500/30 uppercase tracking-wider">
+                            Local Market Option
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 mt-0.5">
+                          {analysisResult.homeCountryAnalysis.overview}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-500/30">
+                      {analysisResult.homeCountryAnalysis.topCompanies?.length || 0} Target Companies
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {analysisResult.homeCountryAnalysis.topCompanies?.map((comp, compIdx) => {
+                      const linkUrl = comp.companyUrl || `https://www.google.com/search?q=${encodeURIComponent(comp.companyName + " careers")}`;
+                      return (
+                        <div key={compIdx} className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 hover:border-indigo-500/40 transition">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-850 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-indigo-400 shrink-0" />
+                              <h6 className="text-xs sm:text-sm font-bold text-white font-display">{comp.companyName}</h6>
+                              <span className="text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                                {comp.industry}
+                              </span>
+                            </div>
+                            <a
+                              href={linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold text-indigo-300 bg-indigo-950/60 border border-indigo-500/30 hover:bg-indigo-900/80 hover:text-white transition"
+                            >
+                              Visit Company <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+
+                          <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                            <strong className="text-indigo-400 font-semibold">Why Target {comp.companyName}: </strong>
+                            {comp.whyTargetThisCompany}
+                          </p>
+
+                          <div className="space-y-2 pt-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                              Top Jobs to Pursue ({comp.topJobs?.length || 0}):
+                            </span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              {comp.topJobs?.map((job, jobIdx) => (
+                                <div key={jobIdx} className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 hover:border-indigo-500/30 transition">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                      <Briefcase className="h-3.5 w-3.5 text-indigo-400 shrink-0" /> {job.jobTitle}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
+                                      {job.approxSalaryRange}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 leading-normal">
+                                    <strong className="text-slate-300">Fit Reason: </strong>{job.whySelected}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 7-CONTINENT GLOBAL MATRIX */}
               {analysisResult.globalContinentMatrix && analysisResult.globalContinentMatrix.length > 0 ? (
                 <div className="space-y-6">
                   {/* Continent Selector Pills */}
-                  <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-800">
-                    {analysisResult.globalContinentMatrix.map((cont, cIdx) => (
-                      <button
-                        key={cIdx}
-                        onClick={() => setSelectedContinentIdx(cIdx)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
-                          selectedContinentIdx === cIdx
-                            ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                            : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
-                        }`}
-                      >
-                        <Compass className="h-3.5 w-3.5" /> {cont.continentName}
-                      </button>
-                    ))}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-purple-300 uppercase tracking-wider block">
+                      Select Continent:
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-800">
+                      {analysisResult.globalContinentMatrix.map((cont, cIdx) => (
+                        <button
+                          key={cIdx}
+                          onClick={() => {
+                            setSelectedContinentIdx(cIdx);
+                            setSelectedCountryFilter("ALL");
+                          }}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
+                            selectedContinentIdx === cIdx
+                              ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
+                              : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                          }`}
+                        >
+                          <Compass className="h-3.5 w-3.5" /> {cont.continentName}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Active Continent Content */}
@@ -760,26 +861,76 @@ export default function ResumeCoach({
                     const activeContinent = analysisResult.globalContinentMatrix[selectedContinentIdx] || analysisResult.globalContinentMatrix[0];
                     if (!activeContinent) return null;
 
+                    const allCountries = activeContinent.topCountries || [];
+                    const filteredCountries = selectedCountryFilter === "ALL"
+                      ? allCountries
+                      : allCountries.filter(c => c.countryName === selectedCountryFilter);
+
                     return (
-                      <div className="space-y-8">
-                        <div className="bg-purple-950/20 border border-purple-500/20 rounded-2xl p-4 flex items-center justify-between">
+                      <div className="space-y-6">
+                        <div className="bg-purple-950/20 border border-purple-500/20 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xl">🌍</span>
                             <div>
                               <h4 className="text-sm font-bold text-white font-display">{activeContinent.continentName} Regional Matrix</h4>
                               <p className="text-[11px] text-slate-400">
-                                Showing top hiring countries, target companies, and roles tailored to your background.
+                                Explore top hiring countries and company targets across {activeContinent.continentName}.
                               </p>
                             </div>
                           </div>
                           <span className="text-xs font-bold text-purple-400 bg-purple-900/40 px-3 py-1 rounded-full border border-purple-500/30">
-                            {activeContinent.topCountries?.length || 0} Key Markets
+                            {allCountries.length} Key Country Options
                           </span>
                         </div>
 
-                        {/* Top Countries in Continent */}
+                        {/* Country Options Selector Pills */}
+                        {allCountries.length > 0 && (
+                          <div className="space-y-2 bg-slate-950 border border-slate-800 rounded-xl p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                                <Globe className="h-3.5 w-3.5 text-purple-400" /> Filter by Country Option:
+                              </span>
+                              {selectedCountryFilter !== "ALL" && (
+                                <button
+                                  onClick={() => setSelectedCountryFilter("ALL")}
+                                  className="text-[10px] font-bold text-purple-400 hover:underline"
+                                >
+                                  Show All ({allCountries.length})
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                              <button
+                                onClick={() => setSelectedCountryFilter("ALL")}
+                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition whitespace-nowrap ${
+                                  selectedCountryFilter === "ALL"
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                                }`}
+                              >
+                                Show All Countries ({allCountries.length})
+                              </button>
+                              {allCountries.map((c, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setSelectedCountryFilter(c.countryName)}
+                                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
+                                    selectedCountryFilter === c.countryName
+                                      ? "bg-purple-600 text-white shadow"
+                                      : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                                  }`}
+                                >
+                                  <span>{c.flag || "🌐"}</span>
+                                  <span>{c.countryName}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Top Countries List */}
                         <div className="space-y-6">
-                          {activeContinent.topCountries?.map((country, countryIdx) => (
+                          {filteredCountries.map((country, countryIdx) => (
                             <div key={countryIdx} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-5 shadow-xl">
                               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
                                 <div className="flex items-center gap-2.5">
@@ -798,48 +949,59 @@ export default function ResumeCoach({
 
                               {/* Companies list */}
                               <div className="space-y-4">
-                                {country.topCompanies?.map((comp, compIdx) => (
-                                  <div key={compIdx} className="bg-slate-950 border border-slate-850 rounded-xl p-4 space-y-3">
-                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
-                                      <div className="flex items-center gap-2">
-                                        <Building2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                                        <h6 className="text-xs sm:text-sm font-bold text-white font-display">{comp.companyName}</h6>
-                                        <span className="text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                                          {comp.industry}
+                                {country.topCompanies?.map((comp, compIdx) => {
+                                  const linkUrl = comp.companyUrl || `https://www.google.com/search?q=${encodeURIComponent(comp.companyName + " careers")}`;
+                                  return (
+                                    <div key={compIdx} className="bg-slate-950 border border-slate-850 rounded-xl p-4 space-y-3 hover:border-emerald-500/30 transition">
+                                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                                        <div className="flex items-center gap-2">
+                                          <Building2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                                          <h6 className="text-xs sm:text-sm font-bold text-white font-display">{comp.companyName}</h6>
+                                          <span className="text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                                            {comp.industry}
+                                          </span>
+                                        </div>
+                                        <a
+                                          href={linkUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 hover:bg-emerald-900/80 hover:text-white transition"
+                                        >
+                                          Visit Company <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                      </div>
+
+                                      <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                                        <strong className="text-indigo-400 font-semibold">Why Target {comp.companyName}: </strong>
+                                        {comp.whyTargetThisCompany}
+                                      </p>
+
+                                      {/* Top Jobs at this company */}
+                                      <div className="space-y-2 pt-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                          Top Jobs to Pursue ({comp.topJobs?.length || 0}):
                                         </span>
-                                      </div>
-                                    </div>
-
-                                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-                                      <strong className="text-indigo-400 font-semibold">Why Target {comp.companyName}: </strong>
-                                      {comp.whyTargetThisCompany}
-                                    </p>
-
-                                    {/* Top Jobs at this company */}
-                                    <div className="space-y-2 pt-1">
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                                        Top Jobs to Pursue ({comp.topJobs?.length || 0}):
-                                      </span>
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                                        {comp.topJobs?.map((job, jobIdx) => (
-                                          <div key={jobIdx} className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 hover:border-indigo-500/30 transition">
-                                            <div className="flex items-center justify-between gap-2">
-                                              <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                                                <Briefcase className="h-3.5 w-3.5 text-indigo-400 shrink-0" /> {job.jobTitle}
-                                              </span>
-                                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
-                                                {job.approxSalaryRange}
-                                              </span>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                          {comp.topJobs?.map((job, jobIdx) => (
+                                            <div key={jobIdx} className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 hover:border-indigo-500/30 transition">
+                                              <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                                  <Briefcase className="h-3.5 w-3.5 text-indigo-400 shrink-0" /> {job.jobTitle}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
+                                                  {job.approxSalaryRange}
+                                                </span>
+                                              </div>
+                                              <p className="text-[11px] text-slate-400 leading-normal">
+                                                <strong className="text-slate-300">Fit Reason: </strong>{job.whySelected}
+                                              </p>
                                             </div>
-                                            <p className="text-[11px] text-slate-400 leading-normal">
-                                              <strong className="text-slate-300">Fit Reason: </strong>{job.whySelected}
-                                            </p>
-                                          </div>
-                                        ))}
+                                          ))}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}
