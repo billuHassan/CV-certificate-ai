@@ -6,26 +6,37 @@ import os from "os";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
-import * as admin from "firebase-admin";
-import { getAuth as getAdminAuthSdk } from "firebase-admin/auth";
+import { initializeApp, getApps, App } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import firebaseConfig from "./firebase-applet-config.json";
 
 dotenv.config();
 
-const firebaseAdmin: any = admin;
+let adminApp: App | undefined;
 
-function getAdminAuth() {
-  return getAdminAuthSdk();
+function getAdminApp(): App {
+  if (!adminApp) {
+    const existingApps = getApps();
+    if (existingApps.length > 0) {
+      adminApp = existingApps[0];
+    } else {
+      try {
+        adminApp = initializeApp({
+          projectId: firebaseConfig.projectId || "eco-compass-fcf5x"
+        });
+        console.log("[FIREBASE ADMIN] Initialized successfully on backend.");
+      } catch (adminErr) {
+        console.error("[FIREBASE ADMIN] Initialization failed:", adminErr);
+        adminApp = getApps()[0];
+      }
+    }
+  }
+  return adminApp;
 }
 
-try {
-  if (firebaseAdmin.apps.length === 0) {
-    firebaseAdmin.initializeApp({
-      projectId: "eco-compass-fcf5x"
-    });
-    console.log("[FIREBASE ADMIN] Initialized successfully on backend.");
-  }
-} catch (adminErr) {
-  console.error("[FIREBASE ADMIN] Initialization failed:", adminErr);
+function getAdminAuth() {
+  const app = getAdminApp();
+  return getAuth(app);
 }
 
 const app = express();
