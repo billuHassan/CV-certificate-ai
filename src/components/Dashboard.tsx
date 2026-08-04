@@ -44,6 +44,8 @@ export default function Dashboard({
   const [newLetterCompany, setNewLetterCompany] = useState("");
   const [newLetterRole, setNewLetterRole] = useState("");
 
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "resume" | "letter"; title: string } | null>(null);
+
   const handleCreateResumeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newResumeTitle.trim()) {
@@ -235,13 +237,9 @@ export default function Dashboard({
                     */}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this resume?")) {
-                          onDeleteResume(res.id);
-                        }
-                      }}
+                      onClick={() => setItemToDelete({ id: res.id, type: "resume", title: res.title })}
                       className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition"
-                      title="Delete"
+                      title="Delete Resume"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -288,12 +286,9 @@ export default function Dashboard({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this cover letter?")) {
-                          onDeleteLetter(letItem.id);
-                        }
-                      }}
+                      onClick={() => setItemToDelete({ id: letItem.id, type: "letter", title: letItem.title })}
                       className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition"
+                      title="Delete Cover Letter"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -470,6 +465,50 @@ export default function Dashboard({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* --- DELETE CONFIRMATION MODAL --- */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Delete {itemToDelete.type === "resume" ? "Resume" : "Cover Letter"}</h3>
+                <p className="text-xs text-slate-400">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              Are you sure you want to delete <strong className="text-white font-semibold">"{itemToDelete.title}"</strong>?
+            </p>
+
+            <div className="flex items-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setItemToDelete(null)}
+                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (itemToDelete.type === "resume") {
+                    onDeleteResume(itemToDelete.id);
+                  } else {
+                    onDeleteLetter(itemToDelete.id);
+                  }
+                  setItemToDelete(null);
+                }}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-lg"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

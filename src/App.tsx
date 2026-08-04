@@ -274,6 +274,10 @@ export default function App() {
       }
 
       if (firebaseUser) {
+        // Ensure online mode and clear any legacy offline overrides on active login
+        setIsOfflineMode(false);
+        localStorage.removeItem("cvcraft_offline_mode");
+
         // Load user-specific active states on login
         const savedResumeId = sessionStorage.getItem(`cvcraft_${firebaseUser.uid}_selectedResumeId`);
         const savedLetterId = sessionStorage.getItem(`cvcraft_${firebaseUser.uid}_selectedLetterId`);
@@ -337,9 +341,7 @@ export default function App() {
               profilePhoto: profileData.profilePhoto
             });
           }, (err) => {
-            console.error("User document real-time listener error, falling back to offline mode:", err);
-            setIsOfflineMode(true);
-            localStorage.setItem("cvcraft_offline_mode", "true");
+            console.warn("User document real-time listener info:", err);
           });
 
           // Set up real-time listener for resumes sub-collection
@@ -359,9 +361,7 @@ export default function App() {
               }
             },
             (err) => {
-              console.error("Firestore resumes listener error, falling back to offline mode:", err);
-              setIsOfflineMode(true);
-              localStorage.setItem("cvcraft_offline_mode", "true");
+              console.warn("Firestore resumes listener info:", err);
             }
           );
 
@@ -382,16 +382,12 @@ export default function App() {
               }
             },
             (err) => {
-              console.error("Firestore letters listener error, falling back to offline mode:", err);
-              setIsOfflineMode(true);
-              localStorage.setItem("cvcraft_offline_mode", "true");
+              console.warn("Firestore letters listener info:", err);
             }
           );
 
         } catch (error) {
-          console.error("Error setting up Firestore real-time listeners, falling back to offline mode:", error);
-          setIsOfflineMode(true);
-          localStorage.setItem("cvcraft_offline_mode", "true");
+          console.warn("Error setting up Firestore real-time listeners:", error);
         } finally {
           setIsAuthLoading(false);
         }
@@ -730,18 +726,18 @@ export default function App() {
 
   const handleDeleteResume = async (id: string) => {
     if (!user) return;
+    setResumes(prev => prev.filter(r => r.id !== id));
+    if (selectedResumeId === id) setSelectedResumeId(null);
+
     if (isOfflineMode) {
       const updatedResumes = resumes.filter(r => r.id !== id);
-      setResumes(updatedResumes);
       localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
-      if (selectedResumeId === id) setSelectedResumeId(null);
       return;
     }
 
     if (!auth.currentUser) return;
     try {
       await deleteDoc(doc(db, "users", auth.currentUser.uid, "resumes", id));
-      if (selectedResumeId === id) setSelectedResumeId(null);
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `users/${auth.currentUser.uid}/resumes/${id}`);
     }
@@ -766,18 +762,18 @@ export default function App() {
 
   const handleDeleteLetter = async (id: string) => {
     if (!user) return;
+    setLetters(prev => prev.filter(l => l.id !== id));
+    if (selectedLetterId === id) setSelectedLetterId(null);
+
     if (isOfflineMode) {
       const updatedLetters = letters.filter(l => l.id !== id);
-      setLetters(updatedLetters);
       localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updatedLetters));
-      if (selectedLetterId === id) setSelectedLetterId(null);
       return;
     }
 
     if (!auth.currentUser) return;
     try {
       await deleteDoc(doc(db, "users", auth.currentUser.uid, "letters", id));
-      if (selectedLetterId === id) setSelectedLetterId(null);
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `users/${auth.currentUser.uid}/letters/${id}`);
     }

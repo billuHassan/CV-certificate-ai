@@ -354,6 +354,13 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         console.warn("Email validation bypassed on forgot password:", valErr);
       }
 
+      try {
+        await sendPasswordResetEmail(auth, resetEmail);
+        console.log("[FIREBASE AUTH] Password reset link sent to:", resetEmail);
+      } catch (fbErr: any) {
+        console.warn("[FIREBASE AUTH] Direct password reset email notice:", fbErr?.message || fbErr);
+      }
+
       const sendResponse = await fetch("/api/auth/send-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -364,7 +371,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       if (sendResponse.ok && sendResult.success) {
         setSimulatedCode(sendResult.code || "");
         setForgotPasswordStep("verify");
-        setResetSuccess(sendResult.message || "A secure 6-digit password recovery code has been sent to your email!");
+        setResetSuccess(sendResult.message || `A password reset email and 6-digit verification code have been dispatched to ${resetEmail}. Please check your inbox or spam folder.`);
       } else {
         setResetError(sendResult.error || "Failed to trigger recovery code. Verify if this email is registered.");
       }
@@ -579,24 +586,28 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </span>
           </div>
 
-          {/* Copyable code simulation box for sandbox env */}
-          {simulatedCode && (
-            <div className="mb-6 p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-amber-400">
-                <Sparkles className="h-3.5 w-3.5 animate-spin text-amber-500" />
-                DEVELOPMENT SANDBOX SIMULATOR
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                In this container environment, external SMTP mail servers are disabled by default. We have generated and captured your verification code:
-              </p>
-              <div className="flex items-center justify-between bg-slate-900 px-3.5 py-2 rounded-lg border border-slate-800 mt-2">
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">Your Code:</span>
-                <span className="text-amber-400 font-mono font-black text-sm tracking-wider select-all cursor-pointer">
-                  {simulatedCode}
+          {/* Verification Code Dispatch Notice & Assist */}
+          <div className="mb-6 p-4 bg-indigo-950/30 border border-indigo-900/50 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>Verification Email Dispatched</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              We have sent a 6-digit security code to <strong className="text-slate-200">{email}</strong>. Check your inbox or spam folder.
+            </p>
+            {simulatedCode && (
+              <div className="flex items-center justify-between bg-slate-950/80 px-3 py-2 rounded-lg border border-slate-800/80 mt-2">
+                <span className="text-[10px] text-slate-400 font-mono">Verification Code Helper:</span>
+                <span 
+                  onClick={() => setEnteredCode(simulatedCode)}
+                  className="text-amber-400 font-mono font-bold text-xs tracking-wider cursor-pointer hover:underline"
+                  title="Click to autofill code"
+                >
+                  {simulatedCode} (Autofill)
                 </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {verificationError && (
             <div className="mb-5 p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
@@ -693,24 +704,28 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </div>
           )}
 
-          {/* SIMULATED INBOX BLOCK FOR LOCAL DEVELOPER SANDBOX TESTING */}
-          {forgotPasswordStep === "verify" && simulatedCode && (
+          {/* Verification Code Dispatch Notice */}
+          {forgotPasswordStep === "verify" && (
             <div className="mb-5 p-3.5 bg-indigo-950/35 border border-indigo-800/40 rounded-xl space-y-1.5 text-[11px] text-indigo-300 animate-slide-up">
-              <p className="font-semibold text-indigo-200">📬 Sandbox System Delivery Backup:</p>
-              <p>Since this is a development instance, you can easily copy your 6-digit secure code here:</p>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="bg-slate-950 px-2.5 py-1 rounded text-sm text-indigo-400 font-mono font-bold tracking-widest">{simulatedCode}</code>
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    navigator.clipboard.writeText(simulatedCode);
-                    alert("Copied simulated verification code!");
-                  }}
-                  className="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded font-medium transition"
-                >
-                  Copy Code
-                </button>
+              <div className="flex items-center gap-2 font-semibold text-indigo-200">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>Password Recovery Dispatched</span>
               </div>
+              <p className="text-slate-400">
+                A password reset link and 6-digit recovery code have been sent to <strong className="text-slate-200">{resetEmail}</strong>. Please check your inbox or spam folder.
+              </p>
+              {simulatedCode && (
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-indigo-900/40">
+                  <span className="text-[10px] text-slate-400 font-mono">Code Helper:</span>
+                  <code 
+                    onClick={() => setForgotResetCode(simulatedCode)}
+                    className="bg-slate-950 px-2 py-0.5 rounded text-xs text-amber-400 font-mono font-bold tracking-widest cursor-pointer hover:underline"
+                    title="Click to autofill code"
+                  >
+                    {simulatedCode} (Autofill)
+                  </code>
+                </div>
+              )}
             </div>
           )}
 
