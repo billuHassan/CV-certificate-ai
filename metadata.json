@@ -1,6 +1,6 @@
 {
-  "name": "CVCraft AI",
-  "description": "AI-Powered Resume & Cover Letter Builder with ATS Optimization, PDF Export, and Custom Templates",
+  "name": "RahmoraAI",
+  "description": "RahmoraAI - Intelligent Career, Resume & Cover Letter Platform with AI Optimization",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

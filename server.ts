@@ -527,30 +527,30 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
     });
 
     const subject = actionType === "registration" 
-      ? "[CVCraft AI] Verify your email address" 
-      : "[CVCraft AI] Reset your account password";
+      ? "[RahmoraAI] Verify your email address" 
+      : "[RahmoraAI] Reset your account password";
 
     const actionText = actionType === "registration" ? "registering your new account" : "resetting your account password";
 
     const mailOptions = {
-      from,
+      from: process.env.SMTP_FROM || "auth@rahmora.ai",
       to: email,
       subject,
-      text: `Hello,\n\nYou are receiving this email because you requested a verification code for ${actionText} on CVCraft AI.\n\nYour 6-digit secure code is: ${code}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nCVCraft AI Team`,
+      text: `Hello,\n\nYou are receiving this email because you requested a verification code for ${actionText} on RahmoraAI.\n\nYour 6-digit secure code is: ${code}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nRahmoraAI Team`,
       html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #fafafa; text-align: center;">
-          <h2 style="color: #4f46e5; margin-top: 0; font-size: 22px; font-weight: 700;">Secure Verification Code</h2>
-          <p style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
-            You requested a secure code for <strong>${actionText}</strong> on CVCraft AI. Please use the following 6-digit code to complete the step:
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px; border: 1px solid #334155; border-radius: 16px; background-color: #0f172a; text-align: center; color: #f8fafc;">
+          <h2 style="color: #818cf8; margin-top: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">RahmoraAI</h2>
+          <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 24px;">
+            You requested a 6-digit security code for <strong>${actionText}</strong>. Please enter the following code in the application:
           </p>
-          <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 24px; display: inline-block;">
-            <span style="font-family: monospace; font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #1e293b;">${code}</span>
+          <div style="background-color: #1e293b; border: 1px solid #475569; border-radius: 12px; padding: 20px; margin-bottom: 24px; display: inline-block;">
+            <span style="font-family: monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #38bdf8;">${code}</span>
           </div>
           <p style="font-size: 12px; color: #64748b; margin-top: 24px;">
-            This code is valid for <strong>10 minutes</strong>. If you did not make this request, please ignore this email safely.
+            This code is valid for <strong>10 minutes</strong>. If you did not make this request, your account remains completely safe.
           </p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-          <p style="font-size: 11px; color: #94a3b8; margin: 0;">&copy; ${new Date().getFullYear()} CVCraft AI. All rights reserved.</p>
+          <hr style="border: 0; border-top: 1px solid #334155; margin: 24px 0;" />
+          <p style="font-size: 11px; color: #64748b; margin: 0;">&copy; ${new Date().getFullYear()} RahmoraAI Intelligence Systems. All rights reserved.</p>
         </div>
       `,
     };
@@ -610,7 +610,7 @@ app.post("/api/auth/send-code", async (req, res) => {
 
     verificationCodes.set(normalizedEmail, { code, expires });
     addServerEvent(`Generated secure verification code for ${normalizedEmail}`);
-    console.log(`[AUTH SECURE] Verification code for ${normalizedEmail}: ${code}`);
+    console.log(`[AUTH SECURE CODE DISPATCHED FOR ${normalizedEmail}]: ${code}`);
 
     // Attempt SMTP dispatch
     const smtpDispatched = await dispatchVerificationEmail(
@@ -622,10 +622,7 @@ app.post("/api/auth/send-code", async (req, res) => {
     res.json({
       success: true,
       smtpConfigured: smtpDispatched,
-      message: smtpDispatched 
-        ? "Verification code successfully sent to your email inbox."
-        : "Verification code generated. Please retrieve it below (SMTP fallback active).",
-      code: code // Still return the code for UI to show a beautiful copyable backup block
+      message: "A 6-digit verification code has been sent to your email address."
     });
   } catch (error: any) {
     console.error("Send Code Error:", error);

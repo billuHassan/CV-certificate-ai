@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain } from "lucide-react";
 import { auth, db } from "../lib/firebase";
 import {
   signInWithEmailAndPassword,
@@ -7,8 +7,7 @@ import {
   updateProfile,
   signInWithPopup,
   GoogleAuthProvider,
-  signInAnonymously,
-  sendPasswordResetEmail
+  signInAnonymously
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
@@ -17,6 +16,7 @@ interface AuthProps {
 }
 
 export default function Auth({ onAuthSuccess }: AuthProps) {
+  const [showLanding, setShowLanding] = useState(true);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +29,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   // Email verification flow states
   const [showVerification, setShowVerification] = useState(false);
   const [enteredCode, setEnteredCode] = useState("");
-  const [simulatedCode, setSimulatedCode] = useState("");
   const [verificationError, setVerificationError] = useState("");
 
   // Google Sign-In simulation states
@@ -132,7 +131,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     // Strict Password Validation Check during Registration
     if (!isLogin) {
       if (!isMinLength) {
-        setError("Your password is too short. It must obtain a proper length of at least 8 characters.");
+        setError("Your password is too short. It must be at least 8 characters long.");
         return;
       }
       if (!isUpper) {
@@ -183,7 +182,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         
         setLoading(false);
         if (sendResult.success) {
-          setSimulatedCode(sendResult.code || "");
           setShowVerification(true);
         } else {
           setError(sendResult.error || "Failed to trigger secure verification code. Please try again.");
@@ -351,16 +349,10 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           }
         }
       } catch (valErr) {
-        console.warn("Email validation bypassed on forgot password:", valErr);
+        console.warn("Email validation check notice:", valErr);
       }
 
-      try {
-        await sendPasswordResetEmail(auth, resetEmail);
-        console.log("[FIREBASE AUTH] Password reset link sent to:", resetEmail);
-      } catch (fbErr: any) {
-        console.warn("[FIREBASE AUTH] Direct password reset email notice:", fbErr?.message || fbErr);
-      }
-
+      // Request server to dispatch 6-digit recovery code via email (No invalid email link!)
       const sendResponse = await fetch("/api/auth/send-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -369,9 +361,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       const sendResult = await sendResponse.json();
 
       if (sendResponse.ok && sendResult.success) {
-        setSimulatedCode(sendResult.code || "");
         setForgotPasswordStep("verify");
-        setResetSuccess(sendResult.message || `A password reset email and 6-digit verification code have been dispatched to ${resetEmail}. Please check your inbox or spam folder.`);
+        setResetSuccess(`A 6-digit verification code has been dispatched to ${resetEmail}. Please check your inbox or spam folder.`);
       } else {
         setResetError(sendResult.error || "Failed to trigger recovery code. Verify if this email is registered.");
       }
@@ -405,13 +396,13 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
       if (data.success) {
         setForgotPasswordStep("change");
-        setResetSuccess("Code verified successfully! You can now choose a secure new password below.");
+        setResetSuccess("Code verified successfully! You can now set your new password below.");
       } else {
         setResetError(data.reason || "Invalid verification code. Please check your spelling and try again.");
       }
     } catch (err) {
       console.error("Verification code check error:", err);
-      setResetError("Failed to verify code. Please verify your internet connection.");
+      setResetError("Failed to verify code. Please check your network connection.");
     } finally {
       setResetLoading(false);
     }
@@ -427,7 +418,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       return;
     }
 
-    // Secure password rules validation to prevent "some random shit"
+    // Secure password rules validation
     const isMinLength = forgotNewPassword.length >= 8;
     const isUpper = /[A-Z]/.test(forgotNewPassword);
     const isNumber = /[0-9]/.test(forgotNewPassword);
@@ -454,12 +445,12 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Password updated successfully! Redirect to Sign In!
+        // Password updated in Firebase/Firestore! Switch to Sign In mode.
         setShowForgotPassword(false);
         setIsLogin(true);
-        setPassword(""); // Clear password field
-        setEmail(resetEmail); // Prefill verified email
-        setSuccessMessage("Your account password has been successfully reset. Please sign in with your new password.");
+        setPassword("");
+        setEmail(resetEmail); // Prefill email
+        setSuccessMessage("Your account password has been updated successfully! Please sign in with your new password.");
         
         // Reset recovery states
         setForgotPasswordStep("request");
@@ -491,7 +482,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         const uDocRef = doc(db, "users", firebaseUser.uid);
         const uDoc = await getDoc(uDocRef);
         let displayName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Google User";
-        let profilePhoto = firebaseUser.photoURL || "";
         
         if (!uDoc.exists()) {
           await setDoc(uDocRef, {
@@ -500,11 +490,10 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             isPremium: true,
             creationsCount: 0,
             adViews: 0,
-            profilePhoto: profilePhoto
+            profilePhoto: firebaseUser.photoURL || ""
           });
         } else {
           displayName = uDoc.data().displayName || displayName;
-          profilePhoto = uDoc.data().profilePhoto || profilePhoto;
         }
 
         setLoading(false);
@@ -513,38 +502,21 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           displayName: displayName
         });
       }
-    } catch (gErr: any) {
-      console.warn("Google Sign-In failed, opening local simulated chooser:", gErr);
+    } catch (err: any) {
+      console.warn("Google popup auth mode, opening simulated account selector:", err?.message || err);
       setLoading(false);
       setShowGoogleChooser(true);
     }
   };
 
   const handleSelectGoogleAccount = async (gmail: string, displayName: string) => {
-    setLoading(true);
     setShowGoogleChooser(false);
-    try {
-      // Authenticate with Firebase anonymously to grant full secure Firestore read/write capabilities
-      const anonCred = await signInAnonymously(auth);
-      const anonUser = anonCred.user;
-      
-      const uDocRef = doc(db, "users", anonUser.uid);
-      await setDoc(uDocRef, {
-        email: gmail.toLowerCase(),
-        displayName: displayName,
-        isPremium: true,
-        creationsCount: 0,
-        adViews: 0,
-        profilePhoto: ""
-      });
+    setShowGoogleCustomInput(false);
+    setLoading(true);
 
-      setLoading(false);
-      onAuthSuccess({
-        email: gmail,
-        displayName: displayName,
-      });
-    } catch (err: any) {
-      console.warn("Anonymous fallback authentication failed, falling back to Offline Local Storage Mode:", err);
+    try {
+      await signInFallback(gmail, displayName);
+    } catch (err) {
       setLoading(false);
       onAuthSuccess({
         email: gmail,
@@ -563,6 +535,141 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     handleSelectGoogleAccount(customGoogleEmail.trim(), derivedName);
   };
 
+  // --- STARTUP / HERO SPLASH LANDING FOR RahmoraAI ---
+  if (showLanding) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-8 relative overflow-hidden font-sans">
+        {/* Background Visual Effects */}
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/10 via-slate-950/80 to-slate-950 pointer-events-none" />
+
+        {/* Top Header Navigation */}
+        <header className="relative z-10 w-full max-w-6xl mx-auto flex items-center justify-between py-4 border-b border-slate-800/80">
+          <div className="flex items-center gap-3">
+            <div className="relative flex items-center justify-center h-10 w-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-400 p-[1.5px] shadow-lg shadow-indigo-500/20">
+              <div className="h-full w-full bg-slate-950 rounded-[14px] flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-indigo-400 animate-pulse" />
+              </div>
+            </div>
+            <div>
+              <span className="font-extrabold text-xl tracking-tight text-white font-display">
+                Rahmora<span className="text-indigo-400">AI</span>
+              </span>
+              <span className="text-[10px] text-slate-500 block font-mono">Career Intelligence Suite</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setIsLogin(true);
+                setShowLanding(false);
+              }}
+              className="text-xs font-semibold text-slate-300 hover:text-white px-3.5 py-2 rounded-xl transition hover:bg-slate-900"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => {
+                setIsLogin(false);
+                setShowLanding(false);
+              }}
+              className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/20"
+            >
+              Get Started
+            </button>
+          </div>
+        </header>
+
+        {/* Main Hero Showcase */}
+        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-12 px-4 space-y-8">
+          
+          {/* Animated Logo Badge */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-indigo-500/30 text-indigo-300 text-xs font-mono font-semibold shadow-2xl backdrop-blur-md animate-fade-in">
+            <Cpu className="h-4 w-4 text-sky-400 animate-spin" />
+            <span>AI-POWERED RESUME & CAREER ARCHITECT</span>
+            <span className="bg-indigo-500/20 text-indigo-300 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase">
+              2026 Edition
+            </span>
+          </div>
+
+          {/* Hero Headline */}
+          <div className="space-y-4 max-w-3xl mx-auto">
+            <h1 className="text-4xl sm:text-6xl font-black text-white font-display tracking-tight leading-[1.1]">
+              Elevate Your Career with <span className="bg-gradient-to-r from-white via-indigo-200 to-sky-400 bg-clip-text text-transparent">RahmoraAI</span>
+            </h1>
+            <p className="text-slate-400 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
+              Craft ATS-optimized CVs, generate tailored cover letters, and discover up to 10 matching area hiring employers in seconds with live intelligence.
+            </p>
+          </div>
+
+          {/* Feature Pillars Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-left">
+            <div className="bg-slate-900/70 border border-slate-800/90 hover:border-indigo-500/50 rounded-2xl p-5 backdrop-blur-xl transition group shadow-xl">
+              <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-3 group-hover:scale-110 transition">
+                <FileText className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-white mb-1">AI Resume Builder</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Modern ATS templates with automated bullet point enhancement and real-time formatting export.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/70 border border-slate-800/90 hover:border-indigo-500/50 rounded-2xl p-5 backdrop-blur-xl transition group shadow-xl">
+              <div className="h-10 w-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 mb-3 group-hover:scale-110 transition">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-white mb-1">10 Regional Hiring Companies</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Extract position requirements or poster URLs to instantly discover 10 local area employers.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/70 border border-slate-800/90 hover:border-indigo-500/50 rounded-2xl p-5 backdrop-blur-xl transition group shadow-xl">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3 group-hover:scale-110 transition">
+                <Brain className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-white mb-1">ATS Score & Coach</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Scan keyword gaps and receive actionable suggestions to boost interview callback rates.
+              </p>
+            </div>
+          </div>
+
+          {/* Call to Action Button */}
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={() => {
+                setIsLogin(false);
+                setShowLanding(false);
+              }}
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 to-sky-500 hover:from-indigo-500 hover:to-sky-400 text-white font-bold text-sm rounded-2xl transition shadow-2xl shadow-indigo-500/25 flex items-center justify-center gap-2.5 group"
+            >
+              <span>Get Started with RahmoraAI</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition" />
+            </button>
+            <button
+              onClick={() => {
+                setIsLogin(true);
+                setShowLanding(false);
+              }}
+              className="w-full sm:w-auto px-6 py-4 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-semibold text-xs rounded-2xl transition flex items-center justify-center gap-2"
+            >
+              <span>Already a member? Sign In</span>
+            </button>
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="relative z-10 w-full max-w-6xl mx-auto text-center py-4 border-t border-slate-850 text-xs text-slate-500 font-mono">
+          &copy; {new Date().getFullYear()} RahmoraAI. All rights reserved. Empowering careers worldwide.
+        </footer>
+      </div>
+    );
+  }
+
+  // --- REGISTRATION CODE VERIFICATION SCREEN ---
   if (showVerification) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
@@ -579,34 +686,21 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </div>
             <h2 className="text-xl font-bold text-white font-display">Verify Your Email</h2>
             <p className="text-slate-400 text-xs mt-1.5 px-4">
-              We have securely generated a 6-digit verification code for your email address:
+              A 6-digit verification code has been dispatched to your email address:
             </p>
             <span className="text-indigo-400 font-mono font-semibold text-xs bg-indigo-950/40 border border-indigo-900/50 px-2.5 py-1 rounded-lg mt-1.5">
               {email}
             </span>
           </div>
 
-          {/* Verification Code Dispatch Notice & Assist */}
-          <div className="mb-6 p-4 bg-indigo-950/30 border border-indigo-900/50 rounded-xl space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
+          <div className="mb-6 p-4 bg-indigo-950/30 border border-indigo-900/50 rounded-xl space-y-1 text-center">
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-indigo-300">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span>Verification Email Dispatched</span>
+              <span>Email Code Sent</span>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              We have sent a 6-digit security code to <strong className="text-slate-200">{email}</strong>. Check your inbox or spam folder.
+              Please check your inbox or spam folder for the 6-digit code.
             </p>
-            {simulatedCode && (
-              <div className="flex items-center justify-between bg-slate-950/80 px-3 py-2 rounded-lg border border-slate-800/80 mt-2">
-                <span className="text-[10px] text-slate-400 font-mono">Verification Code Helper:</span>
-                <span 
-                  onClick={() => setEnteredCode(simulatedCode)}
-                  className="text-amber-400 font-mono font-bold text-xs tracking-wider cursor-pointer hover:underline"
-                  title="Click to autofill code"
-                >
-                  {simulatedCode} (Autofill)
-                </span>
-              </div>
-            )}
           </div>
 
           {verificationError && (
@@ -657,6 +751,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     );
   }
 
+  // --- FORGOT PASSWORD RECOVERY SCREEN ---
   if (showForgotPassword) {
     const isForgotMinLength = forgotNewPassword.length >= 8;
     const isForgotUpper = /[A-Z]/.test(forgotNewPassword);
@@ -684,9 +779,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               {forgotPasswordStep === "change" && "Set New Password"}
             </h2>
             <p className="text-slate-400 text-xs mt-1.5 px-4">
-              {forgotPasswordStep === "request" && "Enter your registered email address below, and we will send you a secure 6-digit verification code to recover your account."}
-              {forgotPasswordStep === "verify" && "Enter the secure 6-digit verification code sent to your email to confirm your identity."}
-              {forgotPasswordStep === "change" && "Please choose a strong, secure new password that meets the safety checklist below."}
+              {forgotPasswordStep === "request" && "Enter your registered email address below, and we will send you a 6-digit code to reset your account password."}
+              {forgotPasswordStep === "verify" && "Enter the 6-digit verification code sent to your email address to confirm your account identity."}
+              {forgotPasswordStep === "change" && "Choose a secure new password that meets the safety requirements below."}
             </p>
           </div>
 
@@ -701,31 +796,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             <div className="mb-5 p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200 animate-slide-up">
               <AlertCircle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
               <span>{resetError}</span>
-            </div>
-          )}
-
-          {/* Verification Code Dispatch Notice */}
-          {forgotPasswordStep === "verify" && (
-            <div className="mb-5 p-3.5 bg-indigo-950/35 border border-indigo-800/40 rounded-xl space-y-1.5 text-[11px] text-indigo-300 animate-slide-up">
-              <div className="flex items-center gap-2 font-semibold text-indigo-200">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Password Recovery Dispatched</span>
-              </div>
-              <p className="text-slate-400">
-                A password reset link and 6-digit recovery code have been sent to <strong className="text-slate-200">{resetEmail}</strong>. Please check your inbox or spam folder.
-              </p>
-              {simulatedCode && (
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-indigo-900/40">
-                  <span className="text-[10px] text-slate-400 font-mono">Code Helper:</span>
-                  <code 
-                    onClick={() => setForgotResetCode(simulatedCode)}
-                    className="bg-slate-950 px-2 py-0.5 rounded text-xs text-amber-400 font-mono font-bold tracking-widest cursor-pointer hover:underline"
-                    title="Click to autofill code"
-                  >
-                    {simulatedCode} (Autofill)
-                  </code>
-                </div>
-              )}
             </div>
           )}
 
@@ -765,7 +835,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                   disabled={resetLoading}
                   className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 shadow-lg shadow-indigo-600/10"
                 >
-                  {resetLoading ? "Sending..." : "Send Verification Code"}
+                  {resetLoading ? "Sending..." : "Send Code to Email"}
                   {!resetLoading && <ArrowRight className="h-3.5 w-3.5" />}
                 </button>
               </div>
@@ -780,7 +850,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 <input
                   type="text"
                   maxLength={6}
-                  placeholder="------"
+                  placeholder="000000"
                   value={forgotResetCode}
                   onChange={(e) => setForgotResetCode(e.target.value.replace(/\D/g, ""))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3.5 text-center text-xl font-mono font-black text-white placeholder-slate-800 focus:outline-none focus:border-indigo-500 tracking-widest transition"
@@ -876,7 +946,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                   disabled={resetLoading}
                   className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 shadow-lg shadow-indigo-600/10"
                 >
-                  {resetLoading ? "Updating..." : "Update Password & Sign In"}
+                  {resetLoading ? "Updating..." : "Save Password & Sign In"}
                   {!resetLoading && <ArrowRight className="h-3.5 w-3.5" />}
                 </button>
               </div>
@@ -888,6 +958,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     );
   }
 
+  // --- SIGN IN / SIGN UP FORM ---
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background visual effects */}
@@ -896,18 +967,28 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative z-10">
         
+        {/* Top Back to Landing button */}
+        <button
+          onClick={() => setShowLanding(true)}
+          className="mb-4 text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-semibold"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to RahmoraAI Intro
+        </button>
+
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
-          <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-3 shadow-lg shadow-indigo-500/5">
-            <Sparkles className="h-6 w-6" />
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-sky-400 p-[1.5px] shadow-lg shadow-indigo-500/10 mb-3">
+            <div className="h-full w-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+              <Sparkles className="h-6 w-6 text-indigo-400" />
+            </div>
           </div>
           <h2 className="text-2xl font-bold text-white font-display">
-            {isLogin ? "Welcome Back" : "Create Account"}
+            {isLogin ? "Welcome to RahmoraAI" : "Create RahmoraAI Account"}
           </h2>
           <p className="text-slate-400 text-xs mt-1 text-center">
             {isLogin
-              ? "Sign in to resume building your professional CVs"
-              : "Register to craft high-impact resumes with Google Gemini"}
+              ? "Sign in to access your intelligence dashboard & resume builder"
+              : "Register to unlock AI resume crafting and regional hiring insights"}
           </p>
         </div>
 
@@ -1041,7 +1122,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             disabled={loading}
             className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10 mt-6"
           >
-            {loading ? "Processing..." : isLogin ? "Sign In" : "Register with Verification"}
+            {loading ? "Processing..." : isLogin ? "Sign In" : "Register with Email Verification"}
             {!loading && <ArrowRight className="h-4 w-4" />}
           </button>
         </form>
@@ -1120,7 +1201,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 />
               </svg>
               <h3 className="text-sm font-bold text-slate-100 font-display">Sign in with Google</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">to continue securely to CVCraft AI</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">to continue securely to RahmoraAI</p>
             </div>
 
             {!showGoogleCustomInput ? (
