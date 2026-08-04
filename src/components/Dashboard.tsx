@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Plus, FileText, Sparkles, Award, Trash2, Edit2, Copy, BarChart2, Check,
-  ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle
+  ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle, FileSearch, Building2
 } from "lucide-react";
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { BannerAd } from "./AdSystem";
@@ -100,61 +100,80 @@ export default function Dashboard({
       </div>
 
       {/* Grid of Creators */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Creator 1: Resume */}
         <button
           onClick={() => setShowCreateResumeModal(true)}
-          className="p-6 bg-indigo-600/10 border border-indigo-500/20 hover:border-indigo-500 rounded-2xl text-left transition group shadow-md"
+          className="p-5 bg-indigo-600/10 border border-indigo-500/20 hover:border-indigo-500 rounded-2xl text-left transition group shadow-md"
         >
           <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-4 border border-indigo-500/20">
+            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
               <FileText className="h-5.5 w-5.5" />
             </div>
             <span className="text-[10px] font-mono tracking-widest text-indigo-400 bg-indigo-950 border border-indigo-900 px-2 py-0.5 rounded uppercase font-bold">
               ATS Ready
             </span>
           </div>
-          <h3 className="text-md font-bold text-white group-hover:text-indigo-400 transition font-display">New Resume</h3>
+          <h3 className="text-sm font-bold text-white group-hover:text-indigo-400 transition font-display">New Resume</h3>
           <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-            Draft dynamic chronologically-optimized resumes engineered to pass recruitment scanning algorithms seamlessly.
+            Draft dynamic chronologically-optimized resumes engineered to pass recruitment algorithms.
           </p>
         </button>
 
         {/* Creator 2: Cover Letter */}
         <button
           onClick={() => setShowCreateLetterModal(true)}
-          className="p-6 bg-emerald-600/10 border border-emerald-500/20 hover:border-emerald-500 rounded-2xl text-left transition group shadow-md"
+          className="p-5 bg-emerald-600/10 border border-emerald-500/20 hover:border-emerald-500 rounded-2xl text-left transition group shadow-md"
         >
           <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4 border border-emerald-500/20">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3 border border-emerald-500/20">
               <Sparkles className="h-5.5 w-5.5" />
             </div>
             <span className="text-[10px] font-mono tracking-widest text-emerald-400 bg-emerald-950 border border-emerald-900 px-2 py-0.5 rounded uppercase font-bold">
               Search Grounded
             </span>
           </div>
-          <h3 className="text-md font-bold text-white group-hover:text-emerald-400 transition font-display">New Cover Letter</h3>
+          <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition font-display">New Cover Letter</h3>
           <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-            Researches real online company data & job postings to draft authentic, highly customized cover letters.
+            Researches real online company data & job postings to draft tailored cover letters.
           </p>
         </button>
 
         {/* Creator 3: AI Resume Coach */}
         <button
           onClick={() => onSelectView("resume-coach")}
-          className="p-6 bg-purple-600/10 border border-purple-500/20 hover:border-purple-500 rounded-2xl text-left transition group shadow-md"
+          className="p-5 bg-purple-600/10 border border-purple-500/20 hover:border-purple-500 rounded-2xl text-left transition group shadow-md"
         >
           <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-4 border border-purple-500/20">
+            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3 border border-purple-500/20">
               <Sparkles className="h-5.5 w-5.5 text-purple-400 animate-pulse" />
             </div>
             <span className="text-[10px] font-mono tracking-widest text-purple-300 bg-purple-950 border border-purple-900 px-2 py-0.5 rounded uppercase font-bold">
               AI Coach
             </span>
           </div>
-          <h3 className="text-md font-bold text-white group-hover:text-purple-400 transition font-display">AI Resume Coach</h3>
+          <h3 className="text-sm font-bold text-white group-hover:text-purple-400 transition font-display">AI Resume Coach</h3>
           <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-            Analyzes real online market trends to perfect your resume line-by-line with 1-click instant updates.
+            Analyzes market trends to perfect your resume line-by-line with 1-click updates.
+          </p>
+        </button>
+
+        {/* Creator 4: Job Poster & Company Intelligence */}
+        <button
+          onClick={() => onSelectView("job-intelligence")}
+          className="p-5 bg-sky-600/10 border border-sky-500/20 hover:border-sky-500 rounded-2xl text-left transition group shadow-md"
+        >
+          <div className="flex justify-between items-start">
+            <div className="h-10 w-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center mb-3 border border-sky-500/20">
+              <FileSearch className="h-5.5 w-5.5 text-sky-400" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-sky-300 bg-sky-950 border border-sky-900 px-2 py-0.5 rounded uppercase font-bold">
+              10 Local Alts
+            </span>
+          </div>
+          <h3 className="text-sm font-bold text-white group-hover:text-sky-400 transition font-display">Job Poster & Company Intelligence</h3>
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+            Upload posters, research companies, evaluate role suitability & find 10 local hiring alternatives.
           </p>
         </button>
       </div>

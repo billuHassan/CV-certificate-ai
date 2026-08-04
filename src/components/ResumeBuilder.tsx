@@ -207,7 +207,7 @@ export default function ResumeBuilder({
 
   const handleAiSuggestSkills = async () => {
     if (!resume.personalInfo.jobTitle) {
-      alert("Please provide a Professional Job Title in the Personal Information block first.");
+      alert("Missing Job Title: Please enter your Target Job Title under Personal Information so AI knows which skills to suggest.");
       return;
     }
 
@@ -224,9 +224,12 @@ export default function ResumeBuilder({
           // Merge lists and prevent duplicates
           const uniqueSkills = Array.from(new Set([...resume.skills, ...data.skills]));
           setResume((prev) => ({ ...prev, skills: uniqueSkills }));
+        } else {
+          alert("Skills AI Notice: Could not generate skills for this title. Please try entering skills manually or refining your Job Title.");
         }
       } catch (err) {
-        console.error(err);
+        console.error("Skills AI error:", err);
+        alert("Skills AI Connection Error: Unable to retrieve skill suggestions right now. Please check your network connection and retry.");
       } finally {
         setAiLoading(null);
       }
@@ -382,7 +385,7 @@ export default function ResumeBuilder({
       reader.readAsDataURL(file);
     } catch (err: any) {
       console.error("Photo scan error:", err);
-      alert(`Failed to scan paper resume photo: ${err?.message || "Error"}`);
+      alert("Resume OCR Scan Error: Unable to extract text from the uploaded photo. Please ensure the paper resume is clear, flat, and well-lit, then re-upload.");
     } finally {
       setIsScanningPhoto(false);
     }
@@ -390,7 +393,7 @@ export default function ResumeBuilder({
 
   const handleAiGenerateSummary = async () => {
     if (!resume.personalInfo.jobTitle) {
-      alert("Please provide a Professional Job Title in Personal Info first.");
+      alert("Missing Job Title: Please enter your Target Job Title under Personal Information so AI can write a tailored executive summary.");
       return;
     }
 
@@ -409,9 +412,12 @@ export default function ResumeBuilder({
         const data = await response.json();
         if (data.summary) {
           setResume((prev) => ({ ...prev, summary: data.summary }));
+        } else {
+          alert("Summary AI Notice: Unable to generate summary. Please check your inputs or try writing a brief draft manually.");
         }
       } catch (err) {
-        console.error(err);
+        console.error("Summary AI Error:", err);
+        alert("Summary AI Connection Error: Unable to generate summary. Please check your network connection and retry.");
       } finally {
         setAiLoading(null);
       }

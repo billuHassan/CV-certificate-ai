@@ -14,7 +14,7 @@ export default defineConfig(() => {
     server: {
       // HMR is disabled in AI Studio container environment
       hmr: false,
-      ws: false,
+      ws: false as const,
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };

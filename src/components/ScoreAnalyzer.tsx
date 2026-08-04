@@ -30,6 +30,7 @@ export default function ScoreAnalyzer({
       await onRunAnalysis();
     } catch (err) {
       console.error(err);
+      alert("ATS Audit Error: Unable to complete ATS analysis right now. Please check your network connection and retry.");
     } finally {
       setAnalyzing(false);
     }
@@ -80,7 +81,7 @@ export default function ScoreAnalyzer({
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to auto-apply changes. Please try again.");
+      alert("ATS Optimization Error: Unable to auto-apply recommendations. Please verify your resume has active section details and check your internet connection before retrying.");
     } finally {
       setApplying(false);
     }

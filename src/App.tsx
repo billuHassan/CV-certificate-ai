@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles, FileText, Activity, Settings as SettingsIcon, LogOut, LayoutDashboard,
   Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X, Compass, MessageSquare,
-  Brain
+  Brain, FileSearch, Building2
 } from "lucide-react";
 import { UserSession, ResumeData, CoverLetterData, ScoreReport } from "./types";
 import Onboarding from "./components/Onboarding";
@@ -13,6 +13,7 @@ import CoverLetterBuilder from "./components/CoverLetterBuilder";
 import ScoreAnalyzer from "./components/ScoreAnalyzer";
 import CareerRecommender from "./components/CareerRecommender";
 import ResumeCoach from "./components/ResumeCoach";
+import JobIntelligence from "./components/JobIntelligence";
 import Settings, { THEMES, WORLD_LANGUAGES } from "./components/Settings";
 import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
@@ -128,7 +129,7 @@ export default function App() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
   const [scoreReport, setScoreReport] = useState<ScoreReport | null>(null);
-  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach" | "job-intelligence">("dashboard");
   const [userUnreadCount, setUserUnreadCount] = useState<number>(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
   const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" } | null>(null);
@@ -890,7 +891,23 @@ export default function App() {
   }
 
   const activeResume = resumes.find((r) => r.id === selectedResumeId) || resumes[0];
-  const activeLetter = letters.find((l) => l.id === selectedLetterId) || letters[0];
+    const activeLetter = letters.find((l) => l.id === selectedLetterId) || letters[0];
+    const fallbackLetter: CoverLetterData = {
+      id: crypto.randomUUID(),
+      title: activeResume ? `Cover Letter - ${activeResume.title}` : "Cover Letter - Draft",
+      recipientName: "Hiring Manager",
+      recipientCompany: "Target Employer",
+      jobTitle: activeResume?.personalInfo?.jobTitle || "Target Role",
+      content: "",
+      date: new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' }),
+      senderInfo: {
+        name: user?.displayName || activeResume?.personalInfo?.fullName || "Applicant",
+        email: user?.email || activeResume?.personalInfo?.email || "",
+        phone: activeResume?.personalInfo?.phone || "",
+        location: activeResume?.personalInfo?.location || "",
+      },
+    };
+    const effectiveLetter = activeLetter || fallbackLetter;
 
   const activeThemeObj = THEMES.find((t) => t.id === currentTheme) || THEMES[0];
   const gridClass = activeThemeObj.isDark ? "subtle-grid" : "subtle-grid-light";
@@ -968,7 +985,12 @@ export default function App() {
                   setSelectedLetterId(firstLet.id);
                   setCurrentView("letter-editor");
                 } else {
-                  alert("Please create a cover letter first from the dashboard!");
+                  // Auto-create a cover letter draft from the active resume
+                  handleCreateLetter(
+                    activeResume ? `Cover Letter - ${activeResume.title}` : "Cover Letter - Draft",
+                    "Target Company",
+                    activeResume?.personalInfo?.jobTitle || "Target Role"
+                  );
                 }
                 setMobileMenuOpen(false);
               }}
@@ -999,6 +1021,24 @@ export default function App() {
               </div>
               <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 uppercase">
                 Live Grounding
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentView("job-intelligence");
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "job-intelligence" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <FileSearch className="h-4.5 w-4.5 text-sky-400" />
+                <span>Job & Company Intelligence</span>
+              </div>
+              <span className="text-[9px] bg-sky-500/20 text-sky-300 font-bold px-1.5 py-0.5 rounded border border-sky-500/30 uppercase">
+                10 Alts
               </span>
             </button>
 
@@ -1165,9 +1205,9 @@ export default function App() {
           />
         )}
 
-        {currentView === "letter-editor" && activeLetter && (
+        {currentView === "letter-editor" && effectiveLetter && (
           <CoverLetterBuilder
-            initialLetter={activeLetter}
+            initialLetter={effectiveLetter}
             resumes={resumes}
             onSave={handleSaveActiveLetter}
             onBackToDashboard={() => setCurrentView("dashboard")}
@@ -1183,6 +1223,22 @@ export default function App() {
             isPremium={user.isPremium}
             onUpgrade={handleUpgradeElite}
             onBackToDashboard={() => setCurrentView("dashboard")}
+          />
+        )}
+
+        {currentView === "job-intelligence" && (
+          <JobIntelligence
+            resumes={resumes}
+            selectedResumeId={selectedResumeId}
+            onSelectResume={(id) => setSelectedResumeId(id)}
+            onCreateCoverLetterFromJob={(jobTitle, companyName, jobDesc) => {
+              handleCreateLetter(
+                `Cover Letter - ${jobTitle} (${companyName})`,
+                companyName,
+                jobTitle
+              );
+              setCurrentView("letter-editor");
+            }}
           />
         )}
 

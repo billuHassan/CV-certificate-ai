@@ -177,11 +177,11 @@ export default function ResumeCoach({
           setUserAnswerText("");
           setEvaluationsMap({});
         } else {
-          alert("Could not complete AI resume analysis. Please try again.");
+          alert("AI Coach Error: Unable to complete deep resume analysis. Please verify your internet connection or check that your resume has basic work experience and job title filled.");
         }
       } catch (err) {
         console.error("Resume Coach Error:", err);
-        alert("Failed to analyze resume with AI Coach.");
+        alert("AI Connection Error: Unable to reach the AI Coach service. Please check your network connection and retry.");
       } finally {
         setAnalyzing(false);
       }

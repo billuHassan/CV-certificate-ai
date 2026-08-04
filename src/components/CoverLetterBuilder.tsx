@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Sparkles, Printer, Copy, RefreshCw, Send, CheckCircle, ChevronLeft, Mail, Phone, MapPin, Download, Globe, ExternalLink, ShieldCheck } from "lucide-react";
+import { Sparkles, Printer, Copy, RefreshCw, Send, CheckCircle, ChevronLeft, Mail, Phone, MapPin, Download, Globe, ExternalLink, ShieldCheck, Wand2, FileText, Sliders, Check } from "lucide-react";
 import { CoverLetterData, ResumeData } from "../types";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 
@@ -26,9 +26,13 @@ export default function CoverLetterBuilder({
   onUpgrade,
 }: CoverLetterBuilderProps) {
   const [letter, setLetter] = useState<CoverLetterData>(initialLetter);
-  const [selectedResumeId, setSelectedResumeId] = useState<string>("");
+  const [selectedResumeId, setSelectedResumeId] = useState<string>(resumes[0]?.id || "");
   const [generating, setGenerating] = useState(false);
+  const [autoDrafting, setAutoDrafting] = useState(false);
+  const [autoDraftNotice, setAutoDraftNotice] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [specifications, setSpecifications] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Live Grounding online analysis state
   const [groundingSources, setGroundingSources] = useState<GroundingSource[]>([]);
@@ -38,6 +42,16 @@ export default function CoverLetterBuilder({
   useEffect(() => {
     onSave(letter);
   }, [letter]);
+
+  // Auto-draft cover letter on mount if content is empty and resumes exist
+  useEffect(() => {
+    if ((!letter.content || letter.content.includes("Please fill in")) && resumes.length > 0) {
+      const target = resumes.find(r => r.id === selectedResumeId) || resumes[0];
+      if (target) {
+        handleAutoDraftFromResume(target);
+      }
+    }
+  }, []);
 
   const updateSenderInfo = (field: string, value: string) => {
     setLetter((prev) => ({
@@ -52,9 +66,64 @@ export default function CoverLetterBuilder({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleGenerateLetter = async () => {
-    if (!letter.jobTitle || !letter.recipientCompany) {
-      alert("Please provide at least a Target Job Title and Company Name.");
+  // Auto-draft cover letter by analyzing filled resume
+  const handleAutoDraftFromResume = async (targetResume?: ResumeData) => {
+    const resToAnalyze = targetResume || resumes.find((r) => r.id === selectedResumeId) || resumes[0];
+    if (!resToAnalyze) {
+      setErrorMessage("No Resume Found: Please create or fill out a resume first so CVCraft AI can draft your cover letter based on your specifications.");
+      return;
+    }
+
+    setAutoDrafting(true);
+    setAutoDraftNotice(null);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/ai/auto-draft-cover-letter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume: resToAnalyze,
+          isPremium,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.error || "Failed to auto-draft cover letter. Please verify your resume contains personal information and work experience.");
+        return;
+      }
+
+      if (data.content) {
+        setLetter((prev) => ({
+          ...prev,
+          title: data.title || prev.title || `Cover Letter - ${resToAnalyze.personalInfo?.jobTitle || resToAnalyze.title}`,
+          jobTitle: data.jobTitle || resToAnalyze.personalInfo?.jobTitle || prev.jobTitle,
+          recipientCompany: prev.recipientCompany || data.recipientCompany || "Target Company",
+          recipientName: prev.recipientName || data.recipientName || "Hiring Manager",
+          senderInfo: {
+            name: data.senderInfo?.name || resToAnalyze.personalInfo?.fullName || prev.senderInfo.name,
+            email: data.senderInfo?.email || resToAnalyze.personalInfo?.email || prev.senderInfo.email,
+            phone: data.senderInfo?.phone || resToAnalyze.personalInfo?.phone || prev.senderInfo.phone,
+            location: data.senderInfo?.location || resToAnalyze.personalInfo?.location || prev.senderInfo.location,
+          },
+          content: data.content,
+        }));
+        setAutoDraftNotice(`✨ Auto-drafted from analyzed resume: ${resToAnalyze.title || resToAnalyze.personalInfo?.fullName}`);
+      }
+    } catch (err) {
+      console.error("Auto-drafting error:", err);
+      setErrorMessage("AI Connection Error: Unable to auto-generate cover letter right now. Please check your internet connection and try again.");
+    } finally {
+      setAutoDrafting(false);
+    }
+  };
+
+  // Generate or refine cover letter with AI specifications and live web search
+  const handleGenerateLetter = async (customSpec?: string) => {
+    const activeSpec = customSpec !== undefined ? customSpec : specifications;
+    if (!letter.jobTitle && !letter.recipientCompany && !activeSpec) {
+      setErrorMessage("Missing Required Details: Please provide a Target Job Title, Company Name, or custom specifications to generate your tailored cover letter.");
       return;
     }
 
@@ -63,32 +132,41 @@ export default function CoverLetterBuilder({
       setGroundingSources([]);
       setCompanyAnalysis(null);
       setKeyKeywordsUsed([]);
+      setErrorMessage(null);
 
       try {
-        // Find selected resume summary context
-        let resumeContext = "";
         const selectedResume = resumes.find((r) => r.id === selectedResumeId);
-        if (selectedResume && isPremium) {
-          resumeContext = selectedResume.summary || `${selectedResume.personalInfo.fullName} is a professional ${selectedResume.personalInfo.jobTitle}`;
+        let resumeContext = "";
+        if (selectedResume) {
+          resumeContext = selectedResume.summary || `${selectedResume.personalInfo?.fullName} is a professional ${selectedResume.personalInfo?.jobTitle}`;
         }
 
         const response = await fetch("/api/ai/generate-cover-letter", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            jobTitle: letter.jobTitle,
-            company: letter.recipientCompany,
+            jobTitle: letter.jobTitle || selectedResume?.personalInfo?.jobTitle || "Professional",
+            company: letter.recipientCompany || "Target Employer",
             recipientName: letter.recipientName,
             jobDescription: letter.jobDescription,
-            senderName: letter.senderInfo.name,
-            senderEmail: letter.senderInfo.email,
-            senderPhone: letter.senderInfo.phone,
+            senderName: letter.senderInfo.name || selectedResume?.personalInfo?.fullName,
+            senderEmail: letter.senderInfo.email || selectedResume?.personalInfo?.email,
+            senderPhone: letter.senderInfo.phone || selectedResume?.personalInfo?.phone,
+            senderLocation: letter.senderInfo.location || selectedResume?.personalInfo?.location,
             resumeSummary: resumeContext,
+            resumeData: selectedResume,
+            userSpecifications: activeSpec,
+            existingContent: letter.content,
             isPremium,
           }),
         });
 
         const data = await response.json();
+        if (!response.ok) {
+          setErrorMessage(data.error || "Generation Error: Unable to complete cover letter generation. Please check your inputs and try again.");
+          return;
+        }
+
         if (data.content) {
           setLetter((prev) => ({ ...prev, content: data.content }));
         }
@@ -102,7 +180,8 @@ export default function CoverLetterBuilder({
           setKeyKeywordsUsed(data.keyKeywordsUsed);
         }
       } catch (err) {
-        console.error(err);
+        console.error("Error generating cover letter:", err);
+        setErrorMessage("AI Connection Error: Unable to generate cover letter. Please verify your internet connection and retry.");
       } finally {
         setGenerating(false);
       }
@@ -116,6 +195,15 @@ export default function CoverLetterBuilder({
       });
     }
   };
+
+  const PRESET_SPECS = [
+    { label: "🚀 Enthusiastic & Driven", spec: "Make the cover letter enthusiastic, ambitious, and highly energetic, showcasing passion for the company." },
+    { label: "📊 Metrics & Impact Focus", spec: "Focus heavily on quantitative metrics, ROI, latency reductions, and specific achievements from past experience." },
+    { label: "🎯 Role & Company Tailored", spec: "Deeply align and tailor the letter to the target role requirements and company culture." },
+    { label: "⚡ Concise (< 200 words)", spec: "Keep the cover letter crisp, impactful, and under 200 words for quick recruiter scanning." },
+    { label: "💼 Executive Formal Tone", spec: "Rewrite in a sophisticated, executive-level formal tone tailored for leadership positions." },
+    { label: "🌐 Remote & Global Focus", spec: "Highlight remote collaboration, cross-functional autonomy, and global adaptability." },
+  ];
 
   const handlePrint = () => {
     triggerInterstitial(() => {
@@ -226,6 +314,18 @@ export default function CoverLetterBuilder({
         </div>
 
         <div className="flex items-center gap-2">
+          {resumes.length > 0 && (
+            <button
+              onClick={() => handleAutoDraftFromResume()}
+              disabled={autoDrafting}
+              className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+              title="Auto-analyze your filled resume and generate a tailored cover letter draft immediately!"
+            >
+              {autoDrafting ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-400" /> : <Wand2 className="h-3.5 w-3.5 text-emerald-400" />}
+              {autoDrafting ? "Analyzing Resume..." : "Auto-Draft from Resume"}
+            </button>
+          )}
+
           <button
             onClick={handleCopy}
             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition flex items-center gap-1"
@@ -233,6 +333,7 @@ export default function CoverLetterBuilder({
             {copied ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Copied" : "Copy Content"}
           </button>
+
           <button
             onClick={handleDownloadHTML}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
@@ -250,24 +351,145 @@ export default function CoverLetterBuilder({
         </div>
       </div>
 
+      {/* Auto-Draft Notification Notice */}
+      {autoDraftNotice && (
+        <div className="bg-emerald-950/40 border-b border-emerald-500/20 px-4 py-2 text-xs text-emerald-300 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>{autoDraftNotice}</span>
+          </div>
+          <button
+            onClick={() => setAutoDraftNotice(null)}
+            className="text-[10px] text-emerald-400 hover:text-white underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Meaningful Actionable Error Banner */}
+      {errorMessage && (
+        <div className="bg-rose-950/70 border-b border-rose-500/40 px-4 py-2.5 text-xs text-rose-200 flex items-center justify-between gap-3 shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-rose-400 shrink-0" />
+            <span className="font-medium">{errorMessage}</span>
+          </div>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-[11px] font-bold text-rose-300 hover:text-white underline shrink-0 cursor-pointer px-2 py-0.5 rounded bg-rose-900/50 hover:bg-rose-800 transition"
+          >
+            Dismiss & Retry
+          </button>
+        </div>
+      )}
+
       {/* Split interface */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Control Panel */}
-        <div className="w-full lg:w-[450px] shrink-0 border-r border-slate-800 p-4 overflow-y-auto space-y-4 bg-slate-950 no-print">
+        <div className="w-full lg:w-[480px] shrink-0 border-r border-slate-800 p-4 overflow-y-auto space-y-4 bg-slate-950 no-print">
           
-          {/* Header Description */}
-          <div className="p-4 bg-indigo-600/10 border border-indigo-500/20 rounded-xl space-y-1">
-            <h4 className="text-xs font-bold text-white flex items-center gap-1.5 font-display">
-              <Sparkles className="h-4 w-4 text-indigo-400" /> Gemini Cover Letter Generator
-            </h4>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Fill in targeted details about the role and company. Let Gemini write a highly-focused, professional, persuasive cover letter designed to get interviews.
+          {/* Linked Resume & Auto Draft Card */}
+          {resumes.length > 0 && (
+            <div className="p-3.5 bg-slate-900 border border-indigo-500/20 rounded-xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-indigo-400" /> Linked Resume Profile
+                </label>
+                <button
+                  onClick={() => handleAutoDraftFromResume()}
+                  disabled={autoDrafting}
+                  className="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-bold transition flex items-center gap-1"
+                >
+                  {autoDrafting ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  Auto-Draft Now
+                </button>
+              </div>
+              <select
+                value={selectedResumeId}
+                onChange={(e) => {
+                  setSelectedResumeId(e.target.value);
+                  const found = resumes.find(r => r.id === e.target.value);
+                  if (found) {
+                    handleAutoDraftFromResume(found);
+                  }
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              >
+                {resumes.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.title || "Untitled Resume"} ({r.personalInfo?.fullName || "Candidate"} - {r.personalInfo?.jobTitle || "Role"})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400">
+                Selecting a resume instantly analyzes your work history, contact details, and top skills to auto-draft your cover letter.
+              </p>
+            </div>
+          )}
+
+          {/* AI Specification & Custom Modification Box */}
+          <div className="p-4 bg-gradient-to-br from-indigo-950/40 to-purple-950/30 border border-indigo-500/30 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-white flex items-center gap-1.5 font-display">
+                <Wand2 className="h-4 w-4 text-indigo-400" /> AI Specifications & Custom Modifiers
+              </h4>
+              <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-mono">
+                Gemini Powered
+              </span>
+            </div>
+            
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Specify how you want AI to draft or modify the cover letter (e.g., tone, length, target achievements, key roles, or custom instructions).
             </p>
+
+            <textarea
+              value={specifications}
+              onChange={(e) => setSpecifications(e.target.value)}
+              placeholder="e.g. 'Emphasize my leadership in cloud migration and metrics', 'Adapt for a Senior Product Manager role at Stripe focusing on API growth', 'Keep it concise under 200 words'..."
+              className="w-full bg-slate-900 border border-slate-700/60 rounded p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
+              rows={3}
+            />
+
+            {/* Quick Specification Preset Chips */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] text-slate-400 font-medium block">Quick AI Presets:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_SPECS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setSpecifications(preset.spec);
+                      handleGenerateLetter(preset.spec);
+                    }}
+                    disabled={generating}
+                    className="text-[10px] bg-slate-900 hover:bg-indigo-900/40 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 px-2 py-1 rounded transition flex items-center gap-1"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleGenerateLetter()}
+              disabled={generating}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-850 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 mt-2 shadow-md shadow-indigo-600/10 text-white cursor-pointer"
+            >
+              {generating ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" /> Modifying Cover Letter with AI...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" /> Apply AI Specification & Draft
+                </>
+              )}
+            </button>
           </div>
 
           {/* Form details */}
           <div className="space-y-3.5">
-            <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sender Information</h5>
+            <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sender Details (User Editable)</h5>
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"
@@ -335,65 +557,16 @@ export default function CoverLetterBuilder({
               />
             </div>
 
-            {resumes.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] text-slate-400 font-medium">Link with Profile Resume Summary</label>
-                  {!isPremium && (
-                    <span className="text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-0.5 font-bold">
-                      👑 Premium Link
-                    </span>
-                  )}
-                </div>
-                <select
-                  value={isPremium ? selectedResumeId : ""}
-                  onChange={(e) => {
-                    if (!isPremium) {
-                      onUpgrade();
-                    } else {
-                      setSelectedResumeId(e.target.value);
-                    }
-                  }}
-                  className={`w-full bg-slate-900 border border-slate-800 rounded p-2.5 text-xs text-slate-300 focus:outline-none ${
-                    !isPremium ? "cursor-pointer border-amber-500/30 hover:border-amber-400" : ""
-                  }`}
-                >
-                  <option value="">-- No Resume Context (General Template) --</option>
-                  {resumes.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.title || "Untitled Resume"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             <div className="space-y-1">
-              <label className="text-[11px] text-slate-400 font-medium">Job Description Summary</label>
+              <label className="text-[11px] text-slate-400 font-medium">Target Job Description Summary</label>
               <textarea
                 value={letter.jobDescription || ""}
                 onChange={(e) => setLetter((prev) => ({ ...prev, jobDescription: e.target.value }))}
-                placeholder="Paste the key responsibilities or target job description to optimize match score..."
+                placeholder="Paste responsibilities or target job posting snippet..."
                 className="w-full bg-slate-900 border border-slate-800 rounded p-2.5 text-xs text-white font-mono"
-                rows={3}
+                rows={2}
               />
             </div>
-
-            <button
-              onClick={handleGenerateLetter}
-              disabled={generating}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-850 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-600/10"
-            >
-              {generating ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" /> Gemini Searching Online & Drafting...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" /> Research Online & Draft Letter
-                </>
-              )}
-            </button>
 
             {/* Live Web Research Insights */}
             {(companyAnalysis || groundingSources.length > 0) && (
@@ -443,15 +616,18 @@ export default function CoverLetterBuilder({
             )}
           </div>
 
-          {/* Letter Editor block */}
+          {/* User Manual Refinements Textarea */}
           <div className="space-y-2 pt-4 border-t border-slate-800">
-            <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Manual Refinements</h5>
+            <div className="flex items-center justify-between">
+              <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Manual User Refinements</h5>
+              <span className="text-[10px] text-slate-500">Real-time sync</span>
+            </div>
             <textarea
               value={letter.content}
               onChange={(e) => setLetter((prev) => ({ ...prev, content: e.target.value }))}
-              placeholder="Your cover letter text will appear here. You can refine and edit directly..."
-              className="w-full bg-slate-950 border border-slate-850 rounded p-3 text-xs text-slate-100 font-sans leading-relaxed"
-              rows={15}
+              placeholder="Your cover letter text will appear here. You can edit any line directly..."
+              className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-xs text-slate-100 font-sans leading-relaxed focus:outline-none focus:border-slate-700"
+              rows={14}
             />
           </div>
         </div>
@@ -483,7 +659,7 @@ export default function CoverLetterBuilder({
 
             {/* Letter Content body */}
             <div className="text-xs text-slate-700 leading-relaxed space-y-4 whitespace-pre-wrap pt-4 font-sans">
-              {letter.content || "Dear Hiring Manager,\n\n[Please fill in the target job details on the left and click 'Draft Cover Letter' to generate a professionally polished message here.]"}
+              {letter.content || "Dear Hiring Manager,\n\n[Please select a resume or enter target specifications to auto-draft your customized cover letter.]"}
             </div>
           </div>
         </div>
@@ -491,3 +667,4 @@ export default function CoverLetterBuilder({
     </div>
   );
 }
+
