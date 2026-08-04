@@ -189,7 +189,7 @@ export default function App() {
     }
   }, [currentView, user]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("cvcraft_theme") || "obsidian");
+  const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("cvcraft_theme") || "luminary");
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
@@ -726,20 +726,41 @@ export default function App() {
 
   const handleDeleteResume = async (id: string) => {
     if (!user) return;
-    setResumes(prev => prev.filter(r => r.id !== id));
+    setResumes(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      if (isOfflineMode) {
+        localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
     if (selectedResumeId === id) setSelectedResumeId(null);
 
-    if (isOfflineMode) {
-      const updatedResumes = resumes.filter(r => r.id !== id);
-      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
-      return;
+    if (!isOfflineMode && auth.currentUser) {
+      try {
+        await deleteDoc(doc(db, "users", auth.currentUser.uid, "resumes", id));
+      } catch (err) {
+        console.error("Delete resume error:", err);
+      }
     }
+  };
 
-    if (!auth.currentUser) return;
-    try {
-      await deleteDoc(doc(db, "users", auth.currentUser.uid, "resumes", id));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `users/${auth.currentUser.uid}/resumes/${id}`);
+  const handleDeleteLetter = async (id: string) => {
+    if (!user) return;
+    setLetters(prev => {
+      const updated = prev.filter(l => l.id !== id);
+      if (isOfflineMode) {
+        localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
+    if (selectedLetterId === id) setSelectedLetterId(null);
+
+    if (!isOfflineMode && auth.currentUser) {
+      try {
+        await deleteDoc(doc(db, "users", auth.currentUser.uid, "letters", id));
+      } catch (err) {
+        console.error("Delete letter error:", err);
+      }
     }
   };
 
@@ -758,25 +779,6 @@ export default function App() {
     }
     setSelectedResumeId(scannedResume.id);
     setCurrentView("resume-editor");
-  };
-
-  const handleDeleteLetter = async (id: string) => {
-    if (!user) return;
-    setLetters(prev => prev.filter(l => l.id !== id));
-    if (selectedLetterId === id) setSelectedLetterId(null);
-
-    if (isOfflineMode) {
-      const updatedLetters = letters.filter(l => l.id !== id);
-      localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updatedLetters));
-      return;
-    }
-
-    if (!auth.currentUser) return;
-    try {
-      await deleteDoc(doc(db, "users", auth.currentUser.uid, "letters", id));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `users/${auth.currentUser.uid}/letters/${id}`);
-    }
   };
 
   const handleSaveActiveResume = async (updated: ResumeData) => {
@@ -923,11 +925,11 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-indigo-400" />
-                <span className="font-extrabold tracking-tight text-white font-display text-lg">CVCraft AI</span>
+                <Sparkles className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                <span className={`font-extrabold tracking-tight ${activeThemeObj.isDark ? "text-white" : "text-slate-900"} font-display text-lg`}>RahmoraAI</span>
               </div>
               {isOfflineMode && (
-                <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-[9px] font-semibold w-fit">
+                <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[9px] font-semibold w-fit">
                   <Activity className="h-2.5 w-2.5 animate-pulse text-amber-500" />
                   Offline (Local Sync)
                 </div>
@@ -1172,6 +1174,7 @@ export default function App() {
             user={user}
             resumes={resumes}
             letters={letters}
+            theme={activeThemeObj}
             onSelectResume={(id) => {
               setSelectedResumeId(id);
               setCurrentView("resume-editor");

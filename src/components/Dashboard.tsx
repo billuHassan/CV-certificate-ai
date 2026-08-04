@@ -4,12 +4,14 @@ import {
   ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle, FileSearch, Building2
 } from "lucide-react";
 import { ResumeData, CoverLetterData, UserSession } from "../types";
+import { ThemeDefinition } from "./Settings";
 import { BannerAd } from "./AdSystem";
 
 interface DashboardProps {
   user: UserSession;
   resumes: ResumeData[];
   letters: CoverLetterData[];
+  theme?: ThemeDefinition;
   onSelectResume: (id: string) => void;
   onSelectLetter: (id: string) => void;
   onCreateResume: (title: string, templateId: string) => void;
@@ -25,6 +27,7 @@ export default function Dashboard({
   user,
   resumes,
   letters,
+  theme,
   onSelectResume,
   onSelectLetter,
   onCreateResume,
@@ -45,6 +48,14 @@ export default function Dashboard({
   const [newLetterRole, setNewLetterRole] = useState("");
 
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "resume" | "letter"; title: string } | null>(null);
+
+  const isDark = theme?.isDark ?? false;
+  const cardBg = theme?.cardClass || (isDark ? "bg-slate-900/80 border-slate-800 shadow-xl" : "bg-white border-slate-200/90 shadow-md shadow-indigo-100/30");
+  const textPrimary = isDark ? "text-slate-100" : "text-slate-900";
+  const textSecondary = isDark ? "text-slate-400" : "text-slate-600";
+  const subCardBg = isDark ? "bg-slate-950/60 border-slate-850" : "bg-slate-50 border-slate-200/80";
+  const modalBg = isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900 shadow-2xl";
+  const inputBg = isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-white border-slate-300 text-slate-900";
 
   const handleCreateResumeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,24 +89,24 @@ export default function Dashboard({
     <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-8 no-print">
       
       {/* Top Welcome Panel */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+      <div className={`${cardBg} rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden transition-colors`}>
         {/* Decorative ambient gradient */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="flex items-center gap-4 text-center md:text-left">
           {user.profilePhoto ? (
-            <img src={user.profilePhoto} alt="Profile" className="h-14 w-14 rounded-2xl object-cover border border-slate-700 shrink-0 shadow-lg" />
+            <img src={user.profilePhoto} alt="Profile" className="h-14 w-14 rounded-2xl object-cover border border-slate-300 dark:border-slate-700 shrink-0 shadow-lg" />
           ) : (
-            <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-lg">
-              <User className="h-7 w-7" />
+            <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-lg font-bold text-xl">
+              {user.displayName.charAt(0).toUpperCase()}
             </div>
           )}
           <div>
             <div className="flex items-center gap-2 justify-center md:justify-start">
-              <h2 className="text-xl font-bold text-white font-display">Hello, {user.displayName}</h2>
+              <h2 className={`text-xl font-bold ${textPrimary} font-display`}>Hello, {user.displayName}</h2>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Access all professional templates and cover letter creator at any time.
+            <p className={`text-xs ${textSecondary} mt-1`}>
+              Access all professional templates, ATS career coaches & cover letter generators at any time.
             </p>
           </div>
         </div>
@@ -106,18 +117,18 @@ export default function Dashboard({
         {/* Creator 1: Resume */}
         <button
           onClick={() => setShowCreateResumeModal(true)}
-          className="p-5 bg-indigo-600/10 border border-indigo-500/20 hover:border-indigo-500 rounded-2xl text-left transition group shadow-md"
+          className={`p-5 ${cardBg} hover:border-indigo-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
         >
           <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
+            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
               <FileText className="h-5.5 w-5.5" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-indigo-400 bg-indigo-950 border border-indigo-900 px-2 py-0.5 rounded uppercase font-bold">
+            <span className="text-[10px] font-mono tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded uppercase font-bold">
               ATS Ready
             </span>
           </div>
-          <h3 className="text-sm font-bold text-white group-hover:text-indigo-400 transition font-display">New Resume</h3>
-          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition font-display`}>New Resume</h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
             Draft dynamic chronologically-optimized resumes engineered to pass recruitment algorithms.
           </p>
         </button>
@@ -125,18 +136,18 @@ export default function Dashboard({
         {/* Creator 2: Cover Letter */}
         <button
           onClick={() => setShowCreateLetterModal(true)}
-          className="p-5 bg-emerald-600/10 border border-emerald-500/20 hover:border-emerald-500 rounded-2xl text-left transition group shadow-md"
+          className={`p-5 ${cardBg} hover:border-emerald-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
         >
           <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3 border border-emerald-500/20">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 border border-emerald-500/20">
               <Sparkles className="h-5.5 w-5.5" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-emerald-400 bg-emerald-950 border border-emerald-900 px-2 py-0.5 rounded uppercase font-bold">
+            <span className="text-[10px] font-mono tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900 px-2 py-0.5 rounded uppercase font-bold">
               Search Grounded
             </span>
           </div>
-          <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition font-display">New Cover Letter</h3>
-          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition font-display`}>New Cover Letter</h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
             Researches real online company data & job postings to draft tailored cover letters.
           </p>
         </button>
@@ -144,18 +155,18 @@ export default function Dashboard({
         {/* Creator 3: AI Resume Coach */}
         <button
           onClick={() => onSelectView("resume-coach")}
-          className="p-5 bg-purple-600/10 border border-purple-500/20 hover:border-purple-500 rounded-2xl text-left transition group shadow-md"
+          className={`p-5 ${cardBg} hover:border-purple-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
         >
           <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3 border border-purple-500/20">
-              <Sparkles className="h-5.5 w-5.5 text-purple-400 animate-pulse" />
+            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 border border-purple-500/20">
+              <Sparkles className="h-5.5 w-5.5 animate-pulse" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-purple-300 bg-purple-950 border border-purple-900 px-2 py-0.5 rounded uppercase font-bold">
+            <span className="text-[10px] font-mono tracking-widest text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-900 px-2 py-0.5 rounded uppercase font-bold">
               AI Coach
             </span>
           </div>
-          <h3 className="text-sm font-bold text-white group-hover:text-purple-400 transition font-display">AI Resume Coach</h3>
-          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-purple-600 dark:group-hover:text-purple-400 transition font-display`}>AI Resume Coach</h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
             Analyzes market trends to perfect your resume line-by-line with 1-click updates.
           </p>
         </button>
@@ -163,18 +174,18 @@ export default function Dashboard({
         {/* Creator 4: Job Poster & Company Intelligence */}
         <button
           onClick={() => onSelectView("job-intelligence")}
-          className="p-5 bg-sky-600/10 border border-sky-500/20 hover:border-sky-500 rounded-2xl text-left transition group shadow-md"
+          className={`p-5 ${cardBg} hover:border-sky-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
         >
           <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center mb-3 border border-sky-500/20">
-              <FileSearch className="h-5.5 w-5.5 text-sky-400" />
+            <div className="h-10 w-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-3 border border-sky-500/20">
+              <FileSearch className="h-5.5 w-5.5" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-sky-300 bg-sky-950 border border-sky-900 px-2 py-0.5 rounded uppercase font-bold">
+            <span className="text-[10px] font-mono tracking-widest text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-900 px-2 py-0.5 rounded uppercase font-bold">
               10 Local Alts
             </span>
           </div>
-          <h3 className="text-sm font-bold text-white group-hover:text-sky-400 transition font-display">Job Poster & Company Intelligence</h3>
-          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-sky-600 dark:group-hover:text-sky-400 transition font-display`}>Job Poster & Intelligence</h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
             Upload posters, research companies, evaluate role suitability & find 10 local hiring alternatives.
           </p>
         </button>
@@ -188,22 +199,22 @@ export default function Dashboard({
           
           {/* Recent Resumes */}
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest font-display">Recent Resumes</h3>
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display">Recent Resumes</h3>
             
             <div className="space-y-3">
               {resumes.map((res) => (
                 <div
                   key={res.id}
-                  className="p-4 bg-slate-900 border border-slate-850 hover:border-slate-800 rounded-xl flex items-center justify-between gap-4 transition shadow-md"
+                  className={`p-4 ${cardBg} rounded-xl flex items-center justify-between gap-4 transition shadow-md`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-center text-slate-400">
+                    <div className={`h-10 w-10 ${subCardBg} rounded-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0`}>
                       <FileText className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-white">{res.title}</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Template: <span className="capitalize text-indigo-400 font-semibold">{res.templateId}</span> | Updated: {new Date(res.updatedAt).toLocaleDateString()}
+                      <h4 className={`text-xs font-bold ${textPrimary}`}>{res.title}</h4>
+                      <p className={`text-[10px] ${textSecondary} mt-0.5`}>
+                        Template: <span className="capitalize text-indigo-600 dark:text-indigo-400 font-semibold">{res.templateId}</span> | Updated: {new Date(res.updatedAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -211,34 +222,22 @@ export default function Dashboard({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => onSelectResume(res.id)}
-                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition"
+                      className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"
                       title="Edit Resume"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => onDuplicateResume(res)}
-                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition"
+                      className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"
                       title="Duplicate"
                     >
                       <Copy className="h-4 w-4" />
                     </button>
-                    {/* Hidden ATS Audit button for future continuation
-                    <button
-                      onClick={() => {
-                        onSelectResume(res.id);
-                        onSelectView("score");
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded transition"
-                      title="ATS Audit"
-                    >
-                      <BarChart2 className="h-4 w-4" />
-                    </button>
-                    */}
                     <button
                       type="button"
                       onClick={() => setItemToDelete({ id: res.id, type: "resume", title: res.title })}
-                      className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded transition"
                       title="Delete Resume"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -248,8 +247,8 @@ export default function Dashboard({
               ))}
 
               {resumes.length === 0 && (
-                <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl bg-slate-900/10">
-                  <p className="text-xs text-slate-500">No resumes created yet. Click 'New Resume' above to start.</p>
+                <div className={`text-center py-10 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl ${subCardBg}`}>
+                  <p className={`text-xs ${textSecondary}`}>No resumes created yet. Click 'New Resume' above to start.</p>
                 </div>
               )}
             </div>
@@ -257,22 +256,22 @@ export default function Dashboard({
 
           {/* Recent Cover Letters */}
           <div className="space-y-4 pt-4">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest font-display">Recent Cover Letters</h3>
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display">Recent Cover Letters</h3>
             
             <div className="space-y-3">
               {letters.map((letItem) => (
                 <div
                   key={letItem.id}
-                  className="p-4 bg-slate-900 border border-slate-850 hover:border-slate-800 rounded-xl flex items-center justify-between gap-4 transition shadow-md"
+                  className={`p-4 ${cardBg} rounded-xl flex items-center justify-between gap-4 transition shadow-md`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-center text-slate-400">
-                      <Sparkles className="h-5 w-5 text-emerald-400" />
+                    <div className={`h-10 w-10 ${subCardBg} rounded-lg flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold shrink-0`}>
+                      <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-white">{letItem.title}</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Target: <span className="font-semibold text-emerald-400">{letItem.recipientCompany}</span> | Date: {letItem.date}
+                      <h4 className={`text-xs font-bold ${textPrimary}`}>{letItem.title}</h4>
+                      <p className={`text-[10px] ${textSecondary} mt-0.5`}>
+                        Target: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{letItem.recipientCompany}</span> | Date: {letItem.date}
                       </p>
                     </div>
                   </div>
@@ -280,14 +279,14 @@ export default function Dashboard({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => onSelectLetter(letItem.id)}
-                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition"
+                      className="p-1.5 text-slate-500 hover:text-emerald-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => setItemToDelete({ id: letItem.id, type: "letter", title: letItem.title })}
-                      className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded transition"
                       title="Delete Cover Letter"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -297,30 +296,30 @@ export default function Dashboard({
               ))}
 
               {letters.length === 0 && (
-                <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl bg-slate-900/10">
-                  <p className="text-xs text-slate-500">No cover letters generated yet. Click 'New Cover Letter' to compose.</p>
+                <div className={`text-center py-10 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl ${subCardBg}`}>
+                  <p className={`text-xs ${textSecondary}`}>No cover letters generated yet. Click 'New Cover Letter' to compose.</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Premium Templates preview & Tips */}
+        {/* Right Column: Premium Presets & Tips */}
         <div className="space-y-6">
-          <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 shadow-xl">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display flex items-center gap-1.5">
-              <Layout className="h-4 w-4 text-indigo-400" /> Professional Design Presets
+          <div className={`p-5 ${cardBg} rounded-2xl space-y-4 shadow-xl`}>
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display flex items-center gap-1.5">
+              <Layout className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Professional Design Presets
             </h3>
             
             <div className="space-y-2.5">
               {templatesPreview.map((tpl) => (
-                <div key={tpl.id} className="p-3 bg-slate-950/40 border border-slate-850 rounded-xl flex items-center justify-between">
+                <div key={tpl.id} className={`p-3 ${subCardBg} rounded-xl flex items-center justify-between`}>
                   <div>
-                    <span className="text-xs font-bold text-slate-200 block">{tpl.name}</span>
-                    <span className="text-[10px] text-slate-500">Chronological, ATS Optimized</span>
+                    <span className={`text-xs font-bold ${textPrimary} block`}>{tpl.name}</span>
+                    <span className={`text-[10px] ${textSecondary}`}>Chronological, ATS Optimized</span>
                   </div>
                   <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
-                    tpl.badge === 'Free' ? 'text-emerald-400 bg-emerald-950' : 'text-amber-400 bg-amber-950'
+                    tpl.badge === 'Unlocked' ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950' : 'text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-950'
                   }`}>
                     {tpl.badge}
                   </span>
@@ -329,52 +328,50 @@ export default function Dashboard({
             </div>
           </div>
 
-          <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display flex items-center gap-1.5">
-              <BookOpen className="h-4 w-4 text-indigo-400" /> Job Hunting Tips
+          <div className={`p-5 ${cardBg} rounded-2xl space-y-3 shadow-xl`}>
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display flex items-center gap-1.5">
+              <BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Job Hunting Tips
             </h3>
-            <div className="space-y-3 text-xs leading-relaxed text-slate-300">
-              <div className="border-b border-slate-800 pb-2.5">
-                <span className="font-bold text-white block mb-0.5">The X-Y-Z Formula</span>
-                <p className="text-slate-400 text-[11px]">Accomplished [X] as measured by [Y], by doing [Z]. Always lead bullets with metrics.</p>
+            <div className={`space-y-3 text-xs leading-relaxed ${textSecondary}`}>
+              <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5">
+                <span className={`font-bold ${textPrimary} block mb-0.5`}>The X-Y-Z Formula</span>
+                <p className="text-[11px]">Accomplished [X] as measured by [Y], by doing [Z]. Always lead bullets with metrics.</p>
               </div>
               <div className="pb-1.5">
-                <span className="font-bold text-white block mb-0.5">Customize per Job Description</span>
-                <p className="text-slate-400 text-[11px]">Never send a general resume. Highlight the specific skills and frameworks requested in the job post.</p>
+                <span className={`font-bold ${textPrimary} block mb-0.5`}>Customize per Job Description</span>
+                <p className="text-[11px]">Never send a general resume. Highlight the specific skills and frameworks requested in the job post.</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-
-
       {/* --- CREATE RESUME MODAL --- */}
       {showCreateResumeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white font-display mb-2">Create New Resume</h3>
-            <p className="text-xs text-slate-400 mb-4">Enter a title and select a design layout to begin building your CV.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className={`w-full max-w-md ${modalBg} rounded-2xl p-6 shadow-2xl`}>
+            <h3 className={`text-lg font-bold ${textPrimary} font-display mb-2`}>Create New Resume</h3>
+            <p className={`text-xs ${textSecondary} mb-4`}>Enter a title and select a design layout to begin building your CV.</p>
             
             <form onSubmit={handleCreateResumeSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Resume Title</label>
+                <label className={`text-xs font-semibold ${textPrimary}`}>Resume Title</label>
                 <input
                   type="text"
                   placeholder="e.g. Senior Backend Engineer Resume"
                   value={newResumeTitle}
                   onChange={(e) => setNewResumeTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className={`w-full ${inputBg} rounded-xl p-3 text-xs focus:outline-none focus:border-indigo-500`}
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Select Initial Layout</label>
+                <label className={`text-xs font-semibold ${textPrimary}`}>Select Initial Layout</label>
                 <select
                   value={selectedTemplate}
                   onChange={(e) => setSelectedTemplate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 focus:outline-none"
+                  className={`w-full ${inputBg} rounded-xl p-3 text-xs focus:outline-none`}
                 >
                   <option value="minimal">Minimalist Traditional (ATS-Friendly)</option>
                   <option value="professional">Professional Corporate</option>
@@ -384,11 +381,11 @@ export default function Dashboard({
                 </select>
               </div>
 
-              <div className="flex gap-2.5 pt-4 border-t border-slate-800">
+              <div className="flex gap-2.5 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowCreateResumeModal(false)}
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition"
+                  className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-300 text-xs font-semibold rounded-xl transition"
                 >
                   Cancel
                 </button>
@@ -406,54 +403,54 @@ export default function Dashboard({
 
       {/* --- CREATE LETTER MODAL --- */}
       {showCreateLetterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white font-display mb-2">Create New Cover Letter</h3>
-            <p className="text-xs text-slate-400 mb-4">Provide key job details to bootstrap your AI cover letter.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className={`w-full max-w-md ${modalBg} rounded-2xl p-6 shadow-2xl`}>
+            <h3 className={`text-lg font-bold ${textPrimary} font-display mb-2`}>Create New Cover Letter</h3>
+            <p className={`text-xs ${textSecondary} mb-4`}>Provide key job details to bootstrap your AI cover letter.</p>
             
             <form onSubmit={handleCreateLetterSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Document Title</label>
+                <label className={`text-xs font-semibold ${textPrimary}`}>Document Title</label>
                 <input
                   type="text"
                   placeholder="e.g. Google Solutions Architect Letter"
                   value={newLetterTitle}
                   onChange={(e) => setNewLetterTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white"
+                  className={`w-full ${inputBg} rounded-xl p-3 text-xs`}
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Target Company</label>
+                  <label className={`text-xs font-semibold ${textPrimary}`}>Target Company</label>
                   <input
                     type="text"
                     placeholder="e.g. Google"
                     value={newLetterCompany}
                     onChange={(e) => setNewLetterCompany(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white"
+                    className={`w-full ${inputBg} rounded-xl p-3 text-xs`}
                     required
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Target Role</label>
+                  <label className={`text-xs font-semibold ${textPrimary}`}>Target Role</label>
                   <input
                     type="text"
                     placeholder="e.g. Solutions Architect"
                     value={newLetterRole}
                     onChange={(e) => setNewLetterRole(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white"
+                    className={`w-full ${inputBg} rounded-xl p-3 text-xs`}
                     required
                   />
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-4 border-t border-slate-800">
+              <div className="flex gap-2.5 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowCreateLetterModal(false)}
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition"
+                  className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-300 text-xs font-semibold rounded-xl transition"
                 >
                   Cancel
                 </button>
@@ -468,29 +465,30 @@ export default function Dashboard({
           </div>
         </div>
       )}
+
       {/* --- DELETE CONFIRMATION MODAL --- */}
       {itemToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className={`w-full max-w-sm ${modalBg} rounded-2xl p-6 shadow-2xl space-y-4`}>
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Delete {itemToDelete.type === "resume" ? "Resume" : "Cover Letter"}</h3>
-                <p className="text-xs text-slate-400">This action cannot be undone.</p>
+                <h3 className={`text-base font-bold ${textPrimary}`}>Delete {itemToDelete.type === "resume" ? "Resume" : "Cover Letter"}</h3>
+                <p className={`text-xs ${textSecondary}`}>This action cannot be undone.</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800">
-              Are you sure you want to delete <strong className="text-white font-semibold">"{itemToDelete.title}"</strong>?
+            <p className={`text-xs ${textPrimary} ${subCardBg} p-3 rounded-xl`}>
+              Are you sure you want to delete <strong className="font-semibold">"{itemToDelete.title}"</strong>?
             </p>
 
             <div className="flex items-center gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setItemToDelete(null)}
-                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition"
+                className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-300 text-xs font-semibold rounded-xl transition"
               >
                 Cancel
               </button>

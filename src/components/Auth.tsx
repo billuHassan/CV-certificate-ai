@@ -30,6 +30,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [showVerification, setShowVerification] = useState(false);
   const [enteredCode, setEnteredCode] = useState("");
   const [verificationError, setVerificationError] = useState("");
+  const [simulatedCode, setSimulatedCode] = useState("");
+  const [simulatedForgotCode, setSimulatedForgotCode] = useState("");
 
   // Google Sign-In simulation states
   const [showGoogleChooser, setShowGoogleChooser] = useState(false);
@@ -182,6 +184,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         
         setLoading(false);
         if (sendResult.success) {
+          if (sendResult.code) {
+            setSimulatedCode(sendResult.code);
+          }
           setShowVerification(true);
         } else {
           setError(sendResult.error || "Failed to trigger secure verification code. Please try again.");
@@ -361,6 +366,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       const sendResult = await sendResponse.json();
 
       if (sendResponse.ok && sendResult.success) {
+        if (sendResult.code) {
+          setSimulatedForgotCode(sendResult.code);
+        }
         setForgotPasswordStep("verify");
         setResetSuccess(`A 6-digit verification code has been dispatched to ${resetEmail}. Please check your inbox or spam folder.`);
       } else {
@@ -703,6 +711,30 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </p>
           </div>
 
+          {simulatedCode && (
+            <div className="mb-6 p-4 bg-indigo-950/70 border border-indigo-500/40 rounded-xl space-y-2 text-center shadow-lg animate-fade-in">
+              <div className="flex items-center justify-center gap-2 text-xs font-bold text-indigo-300">
+                <Mail className="h-4 w-4 text-sky-400" />
+                <span>Security Code Preview Banner</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Since external SMTP is not active in this container environment, your 6-digit code is:
+              </p>
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <span className="font-mono text-2xl font-black tracking-widest text-sky-400 bg-slate-950 px-4 py-1.5 rounded-lg border border-indigo-500/30">
+                  {simulatedCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEnteredCode(simulatedCode)}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition shadow flex items-center gap-1"
+                >
+                  <span>Auto-Fill Code</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {verificationError && (
             <div className="mb-5 p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
               <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
@@ -845,6 +877,30 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           {/* STEP 2: VERIFY CODE */}
           {forgotPasswordStep === "verify" && (
             <form onSubmit={handleForgotVerifyCodeSubmit} className="space-y-5">
+              {simulatedForgotCode && (
+                <div className="p-4 bg-indigo-950/70 border border-indigo-500/40 rounded-xl space-y-2 text-center shadow-lg animate-fade-in">
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-indigo-300">
+                    <Mail className="h-4 w-4 text-sky-400" />
+                    <span>Recovery Code Preview Banner</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Since external SMTP is not active in this container environment, your 6-digit recovery code is:
+                  </p>
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <span className="font-mono text-2xl font-black tracking-widest text-sky-400 bg-slate-950 px-4 py-1.5 rounded-lg border border-indigo-500/30">
+                      {simulatedForgotCode}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setForgotResetCode(simulatedForgotCode)}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition shadow flex items-center gap-1"
+                    >
+                      <span>Auto-Fill Code</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5 text-center">
                 <label className="text-xs font-semibold text-slate-300 block text-left mb-1">Enter 6-Digit Code</label>
                 <input

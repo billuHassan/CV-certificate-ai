@@ -22,64 +22,76 @@ export interface ThemeDefinition {
 
 export const THEMES: ThemeDefinition[] = [
   {
+    id: "luminary",
+    name: "Luminary Bright (Indigo & Platinum - Default)",
+    isDark: false,
+    bgClass: "bg-slate-50 text-slate-900",
+    sidebarClass: "bg-white/95 border-slate-200/90 shadow-sm",
+    cardClass: "bg-white border-slate-200/90 shadow-lg shadow-indigo-100/30 backdrop-blur-md",
+    borderClass: "border-slate-200",
+    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20",
+    textClass: "text-slate-900",
+    dotColors: ["#ffffff", "#4f46e5"]
+  },
+  {
+    id: "nordic",
+    name: "Nordic Frost (Snow & Azure Blue)",
+    isDark: false,
+    bgClass: "bg-sky-50/50 text-slate-900",
+    sidebarClass: "bg-white/95 border-sky-200/80 shadow-sm",
+    cardClass: "bg-white border-sky-100/90 shadow-lg shadow-sky-100/50 backdrop-blur-md",
+    borderClass: "border-sky-200/80",
+    accentClass: "bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/20",
+    textClass: "text-slate-900",
+    dotColors: ["#f0f9ff", "#0284c7"]
+  },
+  {
+    id: "vintage",
+    name: "Amber Editorial (Warm Cream & Terracotta)",
+    isDark: false,
+    bgClass: "bg-[#fdfbf7] text-stone-900",
+    sidebarClass: "bg-[#f5efdf]/90 border-[#e3d7be] shadow-sm",
+    cardClass: "bg-[#f9f5eb] border-[#e3d7be] shadow-lg shadow-stone-200/40 backdrop-blur-md",
+    borderClass: "border-[#e3d7be]",
+    accentClass: "bg-amber-700 hover:bg-amber-600 text-white shadow-lg shadow-amber-800/20",
+    textClass: "text-stone-900",
+    dotColors: ["#fdfbf7", "#b45309"]
+  },
+  {
+    id: "emerald_pearl",
+    name: "Sage Pearl (Mint Light & Emerald)",
+    isDark: false,
+    bgClass: "bg-emerald-50/40 text-emerald-950",
+    sidebarClass: "bg-white/95 border-emerald-200/80 shadow-sm",
+    cardClass: "bg-white border-emerald-200/80 shadow-lg shadow-emerald-100/40 backdrop-blur-md",
+    borderClass: "border-emerald-200",
+    accentClass: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20",
+    textClass: "text-emerald-950",
+    dotColors: ["#ecfdf5", "#059669"]
+  },
+  {
     id: "obsidian",
-    name: "Cyber Obsidian (Carbon & Emerald)",
+    name: "Cyber Obsidian (Carbon & Emerald Dark)",
     isDark: true,
     bgClass: "bg-zinc-950 text-emerald-50",
-    sidebarClass: "bg-zinc-900 border-emerald-950/40",
-    cardClass: "bg-zinc-900/60 border-emerald-950/30 backdrop-blur-md shadow-xl shadow-black/15",
-    borderClass: "border-emerald-950/30",
-    accentClass: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/15",
+    sidebarClass: "bg-zinc-900 border-zinc-800",
+    cardClass: "bg-zinc-900/80 border-zinc-800 backdrop-blur-md shadow-xl shadow-black/30",
+    borderClass: "border-zinc-800",
+    accentClass: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20",
     textClass: "text-emerald-50",
     dotColors: ["#09090b", "#10b981"]
   },
   {
-    id: "minimal",
-    name: "Classic Sapphire (Navy & Indigo)",
-    isDark: true,
-    bgClass: "bg-slate-950 text-slate-100",
-    sidebarClass: "bg-slate-900 border-slate-800",
-    cardClass: "bg-slate-900/50 border-slate-800/80 backdrop-blur-md shadow-xl shadow-black/10",
-    borderClass: "border-slate-800",
-    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/15",
-    textClass: "text-slate-100",
-    dotColors: ["#0f172a", "#4f46e5"]
-  },
-  {
     id: "midnight",
-    name: "Cosmic Orchid (Purple & Amethyst)",
+    name: "Cosmic Amethyst (Purple Dark)",
     isDark: true,
-    bgClass: "bg-[#0b0314] text-purple-100",
-    sidebarClass: "bg-[#140822] border-fuchsia-950/80",
-    cardClass: "bg-[#140822]/50 border-fuchsia-950/80 backdrop-blur-md shadow-xl shadow-black/25",
-    borderClass: "border-fuchsia-950/80",
-    accentClass: "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-600/15",
+    bgClass: "bg-[#0c051a] text-purple-100",
+    sidebarClass: "bg-[#160a2c] border-purple-900/60",
+    cardClass: "bg-[#180a30]/80 border-purple-800/40 backdrop-blur-md shadow-xl shadow-purple-950/50",
+    borderClass: "border-purple-800/40",
+    accentClass: "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-600/20",
     textClass: "text-purple-100",
-    dotColors: ["#0b0314", "#d946ef"]
-  },
-  {
-    id: "nordic",
-    name: "Nordic Clean (Snow & Azure)",
-    isDark: false,
-    bgClass: "bg-slate-50 text-slate-900",
-    sidebarClass: "bg-white border-slate-200/80 shadow-sm",
-    cardClass: "bg-white/80 border-slate-200/80 backdrop-blur-md shadow-lg shadow-slate-100/50",
-    borderClass: "border-slate-200",
-    accentClass: "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/15",
-    textClass: "text-slate-900",
-    dotColors: ["#f8fafc", "#2563eb"]
-  },
-  {
-    id: "vintage",
-    name: "Amber Editorial (Sepia & Terracotta)",
-    isDark: false,
-    bgClass: "bg-[#faf5ec] text-stone-900",
-    sidebarClass: "bg-[#f1e9d9] border-[#dfd4bd] shadow-sm",
-    cardClass: "bg-[#f1e9d9]/70 border-[#dfd4bd] backdrop-blur-md shadow-lg shadow-stone-200/30",
-    borderClass: "border-[#dfd4bd]",
-    accentClass: "bg-amber-700 hover:bg-amber-600 text-white shadow-lg shadow-amber-800/15",
-    textClass: "text-stone-900",
-    dotColors: ["#faf5ec", "#b45309"]
+    dotColors: ["#0c051a", "#d946ef"]
   }
 ];
 

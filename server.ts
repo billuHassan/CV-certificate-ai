@@ -622,7 +622,10 @@ app.post("/api/auth/send-code", async (req, res) => {
     res.json({
       success: true,
       smtpConfigured: smtpDispatched,
-      message: "A 6-digit verification code has been sent to your email address."
+      code: smtpDispatched ? undefined : code,
+      message: smtpDispatched 
+        ? "A 6-digit verification code has been dispatched to your email address."
+        : "Verification code generated successfully."
     });
   } catch (error: any) {
     console.error("Send Code Error:", error);
