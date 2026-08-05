@@ -3292,6 +3292,11 @@ TASK 2: COMPREHENSIVE SECTION-BY-SECTION DEFICIENCY AUDIT
 Evaluate the resume with reality-check standards:
 - Calculate overallRealityScore (0-100). If jobTitle conflicts with actual work experience (e.g., Title is "Doctor" but experience is Software Engineer), OR if sections are missing bullet metrics or contact info, calculate an honest score (e.g. 25-50%).
 - Check for headlineTitleMismatchDetected (boolean) and explain why in titleMismatchExplanation.
+- Extract overall summary arrays:
+  - strengths: array of key strong points in candidate's resume
+  - weaknesses: array of candidate weaknesses or areas needing impact
+  - missingInformation: array of missing sections/data points (e.g., phone, LinkedIn, project links)
+  - suggestedImprovements: array of strategic recommendations to improve ATS pass rate
 - Audit EVERY SINGLE SECTION: personalInfo, summary, experience, skills, education, projects, certifications, references.
   For each section return:
   - sectionKey (e.g. "personalInfo", "summary", "experience", "skills", "education", "projects", "certifications", "references")
@@ -3444,6 +3449,10 @@ Return JSON matching the schema.`;
                     overallRealityScore: { type: Type.INTEGER },
                     headlineTitleMismatchDetected: { type: Type.BOOLEAN },
                     titleMismatchExplanation: { type: Type.STRING },
+                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    missingInformation: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    suggestedImprovements: { type: Type.ARRAY, items: { type: Type.STRING } },
                     sections: {
                       type: Type.ARRAY,
                       items: {

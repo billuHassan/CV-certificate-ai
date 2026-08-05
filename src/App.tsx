@@ -20,6 +20,7 @@ import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
 import AIChat from "./components/AIChat";
+import UploadResumeModal from "./components/UploadResumeModal";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, query, where } from "firebase/firestore";
@@ -195,6 +196,7 @@ export default function App() {
     return "fire";
   });
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Load persistence states and Firebase Auth listener
@@ -1194,6 +1196,7 @@ export default function App() {
             onDeleteLetter={handleDeleteLetter}
             onSelectView={setCurrentView}
             onUpgrade={handleUpgradeElite}
+            onOpenUploadModal={() => setIsUploadModalOpen(true)}
           />
         )}
 
@@ -1328,6 +1331,15 @@ export default function App() {
             localStorage.setItem("cvcraft_user", JSON.stringify(updated));
             alert("Congratulations! You have successfully upgraded to CVCraft AI Elite Premium! Enjoy unlimited features.");
           }
+        }}
+      />
+
+      <UploadResumeModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onImportToBuilder={(scannedResume) => {
+          handleImportScannedResume(scannedResume);
+          setIsUploadModalOpen(false);
         }}
       />
 

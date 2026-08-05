@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Plus, FileText, Sparkles, Award, Trash2, Edit2, Copy, BarChart2, Check,
-  ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle, FileSearch, Building2
+  ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle, FileSearch, Building2, Upload
 } from "lucide-react";
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { ThemeDefinition } from "./Settings";
@@ -21,6 +21,7 @@ interface DashboardProps {
   onDeleteLetter: (id: string) => void;
   onSelectView: (view: "resumes" | "letters" | "score" | "settings" | "resume-coach" | any) => void;
   onUpgrade: () => void;
+  onOpenUploadModal?: () => void;
 }
 
 export default function Dashboard({
@@ -37,6 +38,7 @@ export default function Dashboard({
   onDeleteLetter,
   onSelectView,
   onUpgrade,
+  onOpenUploadModal,
 }: DashboardProps) {
   const [showCreateResumeModal, setShowCreateResumeModal] = useState(false);
   const [newResumeTitle, setNewResumeTitle] = useState("");
@@ -113,8 +115,27 @@ export default function Dashboard({
       </div>
 
       {/* Grid of Creators */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Creator 1: Resume */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {/* Creator 1: Upload Existing Resume */}
+        <button
+          onClick={() => onOpenUploadModal?.()}
+          className={`p-5 ${cardBg} hover:border-amber-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01] border-2 border-dashed border-amber-500/30 dark:border-amber-500/30`}
+        >
+          <div className="flex justify-between items-start">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 border border-amber-500/20">
+              <Upload className="h-5.5 w-5.5 animate-bounce" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 px-2 py-0.5 rounded uppercase font-bold">
+              PDF / DOCX
+            </span>
+          </div>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-amber-600 dark:group-hover:text-amber-400 transition font-display`}>Upload & Scan Resume</h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
+            Upload PDF/DOCX to preserve design, audit ATS score, get line-by-line fixes & smart edit.
+          </p>
+        </button>
+
+        {/* Creator 2: Resume */}
         <button
           onClick={() => setShowCreateResumeModal(true)}
           className={`p-5 ${cardBg} hover:border-indigo-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
@@ -133,7 +154,7 @@ export default function Dashboard({
           </p>
         </button>
 
-        {/* Creator 2: Cover Letter */}
+        {/* Creator 3: Cover Letter */}
         <button
           onClick={() => setShowCreateLetterModal(true)}
           className={`p-5 ${cardBg} hover:border-emerald-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
@@ -152,7 +173,7 @@ export default function Dashboard({
           </p>
         </button>
 
-        {/* Creator 3: AI Resume Coach */}
+        {/* Creator 4: AI Resume Coach */}
         <button
           onClick={() => onSelectView("resume-coach")}
           className={`p-5 ${cardBg} hover:border-purple-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
@@ -171,7 +192,7 @@ export default function Dashboard({
           </p>
         </button>
 
-        {/* Creator 4: Job Poster & Company Intelligence */}
+        {/* Creator 5: Job Poster & Company Intelligence */}
         <button
           onClick={() => onSelectView("job-intelligence")}
           className={`p-5 ${cardBg} hover:border-sky-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
@@ -199,7 +220,15 @@ export default function Dashboard({
           
           {/* Recent Resumes */}
           <div className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display">Recent Resumes</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display">Recent Resumes</h3>
+              <button
+                onClick={() => onOpenUploadModal?.()}
+                className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <Upload className="h-3.5 w-3.5" /> Upload & Scan Resume
+              </button>
+            </div>
             
             <div className="space-y-3">
               {resumes.map((res) => (
