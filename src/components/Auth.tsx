@@ -37,6 +37,10 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [customGoogleName, setCustomGoogleName] = useState("");
   const [showGoogleCustomInput, setShowGoogleCustomInput] = useState(false);
 
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendMsg, setResendMsg] = useState("");
+
   // Password recovery states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordStep, setForgotPasswordStep] = useState<"request" | "verify" | "change">("request");
@@ -125,6 +129,12 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
     if (!isLogin && !name) {
       setError("Please provide your name.");
+      return;
+    }
+
+    // Terms & Privacy Policy Check
+    if (!isLogin && !acceptTerms) {
+      setError("You must accept the Terms of Service and Privacy Policy to create an account.");
       return;
     }
 
@@ -224,12 +234,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             return;
           }
           console.warn("Email password login attempt:", authErr?.message || authErr);
-          let errMsg = "Invalid email or password. Please verify your credentials or register a new account.";
-          if (authErr?.code === "auth/user-not-found" || authErr?.code === "auth/invalid-credential") {
-            errMsg = "The email address is not registered, or the password entered is incorrect. Please verify your spelling or create an account.";
-          } else if (authErr?.code === "auth/wrong-password") {
-            errMsg = "Incorrect password. If you forgot your password, please click the 'Forgot password?' link to recover it.";
-          } else if (authErr?.code === "auth/too-many-requests") {
+          let errMsg = "Invalid email or password.";
+          if (authErr?.code === "auth/too-many-requests") {
             errMsg = "Access to this account has been temporarily disabled due to too many failed login attempts. Please try again later or recover your password.";
           }
           setError(errMsg);
@@ -240,6 +246,36 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       console.error(err);
       setError("An unexpected authentication server error occurred. Please try again.");
       setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      setResendMsg("Sending new code...");
+      const sendResponse = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, action: "register" }),
+      });
+      const sendResult = await sendResponse.json();
+      if (sendResult.success) {
+        setResendMsg("A fresh 6-digit code has been sent!");
+        setResendCooldown(30);
+        const timer = setInterval(() => {
+          setResendCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        setResendMsg(sendResult.error || "Failed to resend code.");
+      }
+    } catch (err) {
+      setResendMsg("Network error trying to resend code.");
     }
   };
 
@@ -742,6 +778,20 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 required
                 autoFocus
               />
+              <div className="flex items-center justify-between text-[11px] pt-1">
+                <span className="text-slate-400">Didn't receive the email?</span>
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={resendCooldown > 0}
+                  className="text-indigo-400 hover:text-indigo-300 font-bold disabled:text-slate-600 transition"
+                >
+                  {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend Verification Code"}
+                </button>
+              </div>
+              {resendMsg && (
+                <p className="text-[11px] text-emerald-400 text-center font-medium animate-pulse">{resendMsg}</p>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -1120,7 +1170,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             )}
           </div>
 
-          {isLogin && (
+          {isLogin ? (
             <div className="flex items-center justify-between py-1">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
@@ -1130,6 +1180,36 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                   className="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-0"
                 />
                 <span className="text-xs text-slate-400">Remember me</span>
+              </label>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 py-1">
+              <input
+                type="checkbox"
+                id="accept-terms-checkbox"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                className="mt-0.5 rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-0"
+                required
+              />
+              <label htmlFor="accept-terms-checkbox" className="text-xs text-slate-400 select-none">
+                I agree to the{" "}
+                <button
+                  type="button"
+                  onClick={() => alert("Terms of Service: RahmoraAI protects your data with end-to-end encryption and respects user privacy.")}
+                  className="text-indigo-400 underline font-medium"
+                >
+                  Terms of Service
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  onClick={() => alert("Privacy Policy: We never sell or share your personal profile data with third parties.")}
+                  className="text-indigo-400 underline font-medium"
+                >
+                  Privacy Policy
+                </button>
+                .
               </label>
             </div>
           )}
