@@ -429,51 +429,81 @@ export default function JobIntelligence({
                   )}
                 </div>
 
-                {/* Match Score Gauge */}
-                <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4">
-                  <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90">
-                      <circle
-                        cx="32"
-                        cy="32"
-                        r="26"
-                        stroke="currentColor"
-                        strokeWidth="5"
-                        className="text-slate-800"
-                        fill="transparent"
-                      />
-                      <circle
-                        cx="32"
-                        cy="32"
-                        r="26"
-                        stroke="currentColor"
-                        strokeWidth="5"
-                        className={`${
+                {/* Match Score Gauge & Alignment Banner */}
+                <div className="space-y-3">
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4">
+                    <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle
+                          cx="32"
+                          cy="32"
+                          r="26"
+                          stroke="currentColor"
+                          strokeWidth="5"
+                          className="text-slate-800"
+                          fill="transparent"
+                        />
+                        <circle
+                          cx="32"
+                          cy="32"
+                          r="26"
+                          stroke="currentColor"
+                          strokeWidth="5"
+                          className={`${
+                            posterResult.candidateResumeFit.matchScore >= 80
+                              ? "text-emerald-500"
+                              : posterResult.candidateResumeFit.matchScore >= 60
+                              ? "text-amber-500"
+                              : "text-rose-500"
+                          }`}
+                          fill="transparent"
+                          strokeDasharray={163}
+                          strokeDashoffset={
+                            163 - (163 * posterResult.candidateResumeFit.matchScore) / 100
+                          }
+                        />
+                      </svg>
+                      <span className="absolute text-sm font-bold text-slate-100">
+                        {posterResult.candidateResumeFit.matchScore}%
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-center sm:text-left">
+                      <div className="flex items-center gap-2 justify-center sm:justify-start">
+                        <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                          Resume Compatibility & Reality Audit Match
+                        </h4>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                           posterResult.candidateResumeFit.matchScore >= 80
-                            ? "text-emerald-500"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                             : posterResult.candidateResumeFit.matchScore >= 60
-                            ? "text-amber-500"
-                            : "text-rose-500"
-                        }`}
-                        fill="transparent"
-                        strokeDasharray={163}
-                        strokeDashoffset={
-                          163 - (163 * posterResult.candidateResumeFit.matchScore) / 100
-                        }
-                      />
-                    </svg>
-                    <span className="absolute text-sm font-bold text-slate-100">
-                      {posterResult.candidateResumeFit.matchScore}%
-                    </span>
+                            ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                        }`}>
+                          {posterResult.candidateResumeFit.matchScore >= 80 ? "Strong Fit" : posterResult.candidateResumeFit.matchScore >= 60 ? "Moderate Fit" : "Discrepancy / Gap Alert"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        {posterResult.candidateResumeFit.fitSummary}
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1 text-center sm:text-left">
-                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                      Resume Compatibility Match
-                    </h4>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      {posterResult.candidateResumeFit.fitSummary}
-                    </p>
-                  </div>
+
+                  {/* Title / Experience Mismatch Alert Banner */}
+                  {(posterResult.candidateResumeFit.matchScore < 60 ||
+                    posterResult.candidateResumeFit.fitSummary.toLowerCase().includes("discrepancy") ||
+                    posterResult.candidateResumeFit.fitSummary.toLowerCase().includes("mismatch")) && (
+                    <div className="bg-amber-950/60 border border-amber-500/40 rounded-xl p-3.5 text-xs text-amber-200 flex items-start gap-3 shadow-md">
+                      <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <strong className="font-bold text-amber-300 block">
+                          Headline Title & Work Experience Alignment Notice
+                        </strong>
+                        <p className="leading-relaxed">
+                          Your declared job title and actual work experience entries have been audited against recruiter ATS screening standards. Resolving headline discrepancies (e.g. changing headline title from a non-aligned role like "Doctor" to "Software Engineer") will immediately eliminate recruiter flags and significantly raise your match percentage.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 1. What the job is about */}

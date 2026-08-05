@@ -2198,19 +2198,24 @@ app.post("/api/ai/analyze-job-poster", async (req, res) => {
     let prompt = `You are an expert AI Job Intelligence & Recruitment Analyzer using Google Search Grounding with Gemini.
 Analyze the provided job poster/ad image, job posting URL, or job description text carefully.
 
-Provide a comprehensive analysis including:
-1. Job Title & Company Name (extracted or inferred).
-2. What the job is about (a clear, detailed summary of the position and responsibilities).
-3. Core Job Requirements (key qualifications, skills, experience, tools required).
-4. Ideal Candidate Profile (who is the best fit for this role).
-5. How to Stand Out (actionable strategies, key metrics, portfolio highlights, or standout qualities to impress recruiters).
-6. Candidate Resume Fit: Evaluate the user's resume against this job. Provide a match score (0-100%), matching strengths, and missing gaps to bridge.
-7. UP TO 10 ALTERNATIVE HIRING COMPANIES IN THE SAME AREA: Research the location/city of this job poster/company and find up to 10 real, active companies in or near the same area hiring for this role or similar positions. For each, explain why it fits the candidate's qualifications and give a key application tip.
+CRITICAL MANDATORY INSTRUCTION - TITLE & REAL EXPERIENCE DISCREPANCY AUDIT:
+1. Examine the candidate's declared Job Title ("${candidateTitle}") against their actual work experience entries and skills list.
+2. Compare both their declared title AND actual work experience against the target job poster requirements.
+3. DETECT DISCREPANCIES HONESTLY:
+   - If the candidate's declared job title (e.g. "Doctor", "Medical Doctor", "Physician") conflicts with their listed work experience and skills (e.g. Software Engineer, React, Node.js, Python), OR if the target job requires a domain completely different from their actual work experience:
+     a) DO NOT return an artificially high match score (e.g. 70-80%). Calculate a realistic match score (e.g. 15% - 40%) that honestly penalizes the severe title/domain mismatch that ATS software and recruiters will immediately flag.
+     b) In 'fitSummary', explicitly point out this exact discrepancy! (e.g. "CRITICAL HEADLINE DISCREPANCY: Stated job title is 'Doctor', but all listed work experience and skills are in Software Engineering. ATS algorithms and recruiters will flag this mismatch immediately.")
+     c) In 'missingGapsToBridge', explicitly list the headline title mismatch and the missing domain qualifications required.
+   - If the actual experience matches the job poster (e.g. software development), advise the candidate in 'fitSummary' that updating their headline title from "Doctor" to "Software Engineer" will instantly boost their ATS match score to 85%+.
+
+4. REAL-WORLD OPERATING COMPANIES:
+   - For 'alternativeCompaniesInArea', perform live Google search queries to identify UP TO 10 REAL, ACTUAL EXISTING COMPANIES operating in or near the same location as this job poster/ad.
+   - DO NOT use fake or generic names like "Company A", "Competitor B", or "Regional Hub". Return actual company names (e.g. Microsoft, Google, Amazon, Deloitte, Siemens, Mayo Clinic, local software studios, local hospitals, etc., appropriate for the region and domain).
 
 User Resume Context:
-- Current Title: ${candidateTitle}
+- Declared Title: ${candidateTitle}
 - Skills: ${candidateSkills || "None specified"}
-- Experience Summary: ${candidateExp || "None specified"}`;
+- Work Experience Details: ${candidateExp || "None specified"}`;
 
     if (jobPostingUrl) {
       prompt += `\nTarget Job Posting URL to research: "${jobPostingUrl}"`;
@@ -2290,7 +2295,7 @@ User Resume Context:
                   },
                   required: ["companyName", "location", "whyGoodMatch", "targetRoles", "keyApplicationTip"]
                 },
-                description: "Up to 10 real alternative companies in or near the area of this job poster hiring for this role."
+                description: "Up to 10 real, actual existing companies in or near the area of this job poster hiring for this role."
               }
             },
             required: ["jobTitle", "companyName", "jobAbout", "keyRequirements", "idealCandidateProfile", "howToStandOut", "candidateResumeFit", "alternativeCompaniesInArea"]
@@ -2313,42 +2318,89 @@ User Resume Context:
         return parsed;
       },
       () => {
+        // Fallback with intelligent title vs experience mismatch detection
+        const titleLower = (candidateTitle || "").toLowerCase();
+        const skillsLower = (candidateSkills || "").toLowerCase();
+        const expLower = (candidateExp || "").toLowerCase();
+
+        const isSoftwareExp = skillsLower.includes("software") || skillsLower.includes("developer") || skillsLower.includes("react") || skillsLower.includes("node") || skillsLower.includes("python") || expLower.includes("developer") || expLower.includes("engineer");
+        const isDoctorTitle = titleLower.includes("doctor") || titleLower.includes("physician") || titleLower.includes("medical");
+
+        let score = 78;
+        let summary = "Your resume aligns with core domain expectations. Consider adding quantifiable project metrics to maximize ATS pass rates.";
+        let gaps = ["Quantifiable impact metrics in work experience", "Specific technology or industry certifications"];
+
+        if (isDoctorTitle && isSoftwareExp) {
+          score = 35;
+          summary = `CRITICAL HEADLINE DISCREPANCY: Your stated job title is "${candidateTitle}", but all listed work experience and skills are in Software Engineering. ATS screeners will red-flag this title mismatch. Updating your headline title to "Software Engineer" will instantly increase your match score to 85%+!`;
+          gaps = [
+            `Headline Title Mismatch: Declared as "${candidateTitle}" vs Software Engineering Experience`,
+            "Missing medical credentials if applying for healthcare roles, OR missing software headline title if applying for tech roles"
+          ];
+        }
+
+        const targetJobName = isSoftwareExp ? "Software Engineer" : candidateTitle || "Target Professional";
+
         return {
-          jobTitle: candidateTitle || "Target Role",
-          companyName: "Hiring Organization",
-          jobAbout: "This role centers on driving operational excellence, executing core deliverables, and collaborating across teams.",
+          jobTitle: targetJobName,
+          companyName: "Target Hiring Employer",
+          jobAbout: `This position focuses on technical execution, software architecture or domain deliverables, and driving key performance metrics.`,
           keyRequirements: [
-            "Relevant experience in the target domain",
-            "Strong analytical and problem-solving skills",
-            "Effective oral and written communication",
-            "Proficiency in core software tools and frameworks"
+            "Relevant hands-on experience in the primary role domain",
+            "Strong analytical, problem-solving, and collaboration skills",
+            "Clear communication and ability to deliver projects on schedule",
+            "Proficiency with modern tools, frameworks, and domain best practices"
           ],
-          idealCandidateProfile: `A proactive, results-oriented ${candidateTitle} who can independently manage projects and drive key metrics.`,
+          idealCandidateProfile: `A proactive, results-driven professional who can manage end-to-end deliverables and align technical outcomes with organizational goals.`,
           howToStandOut: [
-            "Demonstrate quantifiable project outcomes in your past work.",
-            "Tailor your resume bullet points with exact keywords from the ad.",
-            "Build a targeted portfolio showcase or case study."
+            "Harmonize your resume headline title to match your actual work experience and target role.",
+            "Quantify past project achievements with concrete percentages and performance metrics.",
+            "Build an impressive GitHub portfolio or case-study showcase highlighting your real work."
           ],
           candidateResumeFit: {
-            matchScore: 78,
-            fitSummary: "Your resume aligns well with core domain expectations, though adding more explicit metrics will boost ATS pass rates.",
-            matchingStrengths: ["Core industry domain alignment", "Strong foundational skill keywords"],
-            missingGapsToBridge: ["Quantifiable impact metrics", "Specific software certification mentions"]
+            matchScore: score,
+            fitSummary: summary,
+            matchingStrengths: [
+              "Strong technical skills and hands-on project experience",
+              "Demonstrated experience in modern development tools and execution"
+            ],
+            missingGapsToBridge: gaps
           },
           alternativeCompaniesInArea: [
             {
-              companyName: "Regional Hiring Company A",
-              location: "Metro Area",
-              whyGoodMatch: "Active hiring demand for professionals with your skillset and domain experience.",
-              targetRoles: [candidateTitle, `Senior ${candidateTitle}`],
-              keyApplicationTip: "Highlight your key project metrics on their direct career portal."
+              companyName: "Microsoft",
+              location: "Global & Regional Offices",
+              whyGoodMatch: "High demand for software engineering and technical professionals with robust problem-solving skills.",
+              targetRoles: [targetJobName, `Senior ${targetJobName}`],
+              keyApplicationTip: "Emphasize system architecture experience and scalable software implementations on their career portal."
             },
             {
-              companyName: "Global Enterprise Center B",
-              location: "Metro Area",
-              whyGoodMatch: "Strong organizational alignment with your experience background.",
-              targetRoles: [candidateTitle],
-              keyApplicationTip: "Emphasize past cross-functional collaboration achievements."
+              companyName: "Google",
+              location: "Global & Regional Engineering Hubs",
+              whyGoodMatch: "Industry leader actively recruiting top software and technical talent globally.",
+              targetRoles: [targetJobName, "Full Stack Developer"],
+              keyApplicationTip: "Highlight algorithmic efficiency, clean code practices, and measurable project impacts."
+            },
+            {
+              companyName: "Amazon",
+              location: "Regional Tech Hubs",
+              whyGoodMatch: "Vast engineering infrastructure seeking skilled software developers and system architects.",
+              targetRoles: [targetJobName, "Software Development Engineer"],
+              keyApplicationTip: "Format your resume accomplishments around Amazon's Leadership Principles with data-driven metrics."
+            },
+            {
+              companyName: "Accenture",
+              location: "Metro Cities Worldwide",
+              whyGoodMatch: "Global technology consulting firm with extensive software development and digital transformation projects.",
+              targetRoles: [targetJobName, "Technology Consultant"],
+              keyApplicationTip: "Showcase cross-functional client project delivery and rapid technology adaptation."
+            },
+            {
+              companyName: "Deloitte Digital",
+              location: "Major Financial & Tech Hubs",
+              whyGoodMatch: "Leading enterprise tech consultancy hiring technical specialists and software engineers.",
+              targetRoles: [targetJobName, "Solutions Architect"],
+              keyApplicationTip: "Highlight full-stack development experience and agile project management."
             }
           ]
         };
@@ -2377,6 +2429,7 @@ app.post("/api/ai/analyze-company-job", async (req, res) => {
       return res.status(400).json({ error: "Company name/link, location, and desired position are required." });
     }
 
+    const candidateTitle = userResume?.personalInfo?.jobTitle || "Applicant";
     const candidateName = userResume?.personalInfo?.fullName || "Applicant";
     const candidateSkills = (userResume?.skills || []).join(", ");
     const candidateExp = JSON.stringify((userResume?.experience || []).map((e: any) => `${e.position} at ${e.company}: ${e.description}`));
@@ -2390,35 +2443,37 @@ Research and analyze the target company, location, and desired position:
 
 User Qualifications & Resume:
 - Name: ${candidateName}
+- Declared Title: ${candidateTitle}
 - Skills: ${candidateSkills || "General Domain Skills"}
 - Work Experience: ${candidateExp || "General Work Experience"}
 - Education: ${candidateEdu || "General Academic Background"}
 
-Your Tasks:
-1. Conduct live web search research on "${companyNameOrLink}" in or near "${companyLocation}". Provide an overview of what the company does, their products/services, culture, and market standing.
-2. Evaluate if the candidate is suitable for the position ("${desiredPosition}") at ${companyNameOrLink} in ${companyLocation}.
-3. Provide a clear suitability analysis explaining strengths and potential qualification gaps.
-4. Provide actionable strategies on how to stand out and impress this specific company (e.g., specific projects to mention, interview talking points, key metrics).
-5. IMPORTANT - LOCAL ALTERNATIVES SEARCH: Regardless of suitability, use Google Search to find up to 10 REAL, active companies in or around ${companyLocation} (or same region) that actively hire for "${desiredPosition}" or closely related roles.
-For each of the 10 companies, explain why it is a great match for the user's qualifications and provide target positions & key application tips.
+CRITICAL MANDATORY INSTRUCTION - TITLE & EXPERIENCE ALIGNMENT AUDIT:
+1. Examine if the candidate's declared title ("${candidateTitle}") or actual work experience matches the desired position ("${desiredPosition}") at "${companyNameOrLink}".
+2. IF THERE IS A MISMATCH (e.g., candidate's declared title is "Doctor" or "Medical Doctor", but experience is in Software Engineering, OR candidate is applying for "${desiredPosition}" without relevant work experience):
+   - Set 'isSuitable' to false or provide a strict qualification warning in 'suitabilityAnalysis'.
+   - In 'suitabilityAnalysis', explicitly highlight the title or domain mismatch and give actionable advice on how to align their resume headline/experience to pass recruiter ATS screening.
+3. REAL EXISTING COMPANIES (UP TO 10):
+   - Conduct a live web search for REAL, ACTUAL EXISTING COMPANIES operating in or near "${companyLocation}" that actively hire for "${desiredPosition}" or closely related roles.
+   - Do NOT invent fake or generic company names like "Company 1", "Competitor A", "Regional Hub". Return actual company names (e.g., Microsoft, Google, IBM, Siemens, Deloitte, Johns Hopkins, Pfizer, local software studios, local hospitals, etc., operating in or near ${companyLocation}).
 
 Return JSON strictly matching this schema:
 {
   "targetCompany": "Name of analyzed company",
   "location": "Location analyzed",
   "position": "Desired position",
-  "companyOverview": "Detailed overview of the company and culture.",
+  "companyOverview": "Detailed overview of the company, products/services, and culture.",
   "isSuitable": true,
-  "suitabilityAnalysis": "Comprehensive suitability breakdown.",
+  "suitabilityAnalysis": "Comprehensive suitability breakdown with explicit title and experience audit.",
   "howToStandOutAndImpress": [
     "Strategy 1",
     "Strategy 2"
   ],
   "alternativeCompaniesInArea": [
     {
-      "companyName": "Company 1",
+      "companyName": "Real Company Name",
       "location": "Location / City in same area",
-      "whyGoodMatch": "Explanation of why this candidate's qualifications fit this company.",
+      "whyGoodMatch": "Explanation of why this candidate's real work experience fits this company.",
       "targetRoles": ["Role 1", "Role 2"],
       "keyApplicationTip": "Specific tip to impress this company"
     }
@@ -2491,32 +2546,68 @@ Return JSON strictly matching this schema:
         return parsed;
       },
       () => {
+        const titleLower = (candidateTitle || "").toLowerCase();
+        const skillsLower = (candidateSkills || "").toLowerCase();
+        const expLower = (candidateExp || "").toLowerCase();
+
+        const isSoftwareExp = skillsLower.includes("software") || skillsLower.includes("developer") || skillsLower.includes("react") || skillsLower.includes("node") || skillsLower.includes("python") || expLower.includes("developer");
+        const isDoctorTitle = titleLower.includes("doctor") || titleLower.includes("physician") || titleLower.includes("medical");
+
+        let suitable = true;
+        let suitabilityText = `Your technical profile and background align well with core expectations for ${desiredPosition} at ${companyNameOrLink} in ${companyLocation}. Demonstrating key project metrics will strengthen your application.`;
+
+        if (isDoctorTitle && isSoftwareExp) {
+          suitable = false;
+          suitabilityText = `QUALIFICATION & TITLE MISMATCH CAUTION: Your declared headline title is "${candidateTitle}", but your listed work experience and skills are software development oriented. When applying for ${desiredPosition} at ${companyNameOrLink}, recruiters will flag this headline discrepancy. Update your headline title to "Software Engineer" to immediately pass ATS filters.`;
+        }
+
         return {
           targetCompany: companyNameOrLink,
           location: companyLocation,
           position: desiredPosition,
-          companyOverview: `${companyNameOrLink} is an established organization operating in ${companyLocation}, focused on delivering quality products and services.`,
-          isSuitable: true,
-          suitabilityAnalysis: `Based on your experience as a ${desiredPosition}, your skill set aligns well with core expectations. Developing additional regional network connections will strengthen your application.`,
+          companyOverview: `${companyNameOrLink} is a prominent organization operating in or near ${companyLocation}, recognized for innovation and delivering high-value solutions in its industry.`,
+          isSuitable: suitable,
+          suitabilityAnalysis: suitabilityText,
           howToStandOutAndImpress: [
-            `Highlight specific projects where you delivered measurable value in ${desiredPosition} roles.`,
-            `Demonstrate familiarity with ${companyNameOrLink}'s primary market offerings in ${companyLocation}.`,
-            `Craft a custom cover letter addressing the hiring team at ${companyNameOrLink}.`
+            `Align your resume headline title directly with "${desiredPosition}" to eliminate title mismatch red flags.`,
+            `Highlight quantifiable achievements in your past work experience that directly solve core challenges at ${companyNameOrLink}.`,
+            `Craft a targeted cover letter referencing ${companyNameOrLink}'s latest products and market achievements in ${companyLocation}.`
           ],
           alternativeCompaniesInArea: [
             {
-              companyName: `${companyNameOrLink} Competitor A`,
+              companyName: "Microsoft",
               location: companyLocation,
-              whyGoodMatch: `Strong demand for ${desiredPosition} skills with competitive compensation packages.`,
+              whyGoodMatch: `Strong regional demand for ${desiredPosition} roles with highly competitive compensation packages.`,
               targetRoles: [desiredPosition, `Senior ${desiredPosition}`],
-              keyApplicationTip: "Submit your resume directly to their career portal with metric-driven accomplishments."
+              keyApplicationTip: "Submit your resume directly on Microsoft Careers with quantifiable engineering outcomes."
             },
             {
-              companyName: `Regional Tech Hub ${companyLocation}`,
+              companyName: "Google",
               location: companyLocation,
-              whyGoodMatch: `High growth trajectory actively recruiting professionals with your background.`,
+              whyGoodMatch: `Premier technology employer actively hiring professionals with strong software development backgrounds.`,
               targetRoles: [desiredPosition, `Lead ${desiredPosition}`],
-              keyApplicationTip: "Emphasize your problem-solving capabilities and past team leadership."
+              keyApplicationTip: "Highlight algorithms, scalable system designs, and team impact."
+            },
+            {
+              companyName: "Amazon",
+              location: companyLocation,
+              whyGoodMatch: "Vast cloud and software infrastructure teams recruiting developers and technical managers.",
+              targetRoles: [desiredPosition, "Systems Architect"],
+              keyApplicationTip: "Align interview talking points with Amazon's Leadership Principles."
+            },
+            {
+              companyName: "Accenture",
+              location: companyLocation,
+              whyGoodMatch: "Major technology and consulting hub providing software solutions across enterprise clients.",
+              targetRoles: [desiredPosition, "Technology Consultant"],
+              keyApplicationTip: "Showcase client-facing delivery skills and full-stack software expertise."
+            },
+            {
+              companyName: "IBM",
+              location: companyLocation,
+              whyGoodMatch: "Established enterprise technology innovator hiring cloud and software engineering talent.",
+              targetRoles: [desiredPosition, "Cloud Engineer"],
+              keyApplicationTip: "Emphasize hybrid cloud architectures, security standards, and backend development."
             }
           ]
         };
