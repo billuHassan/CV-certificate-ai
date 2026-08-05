@@ -502,31 +502,39 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         {/* Modal Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
           {!parsedResume ? (
-            /* Upload Screen */
+            /* Upload Screen (Temporarily Offline) */
             <div className="max-w-2xl mx-auto space-y-6">
+              <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs flex items-start gap-3 shadow-lg">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-amber-300 text-sm">Upload Feature Temporarily Offline</span>
+                    <span className="text-[10px] bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded border border-amber-700/60 uppercase font-mono font-bold">Under Maintenance</span>
+                  </div>
+                  <p className="text-amber-200/90 leading-relaxed text-xs">
+                    Document upload & automated file parsing is temporarily un-enabled while system upgrades are in progress.
+                  </p>
+                  <p className="text-[11px] text-amber-300/80">
+                    💡 Please use the <strong className="text-amber-200">New Resume</strong> or <strong className="text-amber-200">AI Resume Coach</strong> tools directly to build and edit ATS-optimized resumes.
+                  </p>
+                </div>
+              </div>
+
               <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDrop}
-                className="border-2 border-dashed border-teal-500/30 hover:border-teal-400/60 rounded-2xl p-8 sm:p-12 text-center bg-slate-900/50 hover:bg-slate-850 transition cursor-pointer relative group"
+                className="border-2 border-dashed border-slate-700 rounded-2xl p-8 sm:p-12 text-center bg-slate-900/40 relative opacity-60 cursor-not-allowed"
               >
-                <input
-                  type="file"
-                  accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <div className="w-16 h-16 rounded-2xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 text-slate-500 flex items-center justify-center mx-auto mb-4">
                   <FileText className="w-8 h-8" />
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-slate-200 mb-1">
-                  {file ? file.name : "Drag and drop your resume file here"}
+                <h3 className="text-base sm:text-lg font-semibold text-slate-400 mb-1">
+                  Document Upload Offline
                 </h3>
-                <p className="text-xs text-slate-400 mb-4">
-                  Supports PDF, DOCX, TXT, or Image scans up to 10MB
+                <p className="text-xs text-slate-500 mb-4">
+                  PDF & DOCX document scanning is temporarily paused for maintenance
                 </p>
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-semibold text-xs group-hover:bg-teal-400 transition">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-500 font-semibold text-xs cursor-not-allowed border border-slate-700">
                   <Upload className="w-4 h-4" />
-                  {file ? "Change Selected File" : "Browse Files"}
+                  Upload Disabled
                 </span>
               </div>
 
@@ -548,17 +556,16 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
               <div className="flex justify-end gap-3">
                 <button
                   onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
-                  onClick={processResumeUpload}
-                  disabled={!file || loading}
-                  className="px-6 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 hover:brightness-110 disabled:opacity-50 transition flex items-center gap-2 shadow-lg shadow-teal-500/20"
+                  disabled={true}
+                  className="px-6 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-500 cursor-not-allowed transition flex items-center gap-2 border border-slate-700"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Start AI Scan & Reality Audit
+                  Upload Temporarily Disabled
                 </button>
               </div>
             </div>

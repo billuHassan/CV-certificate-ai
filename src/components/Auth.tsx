@@ -30,6 +30,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [showVerification, setShowVerification] = useState(false);
   const [enteredCode, setEnteredCode] = useState("");
   const [verificationError, setVerificationError] = useState("");
+  const [demoCodeNotice, setDemoCodeNotice] = useState<string | null>(null);
 
   // Google Sign-In simulation states
   const [showGoogleChooser, setShowGoogleChooser] = useState(false);
@@ -193,6 +194,12 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         setLoading(false);
         if (sendResult.success) {
           setShowVerification(true);
+          if (sendResult.demoCode) {
+            setDemoCodeNotice(sendResult.demoCode);
+            setEnteredCode(sendResult.demoCode);
+          } else {
+            setDemoCodeNotice(null);
+          }
         } else {
           setError(sendResult.error || "Failed to trigger secure verification code. Please try again.");
         }
@@ -260,7 +267,13 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       });
       const sendResult = await sendResponse.json();
       if (sendResult.success) {
-        setResendMsg("A fresh 6-digit code has been sent!");
+        setResendMsg(sendResult.smtpConfigured ? "A fresh 6-digit code has been sent to your email!" : "Fresh verification code generated!");
+        if (sendResult.demoCode) {
+          setDemoCodeNotice(sendResult.demoCode);
+          setEnteredCode(sendResult.demoCode);
+        } else {
+          setDemoCodeNotice(null);
+        }
         setResendCooldown(30);
         const timer = setInterval(() => {
           setResendCooldown((prev) => {
@@ -398,7 +411,14 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
       if (sendResponse.ok && sendResult.success) {
         setForgotPasswordStep("verify");
-        setResetSuccess(`A 6-digit verification code has been dispatched to ${resetEmail}. Please check your inbox or spam folder.`);
+        if (sendResult.demoCode) {
+          setDemoCodeNotice(sendResult.demoCode);
+          setForgotResetCode(sendResult.demoCode);
+          setResetSuccess(`Verification code generated for testing: ${sendResult.demoCode}. (Configure SMTP_HOST, SMTP_USER, SMTP_PASS in Environment Variables to send live emails).`);
+        } else {
+          setDemoCodeNotice(null);
+          setResetSuccess(`A 6-digit verification code has been dispatched directly to ${resetEmail}. Please check your inbox or spam folder.`);
+        }
       } else {
         setResetError(sendResult.error || "Failed to trigger recovery code. Verify if this email is registered.");
       }
@@ -746,15 +766,33 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </span>
           </div>
 
-          <div className="mb-6 p-4 bg-indigo-950/30 border border-indigo-900/50 rounded-xl space-y-1 text-center">
-            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-indigo-300">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span>Email Code Sent</span>
+          {demoCodeNotice ? (
+            <div className="mb-6 p-4 bg-amber-950/40 border border-amber-800/60 rounded-xl space-y-2 text-left animate-fade-in">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>Verification Code Notice</span>
+              </div>
+              <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                SMTP credentials are not yet configured in Environment Variables. Your 6-digit code for testing is:{" "}
+                <span className="font-mono font-black text-amber-300 text-sm bg-amber-900/60 px-2 py-0.5 rounded border border-amber-700/60">
+                  {demoCodeNotice}
+                </span>
+              </p>
+              <p className="text-[10px] text-amber-300/70 border-t border-amber-900/50 pt-1.5">
+                💡 To send real live emails directly to user inboxes, add <code className="text-amber-200 font-mono">SMTP_HOST</code>, <code className="text-amber-200 font-mono">SMTP_USER</code>, and <code className="text-amber-200 font-mono">SMTP_PASS</code> in your project Secrets or environment variables.
+              </p>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Please check your inbox or spam folder for the 6-digit code.
-            </p>
-          </div>
+          ) : (
+            <div className="mb-6 p-4 bg-indigo-950/30 border border-indigo-900/50 rounded-xl space-y-1 text-center">
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-indigo-300">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>Email Code Sent</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Please check your inbox or spam folder for the 6-digit code.
+              </p>
+            </div>
+          )}
 
           {verificationError && (
             <div className="mb-5 p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
@@ -912,6 +950,23 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           {/* STEP 2: VERIFY CODE */}
           {forgotPasswordStep === "verify" && (
             <form onSubmit={handleForgotVerifyCodeSubmit} className="space-y-5">
+              {demoCodeNotice && (
+                <div className="p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl space-y-1.5 text-left animate-fade-in">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                    <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>Recovery Code Generated</span>
+                  </div>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                    Your 6-digit recovery code is:{" "}
+                    <span className="font-mono font-black text-amber-300 text-sm bg-amber-900/60 px-2 py-0.5 rounded border border-amber-700/60">
+                      {demoCodeNotice}
+                    </span>
+                  </p>
+                  <p className="text-[10px] text-amber-300/70 border-t border-amber-900/50 pt-1">
+                    💡 Configure <code className="text-amber-200 font-mono">SMTP_HOST</code>, <code className="text-amber-200 font-mono">SMTP_USER</code>, and <code className="text-amber-200 font-mono">SMTP_PASS</code> in project Secrets for live inbox delivery.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5 text-center">
                 <label className="text-xs font-semibold text-slate-300 block text-left mb-1">Enter 6-Digit Code</label>
                 <input

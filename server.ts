@@ -508,10 +508,10 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || "RahmoraAI Security <bilalhassanmussa@gmail.com>";
+  const from = process.env.SMTP_FROM || `RahmoraAI Security <${user || "bilalhassanmussa@gmail.com"}>`;
 
   if (!host || !user || !pass) {
-    console.warn(`[SMTP DISPATCH ATTEMPT FOR ${email}] Sender: ${from}. Verification code: ${code}. (Set SMTP_HOST, SMTP_USER, SMTP_PASS in environment variables to send live emails).`);
+    console.warn(`[SMTP DISPATCH NOTICE FOR ${email}] Sender: ${from}. Verification code: ${code}. To send real emails to inbox, configure SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables.`);
     return false;
   }
 
@@ -524,6 +524,12 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
         user,
         pass,
       },
+      tls: {
+        rejectUnauthorized: false
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
     });
 
     const subject = actionType === "registration" 
@@ -555,11 +561,11 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`[SMTP SUCCESS] Dispatched verification email successfully to ${email}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[SMTP SUCCESS] Dispatched verification email successfully to ${email}. MessageID: ${info.messageId}`);
     return true;
-  } catch (err) {
-    console.error("[SMTP ERROR] Failed to dispatch verification email:", err);
+  } catch (err: any) {
+    console.error("[SMTP ERROR] Failed to dispatch verification email over Nodemailer:", err?.message || err);
     return false;
   }
 }
@@ -622,7 +628,10 @@ app.post("/api/auth/send-code", async (req, res) => {
     res.json({
       success: true,
       smtpConfigured: smtpDispatched,
-      message: "A 6-digit verification code has been dispatched to your email address."
+      demoCode: !smtpDispatched ? code : undefined,
+      message: smtpDispatched 
+        ? "A 6-digit verification code has been dispatched directly to your inbox."
+        : "Verification code generated! Set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables to send live emails."
     });
   } catch (error: any) {
     console.error("Send Code Error:", error);
@@ -4115,6 +4124,12 @@ app.post("/api/feedback/send-email", async (req, res) => {
         user,
         pass,
       },
+      tls: {
+        rejectUnauthorized: false
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
     });
 
     const mailOptions = {

@@ -116,22 +116,25 @@ export default function Dashboard({
 
       {/* Grid of Creators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {/* Creator 1: Upload Existing Resume */}
+        {/* Creator 1: Upload Existing Resume (Temporarily Offline) */}
         <button
           onClick={() => onOpenUploadModal?.()}
-          className={`p-5 ${cardBg} hover:border-amber-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01] border-2 border-dashed border-amber-500/30 dark:border-amber-500/30`}
+          className={`p-5 ${cardBg} hover:border-amber-500/50 rounded-2xl text-left transition group shadow-md hover:scale-[1.01] border-2 border-dashed border-amber-500/30 dark:border-amber-500/30 relative opacity-85`}
         >
           <div className="flex justify-between items-start">
             <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 border border-amber-500/20">
-              <Upload className="h-5.5 w-5.5 animate-bounce" />
+              <Upload className="h-5.5 w-5.5 text-amber-500/80" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 px-2 py-0.5 rounded uppercase font-bold">
-              PDF / DOCX
+            <span className="text-[10px] font-mono tracking-widest text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950 border border-amber-300 dark:border-amber-800 px-2 py-0.5 rounded uppercase font-bold">
+              MAINTENANCE
             </span>
           </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-amber-600 dark:group-hover:text-amber-400 transition font-display`}>Upload & Scan Resume</h3>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-amber-600 dark:group-hover:text-amber-400 transition font-display flex items-center gap-1.5`}>
+            Upload & Scan Resume
+            <span className="text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded font-mono">Offline</span>
+          </h3>
           <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Upload PDF/DOCX to preserve design, audit ATS score, get line-by-line fixes & smart edit.
+            Document upload is temporarily disabled for maintenance & upgrades. Click for details.
           </p>
         </button>
 
