@@ -460,6 +460,11 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
                   <div>
                     <span className={`font-bold text-slate-800 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]' : ''}`}>{cert.name}</span>
                     <span className={`text-slate-500 text-[11px] block mt-0.5 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}`}>{cert.issuer}</span>
+                    {cert.url && (
+                      <a href={cert.url} target="_blank" rel="noreferrer" className={`text-[10px] text-indigo-500 underline block mt-0.5 ${config.styleCategory === 'cyber' ? '!text-[#00ff66]/90' : ''}`}>
+                        {cert.url}
+                      </a>
+                    )}
                   </div>
                   <span className={`text-[10px] text-slate-400 shrink-0 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/60' : ''}`}>{cert.date}</span>
                 </div>
@@ -532,11 +537,13 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1.5 text-[10px] text-slate-400 max-w-sm font-mono">
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1.5 text-[10px] text-slate-400 max-w-md font-mono">
               {personalInfo.email && <div className="flex items-center gap-1 text-indigo-300/90"><Mail className="h-3 w-3 text-indigo-400" /> {personalInfo.email}</div>}
               {personalInfo.phone && <div className="flex items-center gap-1 text-indigo-300/90"><Phone className="h-3 w-3 text-indigo-400" /> {personalInfo.phone}</div>}
               {personalInfo.location && <div className="flex items-center gap-1 text-indigo-300/90"><MapPin className="h-3 w-3 text-indigo-400" /> {personalInfo.location}</div>}
+              {personalInfo.website && <div className="flex items-center gap-1 text-indigo-300/90"><Globe className="h-3 w-3 text-indigo-400" /> {personalInfo.website}</div>}
               {personalInfo.linkedin && <div className="flex items-center gap-1 text-indigo-300/90"><Linkedin className="h-3 w-3 text-indigo-400" /> {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div className="flex items-center gap-1 text-indigo-300/90"><Github className="h-3 w-3 text-indigo-400" /> {personalInfo.github}</div>}
             </div>
           </div>
         </div>
@@ -554,11 +561,13 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
           <p className="text-xs italic text-stone-600 mt-1.5 font-bold uppercase tracking-wider">
             == {personalInfo.jobTitle || "Professional Title"} ==
           </p>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[11px] mt-4 max-w-lg mx-auto border-t border-b border-dashed border-stone-400 py-2">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[11px] mt-4 max-w-xl mx-auto border-t border-b border-dashed border-stone-400 py-2">
             {personalInfo.email && <span>Email: {personalInfo.email}</span>}
             {personalInfo.phone && <span>Tel: {personalInfo.phone}</span>}
             {personalInfo.location && <span>Loc: {personalInfo.location}</span>}
             {personalInfo.website && <span>Web: {personalInfo.website}</span>}
+            {personalInfo.linkedin && <span>LinkedIn: {personalInfo.linkedin}</span>}
+            {personalInfo.github && <span>GitHub: {personalInfo.github}</span>}
           </div>
         </div>
       );
@@ -579,11 +588,13 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
               {personalInfo.jobTitle || "Professional Title"}
             </p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] text-stone-700 mt-5 pt-4 border-t border-stone-200 font-medium">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-[10px] text-stone-700 mt-5 pt-4 border-t border-stone-200 font-medium">
             {personalInfo.email && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">Email</span>{personalInfo.email}</div>}
             {personalInfo.phone && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">Telephone</span>{personalInfo.phone}</div>}
             {personalInfo.location && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">Location</span>{personalInfo.location}</div>}
+            {personalInfo.website && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">Website</span>{personalInfo.website}</div>}
             {personalInfo.linkedin && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">LinkedIn</span>{personalInfo.linkedin}</div>}
+            {personalInfo.github && <div><span className="font-bold text-black uppercase block text-[9px] text-red-600">GitHub</span>{personalInfo.github}</div>}
           </div>
         </div>
       );
@@ -609,7 +620,9 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
             {personalInfo.email && <div>$ cat contact/email.txt &gt; {personalInfo.email}</div>}
             {personalInfo.phone && <div>$ cat contact/phone.txt &gt; {personalInfo.phone}</div>}
             {personalInfo.location && <div>$ cat contact/location.txt &gt; {personalInfo.location}</div>}
+            {personalInfo.website && <div>$ cat contact/website.txt &gt; {personalInfo.website}</div>}
             {personalInfo.linkedin && <div>$ cat contact/linkedin.txt &gt; {personalInfo.linkedin}</div>}
+            {personalInfo.github && <div>$ cat contact/github.txt &gt; {personalInfo.github}</div>}
           </div>
         </div>
       );
@@ -631,6 +644,9 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
             {personalInfo.email && <div>EMAIL: {personalInfo.email}</div>}
             {personalInfo.phone && <div>PHONE: {personalInfo.phone}</div>}
             {personalInfo.location && <div>LOCATION: {personalInfo.location}</div>}
+            {personalInfo.website && <div>WEBSITE: {personalInfo.website}</div>}
+            {personalInfo.linkedin && <div>LINKEDIN: {personalInfo.linkedin}</div>}
+            {personalInfo.github && <div>GITHUB: {personalInfo.github}</div>}
           </div>
         </div>
       );
@@ -661,10 +677,11 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
               </div>
             </div>
             {/* Horizontal Contact layout */}
-            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1.5 text-[10px] font-mono opacity-90 text-center md:text-right max-w-sm">
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1.5 text-[10px] font-mono opacity-90 text-center md:text-right max-w-md">
               {personalInfo.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3 shrink-0" /> {personalInfo.email}</div>}
               {personalInfo.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3 shrink-0" /> {personalInfo.phone}</div>}
               {personalInfo.location && <div className="flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /> {personalInfo.location}</div>}
+              {personalInfo.website && <div className="flex items-center gap-1"><Globe className="h-3 w-3 shrink-0" /> {personalInfo.website}</div>}
               {personalInfo.linkedin && <div className="flex items-center gap-1"><Linkedin className="h-3 w-3 shrink-0" /> {personalInfo.linkedin}</div>}
               {personalInfo.github && <div className="flex items-center gap-1"><Github className="h-3 w-3 shrink-0" /> {personalInfo.github}</div>}
             </div>
@@ -688,6 +705,8 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
             {personalInfo.phone && <span>• {personalInfo.phone}</span>}
             {personalInfo.location && <span>• {personalInfo.location}</span>}
             {personalInfo.website && <span>• {personalInfo.website}</span>}
+            {personalInfo.linkedin && <span>• {personalInfo.linkedin}</span>}
+            {personalInfo.github && <span>• {personalInfo.github}</span>}
           </div>
         </div>
       );
@@ -710,6 +729,9 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
               {personalInfo.email && <div>Email: {personalInfo.email}</div>}
               {personalInfo.phone && <div>Tel: {personalInfo.phone}</div>}
               {personalInfo.location && <div>Loc: {personalInfo.location}</div>}
+              {personalInfo.website && <div>Web: {personalInfo.website}</div>}
+              {personalInfo.linkedin && <div>LinkedIn: {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div>GitHub: {personalInfo.github}</div>}
             </div>
           </div>
         </div>
@@ -739,6 +761,8 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
           {personalInfo.phone && <div className="flex items-center gap-1"><Phone className="h-3.5 w-3.5 text-slate-400" /> {personalInfo.phone}</div>}
           {personalInfo.location && <div className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-slate-400" /> {personalInfo.location}</div>}
           {personalInfo.website && <div className="flex items-center gap-1"><Globe className="h-3.5 w-3.5 text-slate-400" /> {personalInfo.website}</div>}
+          {personalInfo.linkedin && <div className="flex items-center gap-1"><Linkedin className="h-3.5 w-3.5 text-slate-400" /> {personalInfo.linkedin}</div>}
+          {personalInfo.github && <div className="flex items-center gap-1"><Github className="h-3.5 w-3.5 text-slate-400" /> {personalInfo.github}</div>}
         </div>
       </div>
     );
@@ -779,6 +803,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
                 {personalInfo.email && <div className="truncate flex items-center gap-1.5"><Mail className="h-3 w-3 shrink-0" /> {personalInfo.email}</div>}
                 {personalInfo.phone && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3 shrink-0" /> {personalInfo.phone}</div>}
                 {personalInfo.location && <div className="flex items-center gap-1.5"><MapPin className="h-3 w-3 shrink-0" /> {personalInfo.location}</div>}
+                {personalInfo.website && <div className="truncate flex items-center gap-1.5"><Globe className="h-3 w-3 shrink-0" /> {personalInfo.website}</div>}
                 {personalInfo.linkedin && <div className="truncate flex items-center gap-1.5"><Linkedin className="h-3 w-3 shrink-0" /> {personalInfo.linkedin}</div>}
                 {personalInfo.github && <div className="truncate flex items-center gap-1.5"><Github className="h-3 w-3 shrink-0" /> {personalInfo.github}</div>}
               </div>

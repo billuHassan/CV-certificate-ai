@@ -30,8 +30,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [showVerification, setShowVerification] = useState(false);
   const [enteredCode, setEnteredCode] = useState("");
   const [verificationError, setVerificationError] = useState("");
-  const [simulatedCode, setSimulatedCode] = useState("");
-  const [simulatedForgotCode, setSimulatedForgotCode] = useState("");
 
   // Google Sign-In simulation states
   const [showGoogleChooser, setShowGoogleChooser] = useState(false);
@@ -184,9 +182,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         
         setLoading(false);
         if (sendResult.success) {
-          if (sendResult.code) {
-            setSimulatedCode(sendResult.code);
-          }
           setShowVerification(true);
         } else {
           setError(sendResult.error || "Failed to trigger secure verification code. Please try again.");
@@ -366,9 +361,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       const sendResult = await sendResponse.json();
 
       if (sendResponse.ok && sendResult.success) {
-        if (sendResult.code) {
-          setSimulatedForgotCode(sendResult.code);
-        }
         setForgotPasswordStep("verify");
         setResetSuccess(`A 6-digit verification code has been dispatched to ${resetEmail}. Please check your inbox or spam folder.`);
       } else {
@@ -482,7 +474,11 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const handleGoogleSignInClick = async () => {
     try {
       setLoading(true);
+      setError("");
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: "select_account"
+      });
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
       
@@ -511,9 +507,22 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         });
       }
     } catch (err: any) {
-      console.warn("Google popup auth mode, opening simulated account selector:", err?.message || err);
+      console.warn("Google authentication status:", err?.code, err?.message);
       setLoading(false);
+
+      if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
+        setError("Google sign-in popup window was closed. Please try again.");
+        return;
+      }
+
+      if (err?.code === "auth/popup-blocked") {
+        setError("Google sign-in popup was blocked by your browser settings. Please allow popups for this site and try again.");
+        return;
+      }
+
+      // If Google Auth Provider is unconfigured in Firebase Console or blocked in iframe:
       setShowGoogleChooser(true);
+      setShowGoogleCustomInput(true);
     }
   };
 
@@ -711,30 +720,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </p>
           </div>
 
-          {simulatedCode && (
-            <div className="mb-6 p-4 bg-indigo-950/70 border border-indigo-500/40 rounded-xl space-y-2 text-center shadow-lg animate-fade-in">
-              <div className="flex items-center justify-center gap-2 text-xs font-bold text-indigo-300">
-                <Mail className="h-4 w-4 text-sky-400" />
-                <span>Security Code Preview Banner</span>
-              </div>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                Since external SMTP is not active in this container environment, your 6-digit code is:
-              </p>
-              <div className="flex items-center justify-center gap-2 pt-1">
-                <span className="font-mono text-2xl font-black tracking-widest text-sky-400 bg-slate-950 px-4 py-1.5 rounded-lg border border-indigo-500/30">
-                  {simulatedCode}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEnteredCode(simulatedCode)}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition shadow flex items-center gap-1"
-                >
-                  <span>Auto-Fill Code</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {verificationError && (
             <div className="mb-5 p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
               <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
@@ -877,30 +862,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           {/* STEP 2: VERIFY CODE */}
           {forgotPasswordStep === "verify" && (
             <form onSubmit={handleForgotVerifyCodeSubmit} className="space-y-5">
-              {simulatedForgotCode && (
-                <div className="p-4 bg-indigo-950/70 border border-indigo-500/40 rounded-xl space-y-2 text-center shadow-lg animate-fade-in">
-                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-indigo-300">
-                    <Mail className="h-4 w-4 text-sky-400" />
-                    <span>Recovery Code Preview Banner</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    Since external SMTP is not active in this container environment, your 6-digit recovery code is:
-                  </p>
-                  <div className="flex items-center justify-center gap-2 pt-1">
-                    <span className="font-mono text-2xl font-black tracking-widest text-sky-400 bg-slate-950 px-4 py-1.5 rounded-lg border border-indigo-500/30">
-                      {simulatedForgotCode}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setForgotResetCode(simulatedForgotCode)}
-                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition shadow flex items-center gap-1"
-                    >
-                      <span>Auto-Fill Code</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-1.5 text-center">
                 <label className="text-xs font-semibold text-slate-300 block text-left mb-1">Enter 6-Digit Code</label>
                 <input
@@ -1260,89 +1221,49 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               <p className="text-[11px] text-slate-400 mt-0.5">to continue securely to RahmoraAI</p>
             </div>
 
-            {!showGoogleCustomInput ? (
-              <div className="space-y-2.5">
-                {/* Account list */}
-                <button
-                  onClick={() => handleSelectGoogleAccount("bilalhassanmussa@gmail.com", "Bilal Hassan Mussa")}
-                  className="w-full p-3 bg-slate-950/60 hover:bg-slate-950 border border-slate-850 hover:border-slate-800 rounded-xl text-left flex items-center justify-between gap-3 transition"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="h-7 w-7 rounded-full bg-amber-500/10 text-amber-400 font-bold text-[11px] border border-amber-500/20 flex items-center justify-center shrink-0">
-                      B
-                    </div>
-                    <div className="truncate text-xs">
-                      <span className="font-bold text-slate-200 block truncate">Bilal Hassan Mussa</span>
-                      <span className="text-slate-500 block truncate text-[10px]">bilalhassanmussa@gmail.com</span>
-                    </div>
-                  </div>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                </button>
+            <form onSubmit={handleCustomGoogleSubmit} className="space-y-3.5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Google Email</label>
+                <input
+                  type="email"
+                  placeholder="your.email@gmail.com"
+                  value={customGoogleEmail}
+                  onChange={(e) => setCustomGoogleEmail(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
+                  required
+                />
+              </div>
 
-                <button
-                  onClick={() => handleSelectGoogleAccount("demo.user@gmail.com", "Demo User")}
-                  className="w-full p-3 bg-slate-950/60 hover:bg-slate-950 border border-slate-850 hover:border-slate-800 rounded-xl text-left flex items-center justify-between gap-3 transition"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="h-7 w-7 rounded-full bg-indigo-500/10 text-indigo-400 font-bold text-[11px] border border-indigo-500/20 flex items-center justify-center shrink-0">
-                      D
-                    </div>
-                    <div className="truncate text-xs">
-                      <span className="font-bold text-slate-200 block truncate">Demo User</span>
-                      <span className="text-slate-500 block truncate text-[10px]">demo.user@gmail.com</span>
-                    </div>
-                  </div>
-                </button>
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Display Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe"
+                  value={customGoogleName}
+                  onChange={(e) => setCustomGoogleName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
+                />
+              </div>
 
+              <div className="flex gap-2 pt-2.5">
                 <button
-                  onClick={() => setShowGoogleCustomInput(true)}
-                  className="w-full py-2.5 hover:bg-slate-950/40 border border-dashed border-slate-800 hover:border-slate-700 rounded-xl text-center text-xs text-indigo-400 font-semibold transition mt-2 block"
+                  type="button"
+                  onClick={() => {
+                    setShowGoogleChooser(false);
+                    setShowGoogleCustomInput(false);
+                  }}
+                  className="flex-1 py-2 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl transition"
                 >
-                  + Use Another Google Account
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition"
+                >
+                  Continue
                 </button>
               </div>
-            ) : (
-              <form onSubmit={handleCustomGoogleSubmit} className="space-y-3.5">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Google Email</label>
-                  <input
-                    type="email"
-                    placeholder="example@gmail.com"
-                    value={customGoogleEmail}
-                    onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Display Name</label>
-                  <input
-                    type="text"
-                    placeholder="Google User"
-                    value={customGoogleName}
-                    onChange={(e) => setCustomGoogleName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white"
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowGoogleCustomInput(false)}
-                    className="flex-1 py-2 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl transition"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition"
-                  >
-                    Authenticate
-                  </button>
-                </div>
-              </form>
-            )}
+            </form>
           </div>
         </div>
       )}

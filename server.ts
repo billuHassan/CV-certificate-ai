@@ -508,10 +508,10 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || "auth@cvcraftai.com";
+  const from = process.env.SMTP_FROM || "RahmoraAI Security <bilalhassanmussa@gmail.com>";
 
   if (!host || !user || !pass) {
-    console.warn(`[SMTP OFFLINE] SMTP is not configured. Verification code for ${email} is ${code}`);
+    console.warn(`[SMTP DISPATCH ATTEMPT FOR ${email}] Sender: ${from}. Verification code: ${code}. (Set SMTP_HOST, SMTP_USER, SMTP_PASS in environment variables to send live emails).`);
     return false;
   }
 
@@ -533,10 +533,10 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
     const actionText = actionType === "registration" ? "registering your new account" : "resetting your account password";
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || "auth@rahmora.ai",
+      from,
       to: email,
       subject,
-      text: `Hello,\n\nYou are receiving this email because you requested a verification code for ${actionText} on RahmoraAI.\n\nYour 6-digit secure code is: ${code}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nRahmoraAI Team`,
+      text: `Hello,\n\nYou are receiving this email because you requested a verification code for ${actionText} on RahmoraAI.\n\nYour 6-digit secure code is: ${code}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nRahmoraAI Security Team`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px; border: 1px solid #334155; border-radius: 16px; background-color: #0f172a; text-align: center; color: #f8fafc;">
           <h2 style="color: #818cf8; margin-top: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">RahmoraAI</h2>
@@ -622,10 +622,7 @@ app.post("/api/auth/send-code", async (req, res) => {
     res.json({
       success: true,
       smtpConfigured: smtpDispatched,
-      code: smtpDispatched ? undefined : code,
-      message: smtpDispatched 
-        ? "A 6-digit verification code has been dispatched to your email address."
-        : "Verification code generated successfully."
+      message: "A 6-digit verification code has been dispatched to your email address."
     });
   } catch (error: any) {
     console.error("Send Code Error:", error);
