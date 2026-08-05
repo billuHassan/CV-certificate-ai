@@ -3214,25 +3214,70 @@ app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
       return res.status(400).json({ error: "Resume text or file data is required." });
     }
 
-    const inputContent = fileDataUri
-      ? `Extracted text/content from uploaded file (${fileName || "uploaded_resume"}):\n${resumeText || ""}\n[Attached File Data URI provided]`
-      : `Resume Text Content:\n${resumeText}`;
+    let extractedDocxText = "";
+    let inlineDataPart: any = null;
+
+    if (fileDataUri && fileDataUri.startsWith("data:")) {
+      const matches = fileDataUri.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+
+        // Supported document/image MIME types in Gemini
+        if (
+          mimeType.includes("pdf") ||
+          mimeType.includes("image") ||
+          mimeType.includes("text")
+        ) {
+          inlineDataPart = {
+            inlineData: {
+              mimeType: mimeType.includes("pdf")
+                ? "application/pdf"
+                : mimeType.includes("text")
+                ? "text/plain"
+                : mimeType,
+              data: base64Data
+            }
+          };
+        } else if (
+          mimeType.includes("wordprocessingml") ||
+          fileName?.toLowerCase().endsWith(".docx") ||
+          fileName?.toLowerCase().endsWith(".doc")
+        ) {
+          try {
+            const buf = Buffer.from(base64Data, "base64");
+            const rawStr = buf.toString("utf-8");
+            extractedDocxText = rawStr
+              .replace(/<[^>]+>/g, " ")
+              .replace(/\s+/g, " ")
+              .trim();
+          } catch (e) {
+            console.warn("Error parsing docx string:", e);
+          }
+        }
+      }
+    }
+
+    const combinedText = [
+      resumeText ? `Provided Resume Raw Text:\n${resumeText}` : "",
+      extractedDocxText ? `Extracted Word Document Text:\n${extractedDocxText}` : ""
+    ].filter(Boolean).join("\n\n");
 
     const result = await callGeminiWithFallback(
       async (modelName) => {
         if (!ai) throw new Error("AI client is offline.");
 
-        const prompt = `You are a World-Class ATS Resume Parsing Expert, Senior Recruiter, and Document Designer.
-Analyze the following uploaded resume content thoroughly:
+        const promptText = `You are an Executive ATS Resume Scanner & Document Parser.
+CRITICAL MANDATORY INSTRUCTION: Analyze the attached document file (PDF/Image/Text) and extract ALL ACTUAL candidate details into structured JSON.
+DO NOT substitute fake placeholders or generic sample text if real content is visible in the file.
+Extract the EXACT full name, job title/headline, contact email, phone, location, linkedin, github, summary paragraph, work experience entries (company names, job positions, dates, location, bullet point achievements), education details (school, degree, field, dates, GPA), projects, skills list, languages, certifications, and professional references.
 
---- UPLOADED RESUME CONTENT ---
-${inputContent.slice(0, 15000)}
---- END CONTENT ---
+${combinedText ? `--- DOCUMENT TEXT CONTENT ---\n${combinedText.slice(0, 15000)}\n--- END CONTENT ---` : ""}
 
 Perform THREE distinct tasks:
 
 TASK 1: PARSE STRUCTURED RESUME DATA
-Extract ALL information into structured fields matching standard ResumeData:
+Extract ALL information from the uploaded resume into structured fields matching standard ResumeData:
 - personalInfo: fullName, jobTitle (or headline), email, phone, location, website, linkedin, github, profilePhoto
 - summary: professional profile/summary paragraph
 - experience: array of { id, company, position, startDate, endDate, current, location, description }
@@ -3244,7 +3289,7 @@ Extract ALL information into structured fields matching standard ResumeData:
 - references: array of { id, name, company, title, email, phone } (Extract all references or provide placeholder if missing)
 
 TASK 2: COMPREHENSIVE SECTION-BY-SECTION DEFICIENCY AUDIT
-Evaluate the resume with uncompromising reality-check standards:
+Evaluate the resume with reality-check standards:
 - Calculate overallRealityScore (0-100). If jobTitle conflicts with actual work experience (e.g., Title is "Doctor" but experience is Software Engineer), OR if sections are missing bullet metrics or contact info, calculate an honest score (e.g. 25-50%).
 - Check for headlineTitleMismatchDetected (boolean) and explain why in titleMismatchExplanation.
 - Audit EVERY SINGLE SECTION: personalInfo, summary, experience, skills, education, projects, certifications, references.
@@ -3257,7 +3302,7 @@ Evaluate the resume with uncompromising reality-check standards:
   - suggestedChanges: array of { field, currentValue, suggestedValue, explanation } providing 1-click auto-fix values for the section!
 
 TASK 3: TEMPLATE STYLE EXTRACTION
-Analyze the document's visual tone, typography, density, and color structure from the content structure:
+Analyze the document's visual tone, typography, density, and color structure from the file:
 - templateId: unique string (e.g., "custom_extracted_style")
 - templateName: creative name (e.g., "Extracted Executive Sapphire Style", "Custom Minimal Obsidian Layout")
 - description: brief description of the layout style
@@ -3271,9 +3316,15 @@ Analyze the document's visual tone, typography, density, and color structure fro
 
 Return JSON matching the schema.`;
 
+        const contentsParts: any[] = [];
+        if (inlineDataPart) {
+          contentsParts.push(inlineDataPart);
+        }
+        contentsParts.push(promptText);
+
         const response = await ai.models.generateContent({
           model: modelName,
-          contents: prompt,
+          contents: contentsParts,
           config: {
             responseMimeType: "application/json",
             responseSchema: {

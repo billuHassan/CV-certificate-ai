@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import {
-  Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Download, Edit3, ArrowRight, X, RefreshCw, Eye, Wand2, ShieldCheck, Palette
+  Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Download, Edit3, ArrowRight, X, RefreshCw, Eye, Wand2, ShieldCheck, Palette, Plus, Trash2, Printer
 } from "lucide-react";
-import { ResumeData, Reference } from "../types";
+import { ResumeData, WorkExperience, Education, Reference } from "../types";
 import ResumeTemplates from "./ResumeTemplates";
 
 interface AuditSection {
@@ -81,22 +81,25 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
 
     setLoading(true);
     setError(null);
-    setLoadingStep("Reading document file contents...");
+    setLoadingStep("Reading uploaded resume document file...");
 
     try {
+      let textContent = "";
+      if (file.type.includes("text") || file.name.endsWith(".txt")) {
+        try {
+          textContent = await file.text();
+        } catch (e) {
+          console.warn("Could not read text directly:", e);
+        }
+      }
+
       const reader = new FileReader();
 
       reader.onload = async () => {
         try {
           const fileDataUri = reader.result as string;
-          let textContent = "";
 
-          // If text file, get string directly
-          if (file.type.includes("text") || file.name.endsWith(".txt")) {
-            textContent = fileDataUri;
-          }
-
-          setLoadingStep("AI Scanning document structure & parsing details...");
+          setLoadingStep("AI Multimodal Scanning entire document & parsing content...");
 
           const response = await fetch("/api/ai/parse-and-audit-resume", {
             method: "POST",
@@ -214,6 +217,18 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         ...prev,
         summary: value
       }) : null);
+    } else if (sectionKey === "skills") {
+      const skillsArray = Array.from(new Set([...parsedResume.skills, ...value.split(",").map(s => s.trim()).filter(Boolean)]));
+      setParsedResume(prev => prev ? ({
+        ...prev,
+        skills: skillsArray
+      }) : null);
+    } else if (sectionKey === "experience" && parsedResume.experience.length > 0) {
+      // Update first experience bullet/description or matching field
+      setParsedResume(prev => prev ? ({
+        ...prev,
+        experience: prev.experience.map((exp, idx) => idx === 0 ? { ...exp, [field]: value } : exp)
+      }) : null);
     }
 
     // Update audit report status for that change
@@ -224,6 +239,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
           if (s.sectionKey === sectionKey) {
             return {
               ...s,
+              score: Math.min(100, s.score + 15),
               deficiencies: s.deficiencies.filter(d => !d.toLowerCase().includes(field.toLowerCase())),
               suggestedChanges: s.suggestedChanges.filter(c => c.field !== field)
             };
@@ -232,6 +248,39 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         })
       }) : null);
     }
+  };
+
+  const handleDownloadPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow || !parsedResume) return;
+
+    const previewElem = document.getElementById("scanned-resume-preview-pane");
+    const resumeHtml = previewElem ? previewElem.innerHTML : "";
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${parsedResume.personalInfo.fullName || "Resume"} - Download PDF</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @media print {
+              body { padding: 0; margin: 0; background: white; }
+            }
+            body { font-family: sans-serif; background: white; color: black; padding: 20px; }
+          </style>
+        </head>
+        <body>
+          <div>${resumeHtml}</div>
+          <script>
+            setTimeout(() => {
+              window.print();
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
@@ -249,7 +298,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                 AI Resume Scanner & Reality Auditor
               </h2>
               <p className="text-xs text-slate-400">
-                Upload your existing resume to scan for deficiencies, generate reality scores, and extract custom template styles.
+                Full-content document scanning, reality deficiency audit, 1-click fixes, and layout extraction.
               </p>
             </div>
           </div>
@@ -303,7 +352,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                 <div className="p-6 rounded-2xl bg-slate-950/60 border border-teal-500/30 text-center space-y-3">
                   <RefreshCw className="w-8 h-8 text-teal-400 animate-spin mx-auto" />
                   <p className="text-sm font-semibold text-teal-300">{loadingStep}</p>
-                  <p className="text-xs text-slate-400">Analyzing skills, title alignment, and extracting template styles...</p>
+                  <p className="text-xs text-slate-400">Extracting full text, work experience, skills, and extracting layout style...</p>
                 </div>
               )}
 
@@ -409,7 +458,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                   }`}
                 >
                   <Edit3 className="w-4 h-4" />
-                  Interactive Editable Mode
+                  Interactive Content Editor
                 </button>
 
                 <button
@@ -498,6 +547,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
               {/* VIEW 2: INTERACTIVE EDITABLE MODE */}
               {activeView === "edit" && parsedResume && (
                 <div className="space-y-6">
+                  {/* Personal Info */}
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
                     <h3 className="text-sm font-bold text-teal-400">Personal Information & Headline</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -552,9 +602,36 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                           className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-slate-100"
                         />
                       </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1">Location</label>
+                        <input
+                          type="text"
+                          value={parsedResume.personalInfo.location}
+                          onChange={(e) => setParsedResume({
+                            ...parsedResume,
+                            personalInfo: { ...parsedResume.personalInfo, location: e.target.value }
+                          })}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-slate-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1">LinkedIn Profile URL</label>
+                        <input
+                          type="text"
+                          value={parsedResume.personalInfo.linkedin}
+                          onChange={(e) => setParsedResume({
+                            ...parsedResume,
+                            personalInfo: { ...parsedResume.personalInfo, linkedin: e.target.value }
+                          })}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-slate-100"
+                        />
+                      </div>
                     </div>
                   </div>
 
+                  {/* Summary */}
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                     <h3 className="text-sm font-bold text-teal-400">Professional Summary</h3>
                     <textarea
@@ -565,6 +642,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                     />
                   </div>
 
+                  {/* Skills */}
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                     <h3 className="text-sm font-bold text-teal-400">Core Skills</h3>
                     <input
@@ -578,20 +656,213 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                       placeholder="Comma-separated skills (e.g. React, TypeScript, Leadership)"
                     />
                   </div>
+
+                  {/* Work Experience */}
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-teal-400">Work Experience ({parsedResume.experience.length})</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newExp: WorkExperience = {
+                            id: crypto.randomUUID(),
+                            company: "New Company",
+                            position: "Role Position",
+                            startDate: "2022",
+                            endDate: "Present",
+                            current: true,
+                            location: "City, Country",
+                            description: "Key achievement or bullet point metrics."
+                          };
+                          setParsedResume({ ...parsedResume, experience: [newExp, ...parsedResume.experience] });
+                        }}
+                        className="px-3 py-1 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 hover:bg-teal-500/30 transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Experience
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {parsedResume.experience.map((exp, idx) => (
+                        <div key={exp.id} className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-300">Experience #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParsedResume({
+                                  ...parsedResume,
+                                  experience: parsedResume.experience.filter(e => e.id !== exp.id)
+                                });
+                              }}
+                              className="text-rose-400 hover:text-rose-300 text-xs p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                            <input
+                              type="text"
+                              value={exp.position}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                experience: parsedResume.experience.map(item => item.id === exp.id ? { ...item, position: e.target.value } : item)
+                              })}
+                              placeholder="Job Position Title"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={exp.company}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                experience: parsedResume.experience.map(item => item.id === exp.id ? { ...item, company: e.target.value } : item)
+                              })}
+                              placeholder="Company Name"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={exp.startDate}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                experience: parsedResume.experience.map(item => item.id === exp.id ? { ...item, startDate: e.target.value } : item)
+                              })}
+                              placeholder="Start Date"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={exp.endDate}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                experience: parsedResume.experience.map(item => item.id === exp.id ? { ...item, endDate: e.target.value } : item)
+                              })}
+                              placeholder="End Date"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                          </div>
+
+                          <textarea
+                            rows={2}
+                            value={exp.description}
+                            onChange={(e) => setParsedResume({
+                              ...parsedResume,
+                              experience: parsedResume.experience.map(item => item.id === exp.id ? { ...item, description: e.target.value } : item)
+                            })}
+                            placeholder="Achievements, metrics, key responsibilities..."
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-100"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* References */}
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-teal-400">References ({parsedResume.references?.length || 0})</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newRef: Reference = {
+                            id: crypto.randomUUID(),
+                            name: "Reference Name",
+                            title: "Manager / Lead",
+                            company: "Company",
+                            email: "ref@example.com",
+                            phone: "+1 555-0199"
+                          };
+                          setParsedResume({ ...parsedResume, references: [...(parsedResume.references || []), newRef] });
+                        }}
+                        className="px-3 py-1 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 hover:bg-teal-500/30 transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Reference
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(parsedResume.references || []).map((ref, idx) => (
+                        <div key={ref.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-300">Reference #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParsedResume({
+                                  ...parsedResume,
+                                  references: (parsedResume.references || []).filter(r => r.id !== ref.id)
+                                });
+                              }}
+                              className="text-rose-400 hover:text-rose-300 text-xs p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                            <input
+                              type="text"
+                              value={ref.name}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                references: (parsedResume.references || []).map(r => r.id === ref.id ? { ...r, name: e.target.value } : r)
+                              })}
+                              placeholder="Full Name"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={ref.title}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                references: (parsedResume.references || []).map(r => r.id === ref.id ? { ...r, title: e.target.value } : r)
+                              })}
+                              placeholder="Title / Relationship"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="email"
+                              value={ref.email || ""}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                references: (parsedResume.references || []).map(r => r.id === ref.id ? { ...r, email: e.target.value } : r)
+                              })}
+                              placeholder="Email Address"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={ref.phone || ""}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                references: (parsedResume.references || []).map(r => r.id === ref.id ? { ...r, phone: e.target.value } : r)
+                              })}
+                              placeholder="Phone Number"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* VIEW 3: LIVE PREVIEW */}
               {activeView === "preview" && parsedResume && (
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 overflow-x-auto flex justify-center">
-                  <div className="w-[800px] shadow-2xl rounded-xl overflow-hidden bg-white text-slate-900">
-                    <ResumeTemplates data={parsedResume} scale={1} />
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 overflow-x-auto flex justify-center">
+                    <div id="scanned-resume-preview-pane" className="w-[800px] shadow-2xl rounded-xl overflow-hidden bg-white text-slate-900">
+                      <ResumeTemplates data={parsedResume} scale={1} />
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+              <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <button
                   onClick={() => { setParsedResume(null); setFile(null); }}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition"
@@ -599,7 +870,17 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                   Upload Different Resume
                 </button>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  {parsedResume && (
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 transition flex items-center justify-center gap-2"
+                    >
+                      <Printer className="w-4 h-4" />
+                      Print / Download PDF
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       if (parsedResume) {
@@ -607,7 +888,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                         onClose();
                       }
                     }}
-                    className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 hover:brightness-110 transition flex items-center gap-2 shadow-lg shadow-teal-500/20"
+                    className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
                   >
                     <ArrowRight className="w-4 h-4" />
                     Load & Edit in Resume Builder
@@ -622,3 +903,4 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
     </div>
   );
 }
+
