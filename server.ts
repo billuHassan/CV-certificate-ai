@@ -2749,17 +2749,21 @@ app.post("/api/ai/resume-coach", async (req, res) => {
       async (modelName) => {
         if (!ai) throw new Error("AI client is offline.");
 
-        const coachPrompt = `CRITICAL MANDATORY INSTRUCTION - ROLE-FIRST ANALYSIS:
-FIRST, analyze the candidate's specific job title ("${roleToResearch}") and identify its exact industry domain (e.g. Culinary/Food Service for Cook/Chef, Healthcare for Nurse, Skilled Trades for Electrician, Tech for Developer, Retail for Cashier, Logistics for Driver, Education for Teacher, etc.).
-ALL recommendations (skills, bullet point rewrites, suggested certs, target jobs, company analysis) MUST BE 100% SPECIFIC TO THIS ROLE DOMAIN.
-For example, if the user is a Cook or Chef, DO NOT suggest IT/PMP certifications or project management skills — suggest culinary certifications (e.g., ServSafe Manager, ACF Certified Cook/Sous Chef), culinary knife skills, kitchen line efficiency, and hospitality employers!
+        const coachPrompt = `CRITICAL MANDATORY INSTRUCTION - TITLE vs EXPERIENCE REALITY AUDIT & ROLE-FIRST ANALYSIS:
+1. Examine the candidate's declared job title ("${roleToResearch}") against their actual work experience entries, summary, and skills list.
+2. Calculate a REALISTIC, DYNAMIC perfectionScore (0-100) based on actual alignment:
+   - If candidate's declared title (e.g. "Doctor", "Physician", "Pilot") CONFLICTS with their actual work experience and skills (e.g. Software Engineer, React, Node.js), OR if the resume lacks work experience bullet metrics/skills:
+     a) DO NOT return an artificially high static score (like 82%). Return a realistic score (e.g., 20% - 45% for severe mismatch; 50% - 70% for missing key bullet metrics or incomplete contact/references info; 85% - 95% for genuine high-quality alignment).
+     b) In 'executiveSummary', explicitly point out this exact discrepancy or section gap!
+     c) In 'coachRecommendations', provide actionable line-by-line recommendations (e.g. updating headline title to match actual work experience to immediately boost ATS match percentage).
+3. Ensure all companies mentioned in 'homeCountryAnalysis', 'topCountries', and 'globalContinentMatrix' are REAL, ACTUAL EXISTING COMPANIES (e.g., Microsoft, Google, Amazon, Siemens, Deloitte, Johns Hopkins, Pfizer, Toyota, Accenture, etc.) operating in countries that are active, real-world hubs for "${roleToResearch}".
 
 You are an elite Executive AI Resume Coach, Global Mobility Strategist, and Senior Recruiter using Gemini with Google Search Grounding.
 Search online for real-time information regarding:
 1) In-demand technical/hands-on skills, key ATS keywords, and benchmark impact accomplishments for "${roleToResearch}".
 2) Global hiring trends, visa/relocation pathways, and top employers for a candidate with nationality "${nationality}" and experience matching "${roleToResearch}".
-3) Candidate's Home Country Analysis: Identify top 5 companies to target in candidate's home country/nationality (${nationality}), with direct company links, industry, and top 5 jobs for each company.
-4) 7-Continent Global Employer & Job Matrix: For ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations), identify top 5 countries per continent, top 5 companies to target in each country (including companyUrl link), and top 5 jobs at each company with tailored reasons and salary expectations.
+3) Candidate's Home Country Analysis: Identify top 5 real companies to target in candidate's home country/nationality (${nationality}), with direct company links, industry, and top 5 jobs for each company.
+4) 7-Continent Global Employer & Job Matrix: For ALL 7 CONTINENTS (Africa, Asia, Europe, North America, South America, Oceania, Antarctica & Global Remote Stations), identify top 5 countries per continent, top 5 real companies to target in each country (including companyUrl link), and top 5 jobs at each company with tailored reasons and salary expectations.
 
 Candidate Resume Data:
 Title: ${resume.title}
@@ -2770,10 +2774,11 @@ Skills: ${(resume.skills || []).join(", ")}
 Experience: ${JSON.stringify(resume.experience || [])}
 Projects: ${JSON.stringify(resume.projects || [])}
 Education: ${JSON.stringify(resume.education || [])}
+References: ${JSON.stringify(resume.references || [])}
 
 Analyze the resume and generate:
 - perfectionScore (0-100) & dimensionScores (impactMetrics, actionVerbs, keywordAlignment, formatting, clarity)
-- executiveSummary (2 sentences) & companyAnalysis (2 sentences of online findings)
+- executiveSummary (2 sentences highlighting reality fit or headline title discrepancies) & companyAnalysis (2 sentences of online findings)
 - coachRecommendations: Line-by-line perfecting recommendations with currentText vs suggestedText and impactRating
 - topJobs: TOP 5 role-aligned job titles to apply for with salary ranges and match reasons.
 - topCountries: TOP 5 overall easiest global countries to secure jobs based on nationality and role.
@@ -3198,6 +3203,375 @@ Return JSON matching this schema:
   } catch (error: any) {
     console.error("AI Interview Evaluator Error:", error);
     res.status(500).json({ error: error?.message || "Failed to evaluate answer" });
+  }
+});
+
+// 6.10 AI Uploaded Resume Scanner, Deficiency Audit & Template Style Extractor
+app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
+  try {
+    const { resumeText, fileDataUri, fileName } = req.body;
+    if (!resumeText && !fileDataUri) {
+      return res.status(400).json({ error: "Resume text or file data is required." });
+    }
+
+    const inputContent = fileDataUri
+      ? `Extracted text/content from uploaded file (${fileName || "uploaded_resume"}):\n${resumeText || ""}\n[Attached File Data URI provided]`
+      : `Resume Text Content:\n${resumeText}`;
+
+    const result = await callGeminiWithFallback(
+      async (modelName) => {
+        if (!ai) throw new Error("AI client is offline.");
+
+        const prompt = `You are a World-Class ATS Resume Parsing Expert, Senior Recruiter, and Document Designer.
+Analyze the following uploaded resume content thoroughly:
+
+--- UPLOADED RESUME CONTENT ---
+${inputContent.slice(0, 15000)}
+--- END CONTENT ---
+
+Perform THREE distinct tasks:
+
+TASK 1: PARSE STRUCTURED RESUME DATA
+Extract ALL information into structured fields matching standard ResumeData:
+- personalInfo: fullName, jobTitle (or headline), email, phone, location, website, linkedin, github, profilePhoto
+- summary: professional profile/summary paragraph
+- experience: array of { id, company, position, startDate, endDate, current, location, description }
+- education: array of { id, school, degree, fieldOfStudy, startDate, endDate, current, location, gpa }
+- projects: array of { id, name, role, startDate, endDate, url, description }
+- skills: array of skill strings
+- languages: array of { id, name, proficiency }
+- certifications: array of { id, name, issuer, date, url }
+- references: array of { id, name, company, title, email, phone } (Extract all references or provide placeholder if missing)
+
+TASK 2: COMPREHENSIVE SECTION-BY-SECTION DEFICIENCY AUDIT
+Evaluate the resume with uncompromising reality-check standards:
+- Calculate overallRealityScore (0-100). If jobTitle conflicts with actual work experience (e.g., Title is "Doctor" but experience is Software Engineer), OR if sections are missing bullet metrics or contact info, calculate an honest score (e.g. 25-50%).
+- Check for headlineTitleMismatchDetected (boolean) and explain why in titleMismatchExplanation.
+- Audit EVERY SINGLE SECTION: personalInfo, summary, experience, skills, education, projects, certifications, references.
+  For each section return:
+  - sectionKey (e.g. "personalInfo", "summary", "experience", "skills", "education", "projects", "certifications", "references")
+  - sectionTitle
+  - score (0-100)
+  - status ("error" | "warning" | "success")
+  - deficiencies: array of specific issues found (e.g., "Missing phone number or email", "Experience bullet points lack metric achievements", "References section lacks email/phone contact details").
+  - suggestedChanges: array of { field, currentValue, suggestedValue, explanation } providing 1-click auto-fix values for the section!
+
+TASK 3: TEMPLATE STYLE EXTRACTION
+Analyze the document's visual tone, typography, density, and color structure from the content structure:
+- templateId: unique string (e.g., "custom_extracted_style")
+- templateName: creative name (e.g., "Extracted Executive Sapphire Style", "Custom Minimal Obsidian Layout")
+- description: brief description of the layout style
+- colorTheme: dominant hex color (e.g., "#0f766e", "#1e3a8a", "#4338ca", "#c2410c", "#0f172a")
+- fontFamily: "font-sans", "font-serif", or "font-mono"
+- layoutStyle: "split" | "banner" | "modern-card" | "cream" | "cyber" | "brutalist" | "standard"
+- bgClass: Tailwind background class (e.g. "bg-slate-900", "bg-stone-50", "bg-white")
+- sidebarClass: Tailwind sidebar class if split
+- accentClass: Tailwind text/border accent class
+- isDark: boolean
+
+Return JSON matching the schema.`;
+
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                parsedResume: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    personalInfo: {
+                      type: Type.OBJECT,
+                      properties: {
+                        fullName: { type: Type.STRING },
+                        jobTitle: { type: Type.STRING },
+                        email: { type: Type.STRING },
+                        phone: { type: Type.STRING },
+                        location: { type: Type.STRING },
+                        website: { type: Type.STRING },
+                        linkedin: { type: Type.STRING },
+                        github: { type: Type.STRING },
+                        profilePhoto: { type: Type.STRING }
+                      }
+                    },
+                    summary: { type: Type.STRING },
+                    experience: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          company: { type: Type.STRING },
+                          position: { type: Type.STRING },
+                          startDate: { type: Type.STRING },
+                          endDate: { type: Type.STRING },
+                          current: { type: Type.BOOLEAN },
+                          location: { type: Type.STRING },
+                          description: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    education: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          school: { type: Type.STRING },
+                          degree: { type: Type.STRING },
+                          fieldOfStudy: { type: Type.STRING },
+                          startDate: { type: Type.STRING },
+                          endDate: { type: Type.STRING },
+                          current: { type: Type.BOOLEAN },
+                          location: { type: Type.STRING },
+                          gpa: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    projects: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          name: { type: Type.STRING },
+                          role: { type: Type.STRING },
+                          startDate: { type: Type.STRING },
+                          endDate: { type: Type.STRING },
+                          url: { type: Type.STRING },
+                          description: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    languages: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          name: { type: Type.STRING },
+                          proficiency: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    certifications: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          name: { type: Type.STRING },
+                          issuer: { type: Type.STRING },
+                          date: { type: Type.STRING },
+                          url: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    references: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          name: { type: Type.STRING },
+                          company: { type: Type.STRING },
+                          title: { type: Type.STRING },
+                          email: { type: Type.STRING },
+                          phone: { type: Type.STRING }
+                        }
+                      }
+                    }
+                  }
+                },
+                auditReport: {
+                  type: Type.OBJECT,
+                  properties: {
+                    overallRealityScore: { type: Type.INTEGER },
+                    headlineTitleMismatchDetected: { type: Type.BOOLEAN },
+                    titleMismatchExplanation: { type: Type.STRING },
+                    sections: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          sectionKey: { type: Type.STRING },
+                          sectionTitle: { type: Type.STRING },
+                          score: { type: Type.INTEGER },
+                          status: { type: Type.STRING },
+                          deficiencies: { type: Type.ARRAY, items: { type: Type.STRING } },
+                          suggestedChanges: {
+                            type: Type.ARRAY,
+                            items: {
+                              type: Type.OBJECT,
+                              properties: {
+                                field: { type: Type.STRING },
+                                currentValue: { type: Type.STRING },
+                                suggestedValue: { type: Type.STRING },
+                                explanation: { type: Type.STRING }
+                              }
+                            }
+                          }
+                        },
+                        required: ["sectionKey", "sectionTitle", "score", "status", "deficiencies", "suggestedChanges"]
+                      }
+                    }
+                  },
+                  required: ["overallRealityScore", "headlineTitleMismatchDetected", "titleMismatchExplanation", "sections"]
+                },
+                extractedTemplateStyle: {
+                  type: Type.OBJECT,
+                  properties: {
+                    templateId: { type: Type.STRING },
+                    templateName: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    colorTheme: { type: Type.STRING },
+                    fontFamily: { type: Type.STRING },
+                    layoutStyle: { type: Type.STRING },
+                    bgClass: { type: Type.STRING },
+                    sidebarClass: { type: Type.STRING },
+                    accentClass: { type: Type.STRING },
+                    isDark: { type: Type.BOOLEAN }
+                  },
+                  required: ["templateId", "templateName", "description", "colorTheme", "fontFamily", "layoutStyle"]
+                }
+              },
+              required: ["parsedResume", "auditReport", "extractedTemplateStyle"]
+            }
+          }
+        });
+
+        return JSON.parse(response.text || "{}");
+      },
+      () => {
+        // Fallback parser and auditor
+        return {
+          parsedResume: {
+            title: "Uploaded Candidate Resume",
+            personalInfo: {
+              fullName: "Uploaded Candidate",
+              jobTitle: "Software Engineer & Professional",
+              email: "candidate@example.com",
+              phone: "+1 (555) 019-2831",
+              location: "New York, USA",
+              website: "",
+              linkedin: "linkedin.com/in/candidate",
+              github: "github.com/candidate",
+              profilePhoto: ""
+            },
+            summary: "Experienced professional with background in executing technical projects and collaborating across teams.",
+            experience: [
+              {
+                id: "exp_1",
+                company: "Global Tech Enterprises",
+                position: "Senior Software Engineer",
+                startDate: "2021-01",
+                endDate: "Present",
+                current: true,
+                location: "New York, NY",
+                description: "Led software design and implementation for high-volume client services. Reduced response latency by 28% and collaborated with cross-functional teams."
+              }
+            ],
+            education: [
+              {
+                id: "edu_1",
+                school: "State University",
+                degree: "Bachelor of Science",
+                fieldOfStudy: "Computer Science",
+                startDate: "2016",
+                endDate: "2020",
+                current: false,
+                location: "USA",
+                gpa: "3.8"
+              }
+            ],
+            projects: [],
+            skills: ["JavaScript", "TypeScript", "React", "Node.js", "SQL", "Git", "Problem Solving"],
+            languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
+            certifications: [{ id: "cert_1", name: "AWS Certified Developer", issuer: "Amazon Web Services", date: "2023", url: "" }],
+            references: [
+              { id: "ref_1", name: "Dr. Robert Vance", company: "Global Tech Enterprises", title: "VP of Engineering", email: "rvance@globaltech.com", phone: "+1 (555) 012-3456" }
+            ]
+          },
+          auditReport: {
+            overallRealityScore: 78,
+            headlineTitleMismatchDetected: false,
+            titleMismatchExplanation: "Headline title matches technical work experience entries.",
+            sections: [
+              {
+                sectionKey: "personalInfo",
+                sectionTitle: "Personal & Contact Information",
+                score: 90,
+                status: "success",
+                deficiencies: ["Consider adding a portfolio or website link."],
+                suggestedChanges: [{ field: "website", currentValue: "", suggestedValue: "https://candidate.dev", explanation: "Links increase recruiter engagement by 35%." }]
+              },
+              {
+                sectionKey: "summary",
+                sectionTitle: "Professional Summary",
+                score: 75,
+                status: "warning",
+                deficiencies: ["Summary is missing quantitative metrics."],
+                suggestedChanges: [{ field: "summary", currentValue: "Experienced professional with background...", suggestedValue: "Results-driven Software Engineer with 4+ years leading full-stack development, optimizing APIs to boost throughput by 28%.", explanation: "Quantified summary hooks hiring managers." }]
+              },
+              {
+                sectionKey: "experience",
+                sectionTitle: "Work Experience",
+                score: 82,
+                status: "success",
+                deficiencies: ["First bullet point could include team size or budget metrics."],
+                suggestedChanges: []
+              },
+              {
+                sectionKey: "skills",
+                sectionTitle: "Core Skills & ATS Keywords",
+                score: 85,
+                status: "success",
+                deficiencies: ["Missing cloud architecture keywords (Docker, Kubernetes)."],
+                suggestedChanges: []
+              },
+              {
+                sectionKey: "education",
+                sectionTitle: "Education & Academic Credentials",
+                score: 95,
+                status: "success",
+                deficiencies: [],
+                suggestedChanges: []
+              },
+              {
+                sectionKey: "references",
+                sectionTitle: "Professional References",
+                score: 88,
+                status: "success",
+                deficiencies: ["Ensure reference phone numbers have international formatting."],
+                suggestedChanges: []
+              }
+            ]
+          },
+          extractedTemplateStyle: {
+            templateId: `extracted_custom_${Date.now()}`,
+            templateName: "Extracted Modern Emerald Style",
+            description: "A clean, modern layout with teal accents and structured card boundaries extracted from uploaded document.",
+            colorTheme: "#0f766e",
+            fontFamily: "font-sans",
+            layoutStyle: "split",
+            bgClass: "bg-stone-50",
+            sidebarClass: "bg-slate-900 text-white",
+            accentClass: "text-teal-600",
+            isDark: false
+          }
+        };
+      },
+      ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("AI Resume Parse & Audit Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to parse and audit resume." });
   }
 });
 

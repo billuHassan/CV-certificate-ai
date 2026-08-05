@@ -546,7 +546,22 @@ export default function ResumeBuilder({
     { label: "Playful Handwriting", value: "font-handwritten" },
   ];
 
+  const getCustomTemplates = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("customSavedTemplates") || "[]");
+      return saved.map((t: any) => ({
+        id: t.templateId,
+        name: `✨ ${t.templateName} (Extracted)`,
+        desc: t.description || "Custom layout extracted from an uploaded resume.",
+        isPremium: false
+      }));
+    } catch (e) {
+      return [];
+    }
+  };
+
   const templatesList = [
+    ...getCustomTemplates(),
     { id: "minimal", name: "Minimalist ATS Pro", desc: "Ultra-clean chronological layout optimized for maximum machine readability and applicant tracking systems.", isPremium: false },
     { id: "executive", name: "Executive Split Slate", desc: "A sleek split-pane layout highlighting core attributes in a deep charcoal side rail.", isPremium: false },
     { id: "elegant", name: "Warm Editorial Cream", desc: "Soft warm tones paired with elegant serif typography and double margins for creative leaders.", isPremium: false },

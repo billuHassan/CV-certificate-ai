@@ -66,7 +66,16 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       "silicon", "cyber", "oslo"
     ];
 
-    let isSplit = splitTemplates.includes(templateId);
+    // Check if custom extracted template
+    let customTpl: any = null;
+    if (templateId.startsWith("custom_") || templateId.startsWith("extracted_")) {
+      try {
+        const saved = JSON.parse(localStorage.getItem("customSavedTemplates") || "[]");
+        customTpl = saved.find((t: any) => t.templateId === templateId);
+      } catch (e) {}
+    }
+
+    let isSplit = splitTemplates.includes(templateId) || (customTpl && customTpl.layoutStyle === "split");
     if (layoutMode === "single") {
       isSplit = false;
     } else if (layoutMode === "split") {
@@ -75,7 +84,8 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
 
     // Determine font family
     let font = fontFamily;
-    if (fontFamily === "auto" || !fontFamily) {
+    if (customTpl && customTpl.fontFamily) font = customTpl.fontFamily;
+    else if (fontFamily === "auto" || !fontFamily) {
       if (serifTemplates.includes(templateId)) font = "font-serif";
       else if (monoTemplates.includes(templateId)) font = "font-mono";
       else font = "font-sans";
@@ -84,17 +94,17 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
     // Dynamic styling category
     let styleCategory: "standard" | "sidebar" | "banner" | "cream" | "cyber" | "brutalist" | "modern-card" = "standard";
     
-    if (templateId === "cyber") {
+    if (templateId === "cyber" || customTpl?.layoutStyle === "cyber") {
       styleCategory = "cyber";
-    } else if (templateId === "berlin") {
+    } else if (templateId === "berlin" || customTpl?.layoutStyle === "brutalist") {
       styleCategory = "brutalist";
     } else if (isSplit) {
       styleCategory = "sidebar";
-    } else if (["toronto", "sydney", "austin"].includes(templateId)) {
+    } else if (["toronto", "sydney", "austin"].includes(templateId) || customTpl?.layoutStyle === "banner") {
       styleCategory = "banner";
-    } else if (serifTemplates.includes(templateId)) {
+    } else if (serifTemplates.includes(templateId) || customTpl?.layoutStyle === "cream") {
       styleCategory = "cream";
-    } else if (["munich", "oslo", "teal_grid", "aurora", "swiss"].includes(templateId)) {
+    } else if (["munich", "oslo", "teal_grid", "aurora", "swiss"].includes(templateId) || customTpl?.layoutStyle === "modern-card") {
       styleCategory = "modern-card";
     }
 

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Sparkles, Award, ArrowLeft, RefreshCw, CheckCircle, Globe, ExternalLink, Zap, ShieldAlert, ArrowRight, Plus, Check, TrendingUp, Target, Building2, Briefcase, FileText, DollarSign, MapPin, Compass, BookOpen, MessageSquare, Send, ThumbsUp, HelpCircle, Star, UserCheck } from "lucide-react";
+import { Sparkles, Award, ArrowLeft, RefreshCw, CheckCircle, Globe, ExternalLink, Zap, ShieldAlert, ArrowRight, Plus, Check, TrendingUp, Target, Building2, Briefcase, FileText, DollarSign, MapPin, Compass, BookOpen, MessageSquare, Send, ThumbsUp, HelpCircle, Star, UserCheck, Upload } from "lucide-react";
 import { ResumeData } from "../types";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
+import UploadResumeModal from "./UploadResumeModal";
 
 interface GroundingSource {
   title: string;
@@ -147,6 +148,7 @@ export default function ResumeCoach({
   const [activeTab, setActiveTab] = useState<CoachTab>("coach");
   const [selectedContinentIdx, setSelectedContinentIdx] = useState(0);
   const [selectedCountryFilter, setSelectedCountryFilter] = useState<string>("ALL");
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Mock interview state
   const [selectedQuestionIdx, setSelectedQuestionIdx] = useState(0);
@@ -398,21 +400,39 @@ export default function ResumeCoach({
           </div>
         </div>
 
-        <button
-          onClick={handleRunCoach}
-          disabled={analyzing}
-          className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 disabled:opacity-50 text-white text-xs sm:text-sm font-bold rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 font-display"
-        >
-          {analyzing ? (
-            <>
-              <RefreshCw className="h-4 w-4 animate-spin" /> Gemini Searching Online Markets & Analyzing Resume...
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4" /> Generate Full AI Resume Coaching & Career Strategy
-            </>
-          )}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={handleRunCoach}
+            disabled={analyzing}
+            className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 disabled:opacity-50 text-white text-xs sm:text-sm font-bold rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 font-display"
+          >
+            {analyzing ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" /> Gemini Searching Online Markets & Analyzing Resume...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" /> Generate Full AI Resume Coaching & Career Strategy
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="py-3.5 px-5 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs sm:text-sm font-bold rounded-xl transition flex items-center justify-center gap-2"
+          >
+            <Upload className="h-4 w-4" /> Upload Resume to Scan & Audit
+          </button>
+        </div>
+
+        <UploadResumeModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onImportToBuilder={(newResume) => {
+            onUpdateResume(newResume);
+            setIsUploadModalOpen(false);
+          }}
+        />
       </div>
 
       {/* Navigation Tabs when analysisResult exists */}
