@@ -189,7 +189,11 @@ export default function App() {
     }
   }, [currentView, user]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<string>(() => localStorage.getItem("cvcraft_theme") || "luminary");
+  const [currentTheme, setCurrentTheme] = useState<string>(() => {
+    const saved = localStorage.getItem("cvcraft_theme");
+    if (saved && THEMES.some((t) => t.id === saved)) return saved;
+    return "fire";
+  });
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
@@ -909,7 +913,7 @@ export default function App() {
 
   const activeThemeObj = THEMES.find((t) => t.id === currentTheme) || THEMES[0];
   const gridClass = activeThemeObj.isDark ? "subtle-grid" : "subtle-grid-light";
-  const glowClass = activeThemeObj.isDark ? "ambient-glow" : "ambient-glow-light";
+  const glowClass = activeThemeObj.glowClass || (activeThemeObj.isDark ? "ambient-glow" : "ambient-glow-light");
 
   return (
     <div className={`min-h-screen ${activeThemeObj.bgClass} flex flex-col md:flex-row font-sans transition-colors duration-300 relative overflow-x-hidden`}>

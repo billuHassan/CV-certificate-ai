@@ -10,6 +10,9 @@ import { setLanguageCookie } from "../lib/languageUtils";
 export interface ThemeDefinition {
   id: string;
   name: string;
+  elementName: string;
+  icon: string;
+  description: string;
   isDark: boolean;
   bgClass: string;
   sidebarClass: string;
@@ -18,80 +21,89 @@ export interface ThemeDefinition {
   accentClass: string;
   textClass: string;
   dotColors: string[]; // for theme color preview dots
+  glowClass: string;
 }
 
 export const THEMES: ThemeDefinition[] = [
   {
-    id: "luminary",
-    name: "Luminary Bright (Indigo & Platinum - Default)",
-    isDark: false,
-    bgClass: "bg-slate-50 text-slate-900",
-    sidebarClass: "bg-white/95 border-slate-200/90 shadow-sm",
-    cardClass: "bg-white border-slate-200/90 shadow-lg shadow-indigo-100/30 backdrop-blur-md",
-    borderClass: "border-slate-200",
-    accentClass: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20",
-    textClass: "text-slate-900",
-    dotColors: ["#ffffff", "#4f46e5"]
-  },
-  {
-    id: "nordic",
-    name: "Nordic Frost (Snow & Azure Blue)",
-    isDark: false,
-    bgClass: "bg-sky-50/50 text-slate-900",
-    sidebarClass: "bg-white/95 border-sky-200/80 shadow-sm",
-    cardClass: "bg-white border-sky-100/90 shadow-lg shadow-sky-100/50 backdrop-blur-md",
-    borderClass: "border-sky-200/80",
-    accentClass: "bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/20",
-    textClass: "text-slate-900",
-    dotColors: ["#f0f9ff", "#0284c7"]
-  },
-  {
-    id: "vintage",
-    name: "Amber Editorial (Warm Cream & Terracotta)",
-    isDark: false,
-    bgClass: "bg-[#fdfbf7] text-stone-900",
-    sidebarClass: "bg-[#f5efdf]/90 border-[#e3d7be] shadow-sm",
-    cardClass: "bg-[#f9f5eb] border-[#e3d7be] shadow-lg shadow-stone-200/40 backdrop-blur-md",
-    borderClass: "border-[#e3d7be]",
-    accentClass: "bg-amber-700 hover:bg-amber-600 text-white shadow-lg shadow-amber-800/20",
-    textClass: "text-stone-900",
-    dotColors: ["#fdfbf7", "#b45309"]
-  },
-  {
-    id: "emerald_pearl",
-    name: "Sage Pearl (Mint Light & Emerald)",
-    isDark: false,
-    bgClass: "bg-emerald-50/40 text-emerald-950",
-    sidebarClass: "bg-white/95 border-emerald-200/80 shadow-sm",
-    cardClass: "bg-white border-emerald-200/80 shadow-lg shadow-emerald-100/40 backdrop-blur-md",
-    borderClass: "border-emerald-200",
-    accentClass: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20",
-    textClass: "text-emerald-950",
-    dotColors: ["#ecfdf5", "#059669"]
-  },
-  {
-    id: "obsidian",
-    name: "Cyber Obsidian (Carbon & Emerald Dark)",
+    id: "fire",
+    name: "Fire (Fiery Lava & Ember)",
+    elementName: "Fire Element",
+    icon: "🔥",
+    description: "Volcanic crimson dark canvas with glowing ember orange, lava red accents & warm obsidian borders.",
     isDark: true,
-    bgClass: "bg-zinc-950 text-emerald-50",
-    sidebarClass: "bg-zinc-900 border-zinc-800",
-    cardClass: "bg-zinc-900/80 border-zinc-800 backdrop-blur-md shadow-xl shadow-black/30",
-    borderClass: "border-zinc-800",
-    accentClass: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20",
+    bgClass: "bg-[#180806] text-amber-50",
+    sidebarClass: "bg-[#250d08] border-orange-900/60 shadow-lg shadow-orange-950/40",
+    cardClass: "bg-[#2a0e0a]/90 border-orange-800/40 shadow-xl shadow-orange-950/50 backdrop-blur-md",
+    borderClass: "border-orange-900/50",
+    accentClass: "bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white shadow-lg shadow-orange-600/30",
+    textClass: "text-amber-50",
+    dotColors: ["#180806", "#f97316", "#ef4444"],
+    glowClass: "ambient-glow-fire"
+  },
+  {
+    id: "water",
+    name: "Water (Ocean Abyss & Azure Tide)",
+    elementName: "Water Element",
+    icon: "🌊",
+    description: "Deep oceanic abyssal navy canvas with aquatic cyan tide & glowing underwater blue highlights.",
+    isDark: true,
+    bgClass: "bg-[#041424] text-cyan-50",
+    sidebarClass: "bg-[#09223c] border-cyan-800/60 shadow-lg shadow-cyan-950/40",
+    cardClass: "bg-[#0d2a4a]/85 border-cyan-700/40 shadow-xl shadow-cyan-950/50 backdrop-blur-md",
+    borderClass: "border-cyan-800/50",
+    accentClass: "bg-gradient-to-r from-cyan-500 via-blue-600 to-teal-500 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30",
+    textClass: "text-cyan-50",
+    dotColors: ["#041424", "#06b6d4", "#3b82f6"],
+    glowClass: "ambient-glow-water"
+  },
+  {
+    id: "air",
+    name: "Air (Atmospheric Breeze & Sky)",
+    elementName: "Air Element",
+    icon: "🌬️",
+    description: "Ethereal cloud white & sky blue canvas with soft atmospheric indigo glow & crisp light contrast.",
+    isDark: false,
+    bgClass: "bg-[#edf6ff] text-slate-900",
+    sidebarClass: "bg-white/95 border-sky-200 shadow-md shadow-sky-100/50",
+    cardClass: "bg-white/90 border-sky-200 shadow-xl shadow-sky-200/50 backdrop-blur-md",
+    borderClass: "border-sky-200",
+    accentClass: "bg-gradient-to-r from-sky-500 via-indigo-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-lg shadow-sky-500/30",
+    textClass: "text-slate-900",
+    dotColors: ["#edf6ff", "#38bdf8", "#6366f1"],
+    glowClass: "ambient-glow-air"
+  },
+  {
+    id: "forest",
+    name: "Forest (Deep Emerald Grove & Sylvan)",
+    elementName: "Forest Element",
+    icon: "🌲",
+    description: "Lush dark evergreen forest canvas with vibrant emerald, jade green & leaf-gold highlights.",
+    isDark: true,
+    bgClass: "bg-[#051b11] text-emerald-50",
+    sidebarClass: "bg-[#0b2b1d] border-emerald-800/60 shadow-lg shadow-emerald-950/40",
+    cardClass: "bg-[#0f3826]/90 border-emerald-700/40 shadow-xl shadow-emerald-950/50 backdrop-blur-md",
+    borderClass: "border-emerald-800/50",
+    accentClass: "bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white shadow-lg shadow-emerald-500/30",
     textClass: "text-emerald-50",
-    dotColors: ["#09090b", "#10b981"]
+    dotColors: ["#051b11", "#10b981", "#84cc16"],
+    glowClass: "ambient-glow-forest"
   },
   {
-    id: "midnight",
-    name: "Cosmic Amethyst (Purple Dark)",
+    id: "rock",
+    name: "Rock (Volcanic Basalt & Obsidian Granite)",
+    elementName: "Rock Element",
+    icon: "🪨",
+    description: "Heavy charcoal basalt stone canvas with metallic slate & sharp neon golden ore accents.",
     isDark: true,
-    bgClass: "bg-[#0c051a] text-purple-100",
-    sidebarClass: "bg-[#160a2c] border-purple-900/60",
-    cardClass: "bg-[#180a30]/80 border-purple-800/40 backdrop-blur-md shadow-xl shadow-purple-950/50",
-    borderClass: "border-purple-800/40",
-    accentClass: "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-600/20",
-    textClass: "text-purple-100",
-    dotColors: ["#0c051a", "#d946ef"]
+    bgClass: "bg-[#121417] text-stone-100",
+    sidebarClass: "bg-[#1a1d24] border-stone-800 shadow-lg shadow-black/50",
+    cardClass: "bg-[#21252d]/90 border-stone-700/60 shadow-xl shadow-black/40 backdrop-blur-md",
+    borderClass: "border-stone-800",
+    accentClass: "bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-stone-950 font-extrabold shadow-lg shadow-amber-500/25",
+    textClass: "text-stone-100",
+    dotColors: ["#121417", "#78716c", "#f59e0b"],
+    glowClass: "ambient-glow-rock"
   }
 ];
 
@@ -901,45 +913,72 @@ export default function Settings({
           {activeTab === "display" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
               <h3 className="text-sm font-bold text-slate-200 font-display flex items-center gap-2 pb-3 border-b border-slate-850">
-                <Moon className="h-4.5 w-4.5 text-indigo-400" /> Global Application Display Themes (5 Choices)
+                <Moon className="h-4.5 w-4.5 text-amber-400" /> The 5 Elemental Display Themes
               </h3>
               
               <p className="text-xs text-slate-400 leading-relaxed">
-                Personalize your workspace aesthetics. Select one of our 5 beautiful, responsive design systems tailored for low-eye fatigue, high accessibility, and stunning layout contrast.
+                Transform your entire application experience by choosing one of the 5 primal elements: <strong className="text-orange-400">Fire</strong>, <strong className="text-cyan-400">Water</strong>, <strong className="text-sky-400">Air</strong>, <strong className="text-emerald-400">Forest</strong>, or <strong className="text-amber-400">Rock</strong>. Each theme dramatically alters the background canvas, sidebar contrast, card surfaces, borders, glow, and accent highlights!
               </p>
 
               {/* Theme Selector Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
                 {THEMES.map((theme) => {
                   const isActive = currentTheme === theme.id;
                   return (
                     <button
                       key={theme.id}
+                      type="button"
                       onClick={() => onThemeChange(theme.id)}
-                      className={`relative p-3.5 rounded-xl border text-left transition ${
+                      className={`relative p-4 rounded-2xl border text-left transition-all duration-200 group flex flex-col justify-between ${
                         isActive
-                          ? "bg-slate-950 border-indigo-500 shadow-md ring-1 ring-indigo-500/20"
-                          : "bg-slate-950/40 border-slate-850 hover:bg-slate-950/80 hover:border-slate-850"
+                          ? "bg-slate-950 border-amber-500/80 shadow-lg ring-2 ring-amber-500/30 scale-[1.02]"
+                          : "bg-slate-950/60 border-slate-800 hover:bg-slate-950 hover:border-slate-700"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-1.5 mb-2">
-                        <span className="text-[11px] font-bold text-slate-200 block truncate">{theme.name}</span>
-                        {isActive && <Check className="h-3.5 w-3.5 text-indigo-400 shrink-0" />}
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl shrink-0">{theme.icon}</span>
+                            <div>
+                              <span className="text-xs font-bold text-slate-100 block">{theme.name}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">{theme.elementName}</span>
+                            </div>
+                          </div>
+                          {isActive ? (
+                            <span className="h-5 w-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow">
+                              <Check className="h-3.5 w-3.5 font-bold" />
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-600 font-mono uppercase border border-slate-800 px-2 py-0.5 rounded-full">
+                              Select
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-slate-400 leading-snug mt-2 line-clamp-2">
+                          {theme.description}
+                        </p>
                       </div>
 
-                      <div className="flex items-center gap-1.5 mt-2">
-                        {/* Dot representing the main color */}
-                        <div
-                          className="h-3.5 w-3.5 rounded-full border border-slate-800 shrink-0"
-                          style={{ backgroundColor: theme.dotColors[0] }}
-                        />
-                        {/* Dot representing the accent color */}
-                        <div
-                          className="h-3.5 w-3.5 rounded-full shrink-0"
-                          style={{ backgroundColor: theme.dotColors[1] }}
-                        />
-                        <span className="text-[9px] text-slate-500 uppercase font-mono tracking-wider pl-1 font-semibold">
-                          {theme.isDark ? "Dark" : "Light"}
+                      <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-slate-850/80">
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className="h-4 w-4 rounded-full border border-white/20 shadow-sm shrink-0"
+                            style={{ backgroundColor: theme.dotColors[0] }}
+                          />
+                          <div
+                            className="h-4 w-4 rounded-full border border-white/20 shadow-sm shrink-0"
+                            style={{ backgroundColor: theme.dotColors[1] }}
+                          />
+                          {theme.dotColors[2] && (
+                            <div
+                              className="h-4 w-4 rounded-full border border-white/20 shadow-sm shrink-0"
+                              style={{ backgroundColor: theme.dotColors[2] }}
+                            />
+                          )}
+                        </div>
+                        <span className="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">
+                          {theme.isDark ? "🌙 Dark Canvas" : "☀️ Light Canvas"}
                         </span>
                       </div>
                     </button>
@@ -947,10 +986,10 @@ export default function Settings({
                 })}
               </div>
 
-              <div className="mt-4 p-3 bg-indigo-950/20 border border-indigo-900/30 rounded-xl flex items-start gap-2.5">
-                <SettingsIcon className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5 animate-spin-slow" />
-                <span className="text-[10px] text-slate-400 leading-normal">
-                  Changing the theme instantly adjusts your outer workspace wrapper, navigation headers, side elements, and background parameters.
+              <div className="mt-4 p-3 bg-slate-950/80 border border-slate-800 rounded-xl flex items-start gap-2.5">
+                <SettingsIcon className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <span className="text-[11px] text-slate-400 leading-relaxed">
+                  Selecting an elemental theme instantly updates all page layouts, top navigation headers, card surfaces, and control buttons across RahmoraAI.
                 </span>
               </div>
             </div>
