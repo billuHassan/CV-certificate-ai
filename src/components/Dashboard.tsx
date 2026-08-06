@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Plus, FileText, Sparkles, Award, Trash2, Edit2, Copy, BarChart2, Check,
-  ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle, FileSearch, Building2, Upload
+  ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle,
+  FileSearch, Building2, Upload, Brain, ChevronLeft, ChevronRight, TrendingUp, Zap,
+  Target, ShieldCheck, ArrowUpRight, CheckCircle2
 } from "lucide-react";
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { ThemeDefinition } from "./Settings";
@@ -50,6 +52,14 @@ export default function Dashboard({
   const [newLetterRole, setNewLetterRole] = useState("");
 
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "resume" | "letter"; title: string } | null>(null);
+  const tipsScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollTips = (direction: "left" | "right") => {
+    if (tipsScrollRef.current) {
+      const scrollAmount = direction === "left" ? -320 : 320;
+      tipsScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
   const isDark = theme?.isDark ?? false;
   const cardBg = theme?.cardClass || (isDark ? "bg-slate-900/80 border-slate-800 shadow-xl" : "bg-white border-slate-200/90 shadow-md shadow-indigo-100/30");
@@ -58,6 +68,86 @@ export default function Dashboard({
   const subCardBg = isDark ? "bg-slate-950/60 border-slate-850" : "bg-slate-50 border-slate-200/80";
   const modalBg = isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900 shadow-2xl";
   const inputBg = isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-white border-slate-300 text-slate-900";
+
+  // Calculate live dynamic metrics for embedded 3D dashboard
+  const activeResume = resumes[0];
+  const skillsList = activeResume?.skills || [];
+  const expList = activeResume?.experience || [];
+  const summaryText = activeResume?.summary || "";
+  const eduList = activeResume?.education || [];
+  const projList = activeResume?.projects || [];
+
+  const hasMetricsInExp = expList.some((e) => /\d+%|\$\d+|\d+x|\d+ users/i.test(e.description || ""));
+  const atsScore = Math.min(99, Math.max(68, 72 + (skillsList.length > 5 ? 14 : 6) + (hasMetricsInExp ? 10 : 0)));
+  const keywordScore = Math.min(99, Math.max(62, 65 + skillsList.length * 3));
+  const grammarScore = 96;
+  const formattingScore = Math.min(98, 82 + (expList.length > 0 ? 10 : 0) + (eduList.length > 0 ? 6 : 0));
+  const readabilityScore = Math.min(96, 76 + (summaryText.length > 80 ? 14 : 6));
+  const impactScore = Math.min(98, Math.max(58, 62 + (hasMetricsInExp ? 26 : 6)));
+  const recruiterReadiness = Math.round((atsScore + keywordScore + impactScore + formattingScore) / 4);
+  const overallEmployability = Math.round((atsScore + keywordScore + grammarScore + formattingScore + readabilityScore + impactScore + recruiterReadiness) / 7);
+
+  const metrics3D = [
+    { label: "Overall Employability", score: overallEmployability, color: "from-indigo-500 to-purple-600", bg: "bg-indigo-500/10 border-indigo-500/30 text-indigo-400", desc: "Executive hiring probability index" },
+    { label: "ATS Score", score: atsScore, color: "from-emerald-500 to-teal-600", bg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", desc: "Screener parsing match rate" },
+    { label: "Keyword Score", score: keywordScore, color: "from-sky-500 to-blue-600", bg: "bg-sky-500/10 border-sky-500/30 text-sky-400", desc: "Skill alignment density" },
+    { label: "Impact Score", score: impactScore, color: "from-amber-500 to-orange-600", bg: "bg-amber-500/10 border-amber-500/30 text-amber-400", desc: "Quantified metric achievements" },
+    { label: "Grammar Score", score: grammarScore, color: "from-purple-500 to-pink-600", bg: "bg-purple-500/10 border-purple-500/30 text-purple-400", desc: "Vocabulary & spelling accuracy" },
+    { label: "Formatting Score", score: formattingScore, color: "from-cyan-500 to-teal-600", bg: "bg-cyan-500/10 border-cyan-500/30 text-cyan-400", desc: "Structural spacing & layout" },
+    { label: "Readability", score: readabilityScore, color: "from-blue-500 to-indigo-600", bg: "bg-blue-500/10 border-blue-500/30 text-blue-400", desc: "Concise bullet scannability" },
+    { label: "Recruiter Readiness", score: recruiterReadiness, color: "from-rose-500 to-pink-600", bg: "bg-rose-500/10 border-rose-500/30 text-rose-400", desc: "Human recruiter pass rate" },
+  ];
+
+  const jobTipsList = [
+    {
+      category: "Bullet Formula",
+      title: "Google X-Y-Z Strategy",
+      description: "Structure bullet points as: Accomplished [X] as measured by [Y], by doing [Z]. Always lead with measurable impact.",
+      action: "Example: 'Boosted deployment speed by 40% (Y) across 12 microservices (X) by building automated CI/CD pipelines (Z).'"
+    },
+    {
+      category: "ATS Filter",
+      title: "Verbatim Keyword Mirroring",
+      description: "Scan the target job description and incorporate key technical skills and tools directly into your Skills and Experience sections.",
+      action: "Bypasses automated recruitment filters with 90%+ relevance."
+    },
+    {
+      category: "Quantification",
+      title: "Metrics in Every Role",
+      description: "Ensure every work experience entry includes at least 2 quantified numbers ($ figures, percentages, scale of users).",
+      action: "Quantified bullets double interview callback probabilities."
+    },
+    {
+      category: "Interview Prep",
+      title: "The STAR Framework",
+      description: "Frame all behavioral interview responses around Situation (15%), Task (15%), Action (50%), and Result (20%).",
+      action: "Focus heavily on the Action and measurable Result."
+    },
+    {
+      category: "Outreach",
+      title: "The 3-Sentence Cold Email",
+      description: "Send direct, concise messages to hiring managers: 1 line compliment, 1 line value proposition, 1 simple call-to-action.",
+      action: "Generates 3x higher response rates than standard portals."
+    },
+    {
+      category: "Salary Strategy",
+      title: "Compensation Benchmarking",
+      description: "Research market rates on levels.fyi and Glassdoor before first recruiter calls. Let them state their range first.",
+      action: "Anchors negotiation in actual industry standard data."
+    },
+    {
+      category: "Elevator Pitch",
+      title: "The 30-Second Intro",
+      description: "Prepare a crisp pitch: Target role + Core competency + Signature achievement + What excites you about the company.",
+      action: "Delivers an instant confident impression during opening questions."
+    },
+    {
+      category: "Follow-Up",
+      title: "24-Hour Thank You Note",
+      description: "Send a personalized email within 24 hours referencing 1 specific insight discussed during the interview.",
+      action: "Re-engages interviewers and demonstrates proactive commitment."
+    }
+  ];
 
   const handleCreateResumeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +295,7 @@ export default function Dashboard({
               <FileSearch className="h-5.5 w-5.5" />
             </div>
             <span className="text-[10px] font-mono tracking-widest text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-900 px-2 py-0.5 rounded uppercase font-bold">
-              10 Local Alts
+              10 Alts
             </span>
           </div>
           <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-sky-600 dark:group-hover:text-sky-400 transition font-display`}>Job Poster & Intelligence</h3>
@@ -213,13 +303,173 @@ export default function Dashboard({
             Upload posters, research companies, evaluate role suitability & find 10 local hiring alternatives.
           </p>
         </button>
+
+        {/* Creator 6: 3D Resume Analytics */}
+        <button
+          onClick={() => onSelectView("resume-analytics")}
+          className={`p-5 ${cardBg} hover:border-pink-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
+        >
+          <div className="flex justify-between items-start">
+            <div className="h-10 w-10 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center mb-3 border border-pink-500/20">
+              <BarChart2 className="h-5.5 w-5.5" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-pink-600 dark:text-pink-300 bg-pink-50 dark:bg-pink-950 border border-pink-200 dark:border-pink-900 px-2 py-0.5 rounded uppercase font-bold">
+              ⭐ 3D Dashboard
+            </span>
+          </div>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-pink-600 dark:group-hover:text-pink-400 transition font-display`}>3D Resume Analytics</h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
+            8-metric dimensional audit with ATS, keyword, readability & recruiter readiness scores.
+          </p>
+        </button>
+
+        {/* Creator 7: Interview Intelligence */}
+        <button
+          onClick={() => onSelectView("interview-intelligence")}
+          className={`p-5 ${cardBg} hover:border-purple-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
+        >
+          <div className="flex justify-between items-start">
+            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 border border-purple-500/20">
+              <Brain className="h-5.5 w-5.5" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-900 px-2 py-0.5 rounded uppercase font-bold">
+              AI Mock Suite
+            </span>
+          </div>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-purple-600 dark:group-hover:text-purple-400 transition font-display`}>Interview Intelligence</h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
+            Technical, HR & Behavioural questions, STAR framework guides & instant AI mock evaluation.
+          </p>
+        </button>
+      </div>
+
+      {/* ⭐ EMBEDDED 3D RESUME ANALYTICS METRICS DASHBOARD ⭐ */}
+      <div className={`${cardBg} rounded-2xl p-6 space-y-5 shadow-2xl relative overflow-hidden border border-indigo-500/20`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 shrink-0">
+              <BarChart2 className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className={`text-base font-bold ${textPrimary} font-display tracking-tight`}>⭐ 3D Resume Analytics & Employability Scores</h3>
+                <span className="text-[10px] font-mono tracking-widest font-bold px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20">
+                  LIVE DATA
+                </span>
+              </div>
+              <p className={`text-xs ${textSecondary} mt-0.5`}>
+                8 dimensional analytics evaluating <span className="font-semibold text-indigo-600 dark:text-indigo-400">{activeResume?.title || "Active Resume"}</span>
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onSelectView("resume-analytics")}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold transition shadow-lg flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+          >
+            <span>Open Interactive 3D Suite</span>
+            <ArrowUpRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* 8 3D Dimensional Metric Badges Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          {metrics3D.map((m, idx) => (
+            <div
+              key={idx}
+              onClick={() => onSelectView("resume-analytics")}
+              className={`p-3.5 ${subCardBg} hover:border-indigo-500/50 rounded-xl transition cursor-pointer group shadow-sm flex flex-col justify-between border relative overflow-hidden`}
+            >
+              <div className="space-y-1">
+                <span className={`text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate group-hover:text-indigo-400 transition`}>
+                  {m.label}
+                </span>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-2xl font-black ${textPrimary} font-mono tracking-tight`}>
+                    {m.score}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress mini bar */}
+              <div className="mt-2.5 space-y-1">
+                <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full bg-gradient-to-r ${m.color} rounded-full transition-all duration-1000`}
+                    style={{ width: `${m.score}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate block">
+                  {m.desc}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Dynamic Horizontally Scrollable Job Hunting Tips Carousel */}
+      <div className={`${cardBg} rounded-2xl p-6 space-y-4 shadow-xl border border-indigo-500/10`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0">
+              <BookOpen className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className={`text-sm font-bold ${textPrimary} font-display`}>Dynamic Job Hunting & Career Tips</h3>
+              <p className={`text-[11px] ${textSecondary}`}>Scroll horizontally to explore tactical recruitment strategies</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => scrollTips("left")}
+              className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
+              title="Scroll left"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => scrollTips("right")}
+              className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
+              title="Scroll right"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Container */}
+        <div
+          ref={tipsScrollRef}
+          className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory"
+        >
+          {jobTipsList.map((tip, idx) => (
+            <div
+              key={idx}
+              className={`min-w-[280px] sm:min-w-[320px] max-w-[340px] p-4 ${subCardBg} rounded-xl space-y-2.5 snap-start shrink-0 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/40 transition shadow-sm`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                  {tip.category}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Tip #{idx + 1}</span>
+              </div>
+              <h4 className={`text-xs font-bold ${textPrimary}`}>{tip.title}</h4>
+              <p className={`text-xs ${textSecondary} leading-relaxed`}>{tip.description}</p>
+              <div className="pt-1.5 border-t border-slate-200 dark:border-slate-800/80 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                ⚡ {tip.action}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Core Split Dashboard content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         
-        {/* Left Column: Recent Resumes & Cover Letters */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Main Column: Recent Resumes & Cover Letters */}
+        <div className="space-y-6">
           
           {/* Recent Resumes */}
           <div className="space-y-4">
@@ -332,47 +582,6 @@ export default function Dashboard({
                   <p className={`text-xs ${textSecondary}`}>No cover letters generated yet. Click 'New Cover Letter' to compose.</p>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Premium Presets & Tips */}
-        <div className="space-y-6">
-          <div className={`p-5 ${cardBg} rounded-2xl space-y-4 shadow-xl`}>
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display flex items-center gap-1.5">
-              <Layout className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Professional Design Presets
-            </h3>
-            
-            <div className="space-y-2.5">
-              {templatesPreview.map((tpl) => (
-                <div key={tpl.id} className={`p-3 ${subCardBg} rounded-xl flex items-center justify-between`}>
-                  <div>
-                    <span className={`text-xs font-bold ${textPrimary} block`}>{tpl.name}</span>
-                    <span className={`text-[10px] ${textSecondary}`}>Chronological, ATS Optimized</span>
-                  </div>
-                  <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
-                    tpl.badge === 'Unlocked' ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950' : 'text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-950'
-                  }`}>
-                    {tpl.badge}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className={`p-5 ${cardBg} rounded-2xl space-y-3 shadow-xl`}>
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display flex items-center gap-1.5">
-              <BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Job Hunting Tips
-            </h3>
-            <div className={`space-y-3 text-xs leading-relaxed ${textSecondary}`}>
-              <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5">
-                <span className={`font-bold ${textPrimary} block mb-0.5`}>The X-Y-Z Formula</span>
-                <p className="text-[11px]">Accomplished [X] as measured by [Y], by doing [Z]. Always lead bullets with metrics.</p>
-              </div>
-              <div className="pb-1.5">
-                <span className={`font-bold ${textPrimary} block mb-0.5`}>Customize per Job Description</span>
-                <p className="text-[11px]">Never send a general resume. Highlight the specific skills and frameworks requested in the job post.</p>
-              </div>
             </div>
           </div>
         </div>

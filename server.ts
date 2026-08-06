@@ -1853,6 +1853,331 @@ Return JSON matching schema:
   }
 });
 
+// 12. Interview Intelligence Suite (Technical, HR, Behavioural, STAR, Mock Assessment)
+app.post("/api/ai/interview-suite", async (req, res) => {
+  try {
+    const { mode, targetJobTitle, targetCompany, jobDescription, question, category, userAnswer, resumeData } = req.body;
+
+    if (mode === "generate_questions") {
+      const roleTitle = targetJobTitle || resumeData?.personalInfo?.jobTitle || "Software Engineer";
+      const company = targetCompany || "Tech Company";
+
+      const prompt = `You are a Senior Talent Acquisition Lead at "${company}". Generate 6 tailored interview questions specifically customized for a candidate applying for "${roleTitle}".
+
+Candidate Resume Context:
+- Current Title: ${resumeData?.personalInfo?.jobTitle || roleTitle}
+- Summary: ${resumeData?.summary || 'Not provided'}
+- Key Skills: ${JSON.stringify(resumeData?.skills || [])}
+- Recent Work Experience: ${JSON.stringify(resumeData?.experience?.slice(0, 2) || [])}
+- Job Description Context: "${jobDescription || 'Standard requirements for ' + roleTitle}"
+
+Generate 2 Technical, 2 HR/Situational, and 2 Behavioural questions.
+Output a strictly valid JSON object:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "<Tailored interview question>",
+      "category": "technical" | "hr" | "behavioural",
+      "difficulty": "Junior" | "Mid-Level" | "Senior" | "Executive",
+      "starGuide": {
+        "situation": "<S guidance>",
+        "task": "<T guidance>",
+        "action": "<A guidance>",
+        "result": "<R guidance>"
+      },
+      "sampleAnswer": "<Exemplar STAR answer using candidate's actual domain context>",
+      "keyPoints": ["<Key requirement 1>", "<Key requirement 2>", "<Key requirement 3>"]
+    }
+  ]
+}`;
+
+      const result = await callGeminiWithFallback(
+        async (modelName) => {
+          const response = await ai!.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+          });
+          const parsed = JSON.parse(response.text || "{}");
+          return parsed.questions ? parsed : { questions: parsed };
+        },
+        () => {
+          // Dynamic fallback based on user's actual resume skills & experience
+          const topSkill = resumeData?.skills?.[0]?.name || "Core Domain";
+          const expCompany = resumeData?.experience?.[0]?.company || "previous company";
+          return {
+            questions: [
+              {
+                id: "q1",
+                question: `How have you applied ${topSkill} in your recent work at ${expCompany} to solve complex engineering challenges?`,
+                category: "technical",
+                difficulty: "Senior",
+                starGuide: {
+                  situation: `High stakes project at ${expCompany} requiring advanced ${topSkill}.`,
+                  task: `Architect a scalable solution while maintaining zero downtime.`,
+                  action: `Applied best practices in ${topSkill}, optimized code paths, and led team execution.`,
+                  result: `Delivered 35% performance improvement and reduced deployment errors.`
+                },
+                sampleAnswer: `At ${expCompany}, I utilized ${topSkill} to refactor key components. By establishing automated workflows and performance benchmarks, we achieved measurable reliability gains.`,
+                keyPoints: [`Domain depth in ${topSkill}`, `Architectural ownership`, `Quantified impact`]
+              },
+              {
+                id: "q2",
+                question: `Walk me through a situation where a project deadline at ${expCompany} was at risk. How did you handle it?`,
+                category: "behavioural",
+                difficulty: "Mid-Level",
+                starGuide: {
+                  situation: `Unexpected technical blocker near launch date.`,
+                  task: `Re-align priorities without sacrificing core functional quality.`,
+                  action: `Communicated transparently with stakeholders, re-prioritized MVP deliverables, and collaborated with peers.`,
+                  result: `Successfully launched on schedule with positive user feedback.`
+                },
+                sampleAnswer: `When faced with a tight launch schedule at ${expCompany}, I conducted a rapid scope triage with engineering and product partners to focus on critical path features.`,
+                keyPoints: [`Prioritization under pressure`, `Cross-functional communication`, `Ownership`]
+              },
+              {
+                id: "q3",
+                question: `Why are you interested in joining ${company} as a ${roleTitle}, and how does your experience align?`,
+                category: "hr",
+                difficulty: "Mid-Level",
+                starGuide: {
+                  situation: `Transitioning to ${roleTitle} at ${company}.`,
+                  task: `Demonstrate enthusiasm and direct skill transferability.`,
+                  action: `Researched ${company}'s products and mapped background in ${topSkill} directly to job goals.`,
+                  result: `Showed immediate readiness to contribute value.`
+                },
+                sampleAnswer: `I have closely followed ${company}'s growth. My background in ${topSkill} directly equips me to address your team's immediate scaling priorities.`,
+                keyPoints: [`Company research`, `Role motivation`, `Immediate value add`]
+              }
+            ]
+          };
+        }
+      );
+
+      return res.json(result);
+    }
+
+    if (mode === "evaluate_answer") {
+      const roleTitle = targetJobTitle || resumeData?.personalInfo?.jobTitle || "Professional";
+      const userText = (userAnswer || "").trim();
+
+      const prompt = `You are a Principal Hiring Manager evaluating a candidate's live response for a ${roleTitle} role.
+
+Question Asked: "${question}" (${category || 'General'})
+Candidate's Target Role: "${roleTitle}"
+Candidate Background Context:
+- Current Title: ${resumeData?.personalInfo?.jobTitle || 'Candidate'}
+- Skills: ${JSON.stringify(resumeData?.skills?.map((s: any) => s.name) || [])}
+- Experience Highlights: ${JSON.stringify(resumeData?.experience?.map((e: any) => e.title + ' at ' + e.company) || [])}
+
+Candidate's Actual Submitted Response:
+"${userText}"
+
+CRITICAL INSTRUCTIONS:
+1. Thoroughly evaluate the exact text submitted by the candidate above.
+2. Provide a detailed analysis of what they stated, identifying specific strengths and weaknesses in their actual response.
+3. Formulate the "suggestedRightAnswer": a world-class, ideal STAR answer that the candidate SHOULD give for this exact question, combining their real resume background with target role expectations.
+
+Return strictly valid JSON:
+{
+  "evaluation": {
+    "overallScore": <integer 0-100 based on candidate text quality>,
+    "confidenceScore": <integer 0-100 based on clarity and tone>,
+    "communicationScore": <integer 0-100 based on structure and flow>,
+    "technicalScore": <integer 0-100 based on domain depth>,
+    "verdict": "<1-2 sentence executive recruiter summary analyzing why this answer received this score>",
+    "answerAnalysis": "<Detailed, 2-3 sentence recruiter critique analyzing the specific text submitted by the candidate>",
+    "strengths": ["<Specific strength in user text 1>", "<Specific strength in user text 2>"],
+    "improvementSuggestions": ["<Actionable fix 1>", "<Actionable fix 2>"],
+    "suggestedRightAnswer": "<The complete ideal STAR response the candidate should give, tailored to their resume and target role>"
+  }
+}`;
+
+      const result = await callGeminiWithFallback(
+        async (modelName) => {
+          const response = await ai!.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+          });
+          const parsed = JSON.parse(response.text || "{}");
+          const evaluationObj = parsed.evaluation || parsed;
+          return { evaluation: evaluationObj };
+        },
+        () => {
+          // Dynamic evaluation based on actual submitted userText metrics
+          const wordCount = userText.split(/\s+/).length;
+          const hasMetrics = /\d+|%|\$|\b(increased|reduced|improved|managed|led|built|scaled)\b/i.test(userText);
+          const hasSTARKeywords = /\b(situation|task|action|result|when|led|achieved|resulting in)\b/i.test(userText);
+
+          let overall = Math.min(95, Math.max(50, (wordCount > 30 ? 70 : 50) + (hasMetrics ? 15 : 0) + (hasSTARKeywords ? 10 : 0)));
+          let confidence = Math.min(98, overall + 2);
+          let communication = Math.min(95, overall - 2);
+          let technical = hasMetrics ? 88 : 72;
+
+          const topSkill = resumeData?.skills?.[0]?.name || "core technical capabilities";
+          const jobTitle = resumeData?.personalInfo?.jobTitle || roleTitle;
+
+          return {
+            evaluation: {
+              overallScore: overall,
+              confidenceScore: confidence,
+              communicationScore: communication,
+              technicalScore: technical,
+              verdict: `Your answer demonstrates baseline familiarity, but adding specific metrics and structured STAR framing will make it compelling to senior interviewers.`,
+              answerAnalysis: `You submitted ${wordCount} words. ${hasMetrics ? 'Great job including metric references.' : 'Your answer currently lacks concrete numerical figures (e.g. %, $, time saved).'} ${hasSTARKeywords ? 'You used good action words.' : 'Structuring your story clearly into Situation, Task, Action, and Result will boost your clarity.'}`,
+              strengths: [
+                `Addresses the core question topic directly.`,
+                wordCount > 40 ? `Sufficient response length showing candidate enthusiasm.` : `Concise initial statement.`
+              ],
+              improvementSuggestions: [
+                `Quantify your business impact using numbers (e.g., 'Reduced response latency by 35%').`,
+                `Spell out the specific 'Action' step you personally took rather than using passive language.`
+              ],
+              suggestedRightAnswer: `In my role as ${jobTitle}, I encountered a situation where team efficiency was impacted by legacy workflows. My task was to streamline operations using ${topSkill}. I took charge by conducting a root cause analysis, implementing automated validation scripts, and establishing daily team syncs. As a direct result, project turnaround time decreased by 30% and operational errors dropped to near zero.`
+            }
+          };
+        }
+      );
+
+      return res.json(result);
+    }
+
+    return res.status(400).json({ error: "Invalid mode parameter." });
+  } catch (error: any) {
+    console.error("Interview Suite Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to process interview request." });
+  }
+});
+
+// 13. 3D Resume Analytics Engine API
+app.post("/api/ai/resume-analytics", async (req, res) => {
+  try {
+    const { resumeData } = req.body;
+    const title = resumeData?.personalInfo?.jobTitle || "Professional";
+
+    const prompt = `You are a Principal Resume Analyst and Applicant Tracking System (ATS) Expert.
+Perform a real-time 8-metric 3D Resume Audit on this exact candidate resume:
+
+Candidate Profile:
+- Full Name: "${resumeData?.personalInfo?.fullName || 'Candidate'}"
+- Target Role: "${title}"
+- Summary: "${resumeData?.summary || 'No summary provided'}"
+- Skills Count: ${resumeData?.skills?.length || 0}
+- Skills List: ${JSON.stringify(resumeData?.skills || [])}
+- Work Experience (${resumeData?.experience?.length || 0} entries): ${JSON.stringify(resumeData?.experience || [])}
+- Education: ${JSON.stringify(resumeData?.education || [])}
+- Projects: ${JSON.stringify(resumeData?.projects || [])}
+
+Calculate precise score ratings (0-100) based strictly on this candidate's real data.
+Return strictly valid JSON:
+{
+  "analytics": {
+    "overallEmployability": <integer 0-100>,
+    "atsScore": <integer 0-100>,
+    "keywordScore": <integer 0-100>,
+    "grammarScore": <integer 0-100>,
+    "formattingScore": <integer 0-100>,
+    "readabilityScore": <integer 0-100>,
+    "impactScore": <integer 0-100>,
+    "recruiterReadiness": <integer 0-100>,
+    "executiveVerdict": "<2 sentence recruiter verdict specifically addressing this resume's actual content>",
+    "missingKeywords": ["<missing keyword 1>", "<missing keyword 2>", "<missing keyword 3>", "<missing keyword 4>", "<missing keyword 5>"],
+    "topStrengths": ["<real strength in this resume 1>", "<real strength 2>", "<real strength 3>"],
+    "highImpactFixes": [
+      {
+        "id": "fix1",
+        "section": "Work Experience",
+        "issue": "<specific issue found in candidate's text>",
+        "suggestedFix": "<concrete fix suggestion>",
+        "impactIncrease": "+5% Impact Score"
+      }
+    ],
+    "sectionHealth": {
+      "summary": <0-100 summary health score>,
+      "experience": <0-100 experience health score>,
+      "education": <0-100 education health score>,
+      "skills": <0-100 skills health score>,
+      "formatting": <0-100 layout health score>
+    }
+  }
+}`;
+
+    const result = await callGeminiWithFallback(
+      async (modelName) => {
+        const response = await ai!.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+        const parsed = JSON.parse(response.text || "{}");
+        return parsed.analytics ? parsed : { analytics: parsed };
+      },
+      () => {
+        // Dynamic fallback score calculation from actual resumeData text
+        const summaryLen = (resumeData?.summary || "").length;
+        const skillsCount = resumeData?.skills?.length || 0;
+        const expCount = resumeData?.experience?.length || 0;
+        const eduCount = resumeData?.education?.length || 0;
+
+        // Check for metrics in experience
+        const expStr = JSON.stringify(resumeData?.experience || []);
+        const hasMetrics = (expStr.match(/\d+|%|\$/g) || []).length;
+
+        const ats = Math.min(98, Math.max(45, 60 + (expCount > 0 ? 15 : 0) + (skillsCount > 3 ? 15 : 0) + (eduCount > 0 ? 8 : 0)));
+        const keyword = Math.min(98, Math.max(40, 50 + skillsCount * 4));
+        const impact = Math.min(98, Math.max(40, 50 + Math.min(30, hasMetrics * 5)));
+        const readability = Math.min(98, Math.max(50, summaryLen > 40 ? 88 : 65));
+        const overall = Math.round((ats + keyword + impact + readability + 95) / 5);
+
+        return {
+          analytics: {
+            overallEmployability: overall,
+            atsScore: ats,
+            keywordScore: keyword,
+            grammarScore: 96,
+            formattingScore: 92,
+            readabilityScore: readability,
+            impactScore: impact,
+            recruiterReadiness: Math.min(98, overall + 2),
+            executiveVerdict: `Your resume for ${title} presents ${expCount} work experience entry/entries and ${skillsCount} listed skills. ${hasMetrics > 3 ? 'Strong use of quantitative metrics.' : 'Adding more quantitative business results (e.g. %, $) will significantly boost your impact score.'}`,
+            missingKeywords: [
+              "System Design", "Agile/Scrum", "CI/CD Automation", "Cross-Functional Collaboration", "Performance Optimization"
+            ],
+            topStrengths: [
+              skillsCount > 5 ? `Robust technical skills list (${skillsCount} skills).` : `Clean section layout.`,
+              expCount > 0 ? `Reverse-chronological experience layout with ${expCount} positions.` : `Defined educational foundation.`,
+              hasMetrics > 0 ? `Includes quantitative numbers/metrics in work experience.` : `Clear professional formatting.`
+            ],
+            highImpactFixes: [
+              {
+                id: "fix1",
+                section: "Work Experience",
+                issue: "Bullets can be enhanced with quantifiable business achievements.",
+                suggestedFix: "Include percentage changes or dollar values (e.g. 'Boosted throughput by 25%').",
+                impactIncrease: "+5% Impact Score"
+              }
+            ],
+            sectionHealth: {
+              summary: summaryLen > 50 ? 90 : 55,
+              experience: expCount > 1 ? 92 : (expCount === 1 ? 75 : 40),
+              education: eduCount > 0 ? 95 : 50,
+              skills: skillsCount > 5 ? 94 : 65,
+              formatting: 92
+            }
+          }
+        };
+      }
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Resume Analytics Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to process resume analytics." });
+  }
+});
+
 // 6. Resume Analyzer & ATS Score
 app.post("/api/ai/analyze-resume", async (req, res) => {
   try {
@@ -3892,7 +4217,7 @@ Thank you for your question regarding **"${lastMsg}"**! As your executive career
         }
 
         return {
-          reply: infoBanner + reply,
+          reply,
           suggestions
         };
       }

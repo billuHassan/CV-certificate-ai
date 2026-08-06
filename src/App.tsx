@@ -14,6 +14,8 @@ import ScoreAnalyzer from "./components/ScoreAnalyzer";
 import CareerRecommender from "./components/CareerRecommender";
 import ResumeCoach from "./components/ResumeCoach";
 import JobIntelligence from "./components/JobIntelligence";
+import InterviewIntelligence from "./components/InterviewIntelligence";
+import ResumeAnalytics from "./components/ResumeAnalytics";
 import Settings, { THEMES, WORLD_LANGUAGES } from "./components/Settings";
 import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
@@ -130,7 +132,7 @@ export default function App() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
   const [scoreReport, setScoreReport] = useState<ScoreReport | null>(null);
-  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach" | "job-intelligence">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach" | "job-intelligence" | "interview-intelligence" | "resume-analytics">("dashboard");
   const [userUnreadCount, setUserUnreadCount] = useState<number>(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
   const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" } | null>(null);
@@ -1046,6 +1048,65 @@ export default function App() {
               </span>
             </button>
 
+            <button
+              onClick={() => {
+                if (resumes.length > 0) {
+                  if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
+                  setCurrentView("resume-analytics");
+                } else {
+                  alert("Please create or scan a resume first to view 3D analytics!");
+                }
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "resume-analytics" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <BarChart2 className="h-4.5 w-4.5 text-pink-400" />
+                <span>3D Resume Analytics</span>
+              </div>
+              <span className="text-[9px] bg-pink-500/20 text-pink-300 font-bold px-1.5 py-0.5 rounded border border-pink-500/30 uppercase">
+                ⭐ 8-Metric
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentView("interview-intelligence");
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "interview-intelligence" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Brain className="h-4.5 w-4.5 text-purple-400" />
+                <span>Interview Intelligence</span>
+              </div>
+              <span className="text-[9px] bg-purple-500/20 text-purple-300 font-bold px-1.5 py-0.5 rounded border border-purple-500/30 uppercase">
+                AI Simulator
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentView("ai-chat");
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition ${
+                currentView === "ai-chat" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <MessageSquare className="h-4.5 w-4.5 text-amber-400" />
+                <span>AI Career Chat</span>
+              </div>
+              <span className="text-[9px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-500/30 uppercase">
+                Context-Aware
+              </span>
+            </button>
+
             {/* Hidden ATS Score Audit and Career Recommender for future continuation
             <button
               onClick={() => {
@@ -1245,6 +1306,25 @@ export default function App() {
               );
               setCurrentView("letter-editor");
             }}
+          />
+        )}
+
+        {currentView === "interview-intelligence" && activeResume && (
+          <InterviewIntelligence
+            resume={activeResume}
+            onBackToDashboard={() => setCurrentView("dashboard")}
+            isPremium={user.isPremium}
+            onUpgrade={handleUpgradeElite}
+          />
+        )}
+
+        {currentView === "resume-analytics" && activeResume && (
+          <ResumeAnalytics
+            resume={activeResume}
+            onUpdateResume={handleSaveActiveResume}
+            onBackToDashboard={() => setCurrentView("dashboard")}
+            isPremium={user.isPremium}
+            onUpgrade={handleUpgradeElite}
           />
         )}
 

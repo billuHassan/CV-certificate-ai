@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import Markdown from "react-markdown";
 import {
   Sparkles, Send, Upload, Image as ImageIcon, Search, ExternalLink, Bot, User,
   FileText, Briefcase, CheckCircle2, ArrowRight, Loader2, Globe, FileUp, Zap, HelpCircle
@@ -30,25 +31,29 @@ interface AIChatProps {
 
 export default function AIChat({ user, resumes, isDark = true, onImportScannedResume }: AIChatProps) {
   const [selectedResumeId, setSelectedResumeId] = useState<string>(resumes[0]?.id || "");
+  const selectedResume = resumes.find((r) => r.id === selectedResumeId) || resumes[0];
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: `Hello ${user?.displayName || "there"}! 👋 I am your **CVCraft AI Career & Resume Specialist** powered by Gemini.
+      content: `Hello ${user?.displayName || "there"}! 👋 I am your **CVCraft AI Career Assistant**.
 
-I can help you with:
-- 🔍 **Live Search Grounding**: Ask about current salary ranges, hiring trends, or company news.
-- 📄 **Paper Resume OCR**: Upload a photo or scan of a paper CV to extract and structure its text.
-- 🖼️ **Job Poster Analysis**: Upload a screenshot of a job posting to extract requirements & tailoring advice.
-- ✍️ **Resume & Cover Letter Coaching**: Optimize your bullet points, summary, or interview strategy.
+I am actively reading your resume context: **${selectedResume ? selectedResume.title || "Selected Resume" : "No resume selected"}** (${selectedResume?.personalInfo?.jobTitle || "Job Title"}).
 
-How can I assist your career today?`,
+Ask me anything tailored specifically to your profile:
+- 🎓 **Role Guidance**: "Which internship or full-time role should I apply for based on my resume?"
+- ✍️ **Bullet Polish**: "Improve my work experience bullet points for higher ATS score."
+- 💡 **Interview Prep**: "Explain this interview question and give me a winning STAR response."
+- 💰 **Salary Negotiation**: "How do I negotiate salary for my role and experience level?"
+- ⚡ **Elevator Pitch**: "Write a compelling 30-second elevator pitch for top recruiters."`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       suggestions: [
-        "Scan a paper resume photo",
-        "Analyze a job posting screenshot",
-        "What are average salaries for my role?",
-        "How do I write ATS-friendly bullets?"
+        "Which internship or role should I apply for?",
+        "Improve this work experience bullet point",
+        "Explain how to answer this interview question",
+        "How do I negotiate salary for my role?",
+        "Write a 30-second elevator pitch"
       ]
     }
   ]);
@@ -66,8 +71,6 @@ How can I assist your career today?`,
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const selectedResume = resumes.find((r) => r.id === selectedResumeId) || resumes[0];
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -96,7 +99,14 @@ How can I assist your career today?`,
 
     try {
       const resumeContext = selectedResume 
-        ? `Title: ${selectedResume.title}, Job Title: ${selectedResume.personalInfo?.jobTitle || "Not specified"}, Summary: ${selectedResume.summary || "None"}`
+        ? `Candidate Name: ${selectedResume.personalInfo?.fullName || "Candidate"}
+Target Job Title: ${selectedResume.personalInfo?.jobTitle || "Not specified"}
+Resume Title: ${selectedResume.title}
+Summary: ${selectedResume.summary || "None provided"}
+Skills (${selectedResume.skills?.length || 0}): ${(selectedResume.skills || []).join(", ")}
+Work Experience (${selectedResume.experience?.length || 0}): ${JSON.stringify((selectedResume.experience || []).map(e => ({ role: e.position, company: e.company, period: `${e.startDate}-${e.endDate}`, details: e.description })))}
+Education (${selectedResume.education?.length || 0}): ${JSON.stringify((selectedResume.education || []).map(ed => ({ degree: ed.degree, school: ed.school, field: ed.fieldOfStudy })))}
+Projects (${selectedResume.projects?.length || 0}): ${JSON.stringify((selectedResume.projects || []).map(p => ({ name: p.name, role: p.role, details: p.description })))}`
         : "No active resume selected.";
 
       const response = await fetch("/api/ai/chat", {
@@ -363,7 +373,7 @@ ${(data.responsibilities || []).map((resp: string) => `- ${resp}`).join("\n")}
           {/* Active resume selector */}
           {resumes.length > 0 && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-400 hidden sm:inline">Active Resume:</span>
+              <span className="text-slate-400 hidden sm:inline font-semibold">Active Resume Context:</span>
               <select
                 value={selectedResumeId}
                 onChange={(e) => setSelectedResumeId(e.target.value)}
@@ -395,6 +405,35 @@ ${(data.responsibilities || []).map((resp: string) => `- ${resp}`).join("\n")}
             <span>{searchGroundingEnabled ? "ON" : "OFF"}</span>
           </button>
         </div>
+      </div>
+
+      {/* QUICK CAREER PROMPT CHIPS */}
+      <div className={`px-6 py-2.5 border-b flex items-center gap-2 overflow-x-auto text-xs ${
+        isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-100 border-slate-200"
+      }`}>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 shrink-0 mr-1 flex items-center gap-1">
+          <Zap className="w-3 h-3 text-indigo-400" /> Career Prompts:
+        </span>
+        {[
+          "Which internship / role should I apply for based on my resume?",
+          "Improve this bullet point for maximum impact",
+          "Explain how to answer this interview question",
+          "How do I negotiate salary for my role & level?",
+          "Generate a 30-second elevator pitch"
+        ].map((promptText, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleSendMessage(promptText)}
+            disabled={isLoading || isScanningImage}
+            className={`px-3 py-1 rounded-full whitespace-nowrap text-[11px] font-medium transition border ${
+              isDark 
+                ? "bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border-slate-800 hover:border-indigo-500/50" 
+                : "bg-white text-slate-700 hover:bg-indigo-50 border-slate-300 hover:border-indigo-300"
+            }`}
+          >
+            {promptText}
+          </button>
+        ))}
       </div>
 
       {/* Messages area */}
@@ -431,8 +470,8 @@ ${(data.responsibilities || []).map((resp: string) => `- ${resp}`).join("\n")}
                   </div>
                 )}
 
-                <div className="whitespace-pre-wrap space-y-2 font-sans">
-                  {msg.content}
+                <div className="space-y-2 font-sans text-sm leading-relaxed antialiased [&_p]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_strong]:font-bold [&_strong]:text-indigo-300 [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-xs [&_h3]:font-bold [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-500 [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:bg-black/30 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded">
+                  <Markdown>{msg.content}</Markdown>
                 </div>
 
                 {/* Grounding Sources section */}
