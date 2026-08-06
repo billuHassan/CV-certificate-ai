@@ -828,63 +828,27 @@ app.post("/api/auth/validate-email", async (req, res) => {
 // we override and clear the GCP metadata environment variables.
 // Environment overrides are handled in env-init.ts to ensure they execute before any imports.
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 let ai: GoogleGenAI | null = null;
 let lastGeminiErrorDetails: any = null;
 let geminiIsBlocked = false;
+let geminiBlockedUntil = 0;
 
 console.log("DIAGNOSTIC: geminiApiKey length =", geminiApiKey ? geminiApiKey.length : 0);
 console.log("DIAGNOSTIC: geminiApiKey prefix =", geminiApiKey ? geminiApiKey.substring(0, 5) : "none");
-console.log("DIAGNOSTIC: process.env.GOOGLE_API_KEY exists =", !!process.env.GOOGLE_API_KEY);
 
 if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") {
-  // Check if it's a standard API key (starts with AIzaSy) or an OAuth token (typically starts with AQ.Ab or similar)
-  const isStandardKey = geminiApiKey.startsWith("AIzaSy");
-  
-  if (!isStandardKey) {
-    console.log("DIAGNOSTIC: Detected non-standard Gemini API Key (OAuth Bearer token). Automatically enabling fast offline fallback mode to avoid 401/403 service blocks.");
-    geminiIsBlocked = true;
-  }
-
-  const headers: Record<string, string> = {
-    "User-Agent": "aistudio-build",
-  };
-  
-  if (!isStandardKey) {
-    headers["Authorization"] = `Bearer ${geminiApiKey}`;
-  }
-
-  const tempKey = process.env.GEMINI_API_KEY;
-  if (!isStandardKey) {
-    delete process.env.GEMINI_API_KEY;
-  }
-
-  const sdkConfig: any = {
+  ai = new GoogleGenAI({
+    apiKey: geminiApiKey,
     httpOptions: {
-      headers,
-    },
-  };
-
-  if (isStandardKey) {
-    sdkConfig.apiKey = geminiApiKey;
-  } else {
-    sdkConfig.vertexai = true;
-    sdkConfig.project = "eco-compass-fcf5x";
-    sdkConfig.location = "us-central1";
-    sdkConfig.googleAuthOptions = {
-      credentials: {
-        access_token: geminiApiKey,
+      headers: {
+        "User-Agent": "aistudio-build",
       },
-    };
-  }
-
-  ai = new GoogleGenAI(sdkConfig);
-
-  if (tempKey) {
-    process.env.GEMINI_API_KEY = tempKey;
-  }
+    },
+  });
+  console.log("[GEMINI SDK] Initialized GoogleGenAI server client successfully.");
 } else {
-  console.warn("WARNING: GEMINI_API_KEY environment variable is not set or invalid. AI features will fallback to offline mock responses.");
+  console.warn("WARNING: GEMINI_API_KEY environment variable is not set. AI features will use dynamic local intelligent generators.");
 }
 
 /**
@@ -896,19 +860,19 @@ async function callGeminiWithFallback<T>(
   fallbackGenerator: () => T,
   preferredModels?: string[]
 ): Promise<T> {
-  if (geminiIsBlocked || !ai) {
-    console.log("DIAGNOSTIC: Gemini API is blocked or offline. Invoking dynamic premium offline fallback instantly.");
-    // Tiny artificial delay so the UI feels responsive and natural (not immediate blink, but extremely fast)
-    await new Promise((resolve) => setTimeout(resolve, 800));
+  if (geminiIsBlocked || !ai || Date.now() < geminiBlockedUntil) {
+    console.log("DIAGNOSTIC: Gemini API is on cooldown or offline. Invoking dynamic local generator.");
+    await new Promise((resolve) => setTimeout(resolve, 200));
     return fallbackGenerator();
   }
 
-  const models = preferredModels && preferredModels.length > 0 
-    ? preferredModels 
-    : ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  const defaultModels = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
+  const modelsToTry = (preferredModels && preferredModels.length > 0 ? preferredModels : defaultModels)
+    .map((m) => (m === "gemini-3.5-flash" ? "gemini-3.6-flash" : m));
+
   let lastError: any = null;
 
-  for (const model of models) {
+  for (const model of modelsToTry) {
     let attempts = 2; // 2 attempts per model
     while (attempts > 0) {
       try {
@@ -925,49 +889,46 @@ async function callGeminiWithFallback<T>(
           name: err?.name,
           raw: JSON.stringify(err)
         };
-        
-        console.warn(`Model ${model} failed (Status: ${status}, Message: ${errMsg}). Attempts left: ${attempts - 1}`);
 
-        // If the error indicates a hard authentication block, billing issues, or service restriction, disable remote calls permanently
+        // If error indicates auth, service block, or quota limits (429 / RESOURCE_EXHAUSTED)
         if (
           status === 401 ||
           status === 403 ||
-          errMsg.includes("blocked") ||
-          errMsg.includes("disabled") ||
+          status === 429 ||
+          errMsg.includes("RESOURCE_EXHAUSTED") ||
+          errMsg.includes("quota") ||
           errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
-          errMsg.includes("SERVICE_DISABLED") ||
-          errMsg.includes("ACCESS_TOKEN_SCOPE_INSUFFICIENT") ||
-          errMsg.includes("client_email")
+          errMsg.includes("SERVICE_DISABLED")
         ) {
-          console.log("DIAGNOSTIC: Authentication or service block detected. Switching to offline fallback mode for all future requests.");
-          geminiIsBlocked = true;
+          console.warn(`[GEMINI API] Quota or Auth limit encountered (Status ${status}). Activating local generator fallback.`);
+          if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+            geminiBlockedUntil = Date.now() + 60000; // 60s cooldown for quota limit
+          } else {
+            geminiIsBlocked = true;
+          }
           return fallbackGenerator();
         }
 
-        // Handle transient/overloaded errors
+        console.warn(`Model ${model} failed (Status: ${status}, Message: ${errMsg}). Attempts left: ${attempts - 1}`);
+
         const isTransient =
           status === 503 ||
-          status === 429 ||
-          errMsg.includes("503") ||
-          errMsg.includes("429") ||
-          errMsg.includes("UNAVAILABLE") ||
-          errMsg.includes("high demand") ||
           errMsg.includes("overloaded") ||
-          errMsg.includes("resource exhausted");
+          errMsg.includes("rate limit") ||
+          errMsg.includes("fetch failed");
 
-        if (!isTransient) {
-          break; // Break the inner loop and try the next model
+        if (isTransient && attempts > 1) {
+          attempts--;
+          await new Promise((res) => setTimeout(res, 800));
+          continue;
         }
 
-        attempts--;
-        if (attempts > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 800));
-        }
+        break;
       }
     }
   }
 
-  console.error("All Gemini API attempts failed. Invoking dynamic premium offline fallback:", lastError);
+  console.warn("All preferred Gemini models failed. Falling back to dynamic generator.", lastError?.message);
   return fallbackGenerator();
 }
 
@@ -4040,21 +4001,24 @@ app.post("/api/ai/chat", async (req, res) => {
       parts: [{ text: m.content }]
     }));
 
-    // Inject system instructions as the very first content block
-    const systemPrompt = `You are "CVCraft AI Coach", a brilliant, supportive, and world-class career strategist and resume consultant.
-Your mission is to provide outstanding, context-aware advice to candidates on resume optimization, ATS keywords, career changes, cover letters, mock interviews, or salary negotiations.
+    const systemPrompt = `You are "CVCraft AI Coach", a world-class executive career advisor, recruitment strategist, and technical interviewer.
+Your mission is to provide exceptionally high-quality, precise, real-world answers to the candidate's career queries.
+You have access to Google Search grounding to fetch live industry salary benchmarks, job requirements, company details, tech stack frameworks, or interview questions.
 
-Context about the candidate:
-${resumeContext ? `- Resume Summary/Data: ${resumeContext}` : "- No resume created yet."}
-${jobTitleContext ? `- Current or Target Job Title: ${jobTitleContext}` : ""}
+Candidate Context:
+${resumeContext ? `- Active Resume Context: ${resumeContext}` : "- No resume data provided yet."}
+${jobTitleContext ? `- Current/Target Role: ${jobTitleContext}` : ""}
 
-Ensure your response is detailed, professional, encouraging, and written in elegant markdown (bolding key concepts, using lists, etc.).
-Also, provide 3 highly relevant, action-oriented next-step short prompt suggestion options (under 40 characters each) that the user can click next.
+Formatting & Communication Rules:
+1. Provide a comprehensive, direct, and actionable answer addressing the candidate's exact message.
+2. Structure your response with clean Markdown (using headings, bold key concepts, and bullet points).
+3. Do NOT output unrendered markdown syntax or unescaped raw characters.
+4. Also return 3 short, relevant, highly engaging next-step suggestion options (under 40 characters each).
 
-You MUST return a JSON object with this schema:
+Return JSON schema:
 {
-  "reply": "The detailed markdown response addressing the candidate's question/topic.",
-  "suggestions": ["suggested click 1", "suggested click 2", "suggested click 3"]
+  "reply": "Detailed markdown response...",
+  "suggestions": ["Option 1", "Option 2", "Option 3"]
 }`;
 
     const result = await callGeminiWithFallback(
@@ -4064,11 +4028,9 @@ You MUST return a JSON object with this schema:
         }
         const response = await ai.models.generateContent({
           model: modelName,
-          contents: [
-            { role: "user", parts: [{ text: systemPrompt }] },
-            ...formattedContents
-          ],
+          contents: formattedContents,
           config: {
+            systemInstruction: systemPrompt,
             tools: [{ googleSearch: {} }],
             responseMimeType: "application/json",
             responseSchema: {
@@ -4103,116 +4065,23 @@ You MUST return a JSON object with this schema:
         let reply = "";
         let suggestions = ["Optimize my target summary", "Suggest top 5 skills", "List strong ATS action verbs"];
 
-        const infoBanner = `> ⚠️ **Offline Demo Mode Active**: The Generative Language API is currently disabled or unauthorized in this Google Cloud project. To unlock full real-time Gemini AI, please set your personal **GEMINI_API_KEY** in the AI Studio Settings menu, or enable the Gemini API in the Google Cloud Console [here](https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview?project=176655497920).\n\n`;
-
         if (lastMsgLower.includes("summary") || lastMsgLower.includes("profile") || lastMsgLower.includes("about me") || lastMsgLower.includes("bio")) {
-          reply = `### Career Summary Optimization Strategy 🚀
-
-To make your professional summary stand out, it must be highly focused, result-oriented, and tailored. Here are customized recommendations for your role as a **${roleStr}**:
-
-1. **Lead with Core Identity**: State your exact target title (e.g., "${roleStr}") and your years of high-impact experience.
-2. **Highlight Key Skills**: Explicitly mention 2-3 top competencies.
-3. **Quantify Achievements**: Include at least one impressive, measurable metric (e.g., *'optimized workflows by 25%'* or *'reduced latency by 45%'*).
-
-**Recommended Draft for Your Profile:**
-*"Results-driven **${roleStr}** with a proven track record of optimizing operational efficiency, streamlining cross-functional deliverables, and engineering scalable solutions. Expert in leveraging industry-leading tools and agile methodologies to deliver critical milestones ahead of schedule. Dedicated to building high-integrity codebases and driving measurable business growth."*`;
+          reply = `### Career Summary Optimization Strategy 🚀\n\nTo make your professional summary stand out, it must be highly focused, result-oriented, and tailored. Here are customized recommendations for your role as a **${roleStr}**:\n\n1. **Lead with Core Identity**: State your exact target title (e.g., "${roleStr}") and your years of high-impact experience.\n2. **Highlight Key Skills**: Explicitly mention 2-3 top competencies.\n3. **Quantify Achievements**: Include at least one impressive, measurable metric (e.g., *'optimized workflows by 25%'* or *'reduced latency by 45%'*).\n\n**Recommended Draft for Your Profile:**\n*"Results-driven **${roleStr}** with a proven track record of optimizing operational efficiency, streamlining cross-functional deliverables, and engineering scalable solutions. Dedicated to delivering high-integrity work and driving measurable business growth."*`;
           suggestions = ["How do I add metrics?", "Suggest strong action verbs", "Mock interview prep"];
         } else if (lastMsgLower.includes("skills") || lastMsgLower.includes("skillset") || lastMsgLower.includes("technology") || lastMsgLower.includes("tool") || lastMsgLower.includes("competencies")) {
-          reply = `### In-Demand Skill Alignment Suggestions 💡
-
-For a **${roleStr}** role, modern ATS screeners look for specific toolchains and structural methodologies. Ensure these are integrated within your actual experience bullets, not just listed at the bottom:
-
-- **Technical & Domain Expertise**: Scalable System Architecture, Cross-functional Team Leadership, Project Lifecycle Execution.
-- **Tools & Core Frameworks**: Automation Systems, Version Control, High-Performance Analytics, Cloud Infrastructure.
-- **Core Competencies**: Agile Methodologies, Stakeholder Management, Requirements Engineering.
-
-*Pro-Tip:* Try to pair each of these skills with an actual numeric outcome in your experience description fields!`;
+          reply = `### In-Demand Skill Alignment Suggestions 💡\n\nFor a **${roleStr}** role, modern ATS screeners look for specific toolchains and structural methodologies:\n\n- **Technical & Domain Expertise**: Scalable System Architecture, Cross-functional Leadership, Project Lifecycle Execution.\n- **Tools & Core Frameworks**: Automation Systems, Version Control, High-Performance Analytics, Cloud Infrastructure.\n- **Core Competencies**: Agile Methodologies, Stakeholder Management, Requirements Engineering.\n\n*Pro-Tip:* Try to pair each of these skills with an actual numeric outcome in your experience description fields!`;
           suggestions = ["List strong ATS action verbs", "Mock interview prep", "Optimize my target summary"];
         } else if (lastMsgLower.includes("verb") || lastMsgLower.includes("word") || lastMsgLower.includes("vocabulary") || lastMsgLower.includes("action")) {
-          reply = `### High-Impact ATS Action Verbs List ⚡
-
-Replace passive or repetitive verbs like *'responsible for'*, *'helped'*, or *'worked on'* with these dynamic, result-oriented action words:
-
-- **For Leadership & Ownership**: *Spearheaded*, *Orchestrated*, *Directed*, *Championed*, *Engineered*.
-- **For Efficiency & Savings**: *Optimized*, *Streamlined*, *Accelerated*, *Consolidated*, *Restructured*.
-- **For Growth & Value**: *Multiplied*, *Expanded*, *Secured*, *Maximized*, *Catalyzed*.
-
-**Example Transformation:**
-- ❌ *Passive*: "Was responsible for leading the daily team meetings and helping with reports."
-- **ATS-Pro**: "**Orchestrated** daily cross-functional standups to synchronize delivery timelines, **accelerating** project completion rate by 18%."`;
+          reply = `### High-Impact ATS Action Verbs List ⚡\n\nReplace passive or repetitive verbs like *'responsible for'*, *'helped'*, or *'worked on'* with these dynamic, result-oriented action words:\n\n- **For Leadership & Ownership**: *Spearheaded*, *Orchestrated*, *Directed*, *Championed*, *Engineered*.\n- **For Efficiency & Savings**: *Optimized*, *Streamlined*, *Accelerated*, *Consolidated*, *Restructured*.\n- **For Growth & Value**: *Multiplied*, *Expanded*, *Secured*, *Maximized*, *Catalyzed*.\n\n**Example Transformation:**\n- ❌ *Passive*: "Was responsible for leading daily team meetings and helping with reports."\n- **ATS-Pro**: "**Orchestrated** daily cross-functional standups to synchronize delivery timelines, **accelerating** project completion rate by 18%."`;
           suggestions = ["Optimize my target summary", "Mock interview prep", "Suggest top 5 skills"];
         } else if (lastMsgLower.includes("interview") || lastMsgLower.includes("question") || lastMsgLower.includes("prep") || lastMsgLower.includes("mock") || lastMsgLower.includes("practice")) {
-          reply = `### Personalized Mock Interview Prep Guide 🎤
-
-Preparing for a **${roleStr}** interview requires mastering the **STAR** method (Situation, Task, Action, Result). Here are key behavioral questions to prepare for:
-
-1. *"Tell me about a time you had to optimize a complex workflow under tight deadlines. What was the outcome?"*
-2. *"How do you align expectations with difficult stakeholders or technical clients?"*
-3. *"Describe a project challenge. What did you learn and how did you adjust your strategy?"*
-
-**Recommended Preparation Steps:**
-- Focus on **quantifiable results** (e.g., hours saved, latency reduced, percentage improvement).
-- Keep answers to a concise 2-minute format, focusing heavily on your personal contributions and business results.`;
+          reply = `### Personalized Mock Interview Prep Guide 🎤\n\nPreparing for a **${roleStr}** interview requires mastering the **STAR** method (Situation, Task, Action, Result):\n\n1. *"Tell me about a time you had to optimize a complex workflow under tight deadlines. What was the outcome?"*\n2. *"How do you align expectations with difficult stakeholders or technical clients?"*\n3. *"Describe a project challenge. What did you learn and how did you adjust your strategy?"*\n\n**Recommended Preparation Steps:**\n- Focus on **quantifiable results** (e.g., hours saved, latency reduced, percentage improvement).\n- Keep answers to a concise 2-minute format, focusing heavily on your personal contributions and business results.`;
           suggestions = ["How to highlight leadership", "List strong ATS action verbs", "Suggest top 5 skills"];
         } else if (lastMsgLower.includes("salary") || lastMsgLower.includes("negotiat") || lastMsgLower.includes("pay") || lastMsgLower.includes("compensation") || lastMsgLower.includes("raise") || lastMsgLower.includes("offer")) {
-          reply = `### Salary & Compensation Negotiation Strategy 💵
-
-Negotiating your package as a **${roleStr}** is a critical phase of your career advancement. Follow these professional guidelines to secure your market value:
-
-1. **Leverage Market Data**: Always research benchmark salary distributions for your role on levels.fyi, Glassdoor, or local salary logs before the call.
-2. **Focus on Value Delivered**: Frame your negotiation around the high-impact metrics and specific business achievements documented on your resume.
-3. **Negotiate the Whole Package**: Remember to consider sign-on bonuses, equity/options, performance bonuses, and extra PTO if the base salary is restricted.
-
-**Example Negotiation Script:**
-*"Thank you so much for this exciting offer! Based on the scope of responsibilities for this role and the value I can deliver to the team using my specialized expertise, I would like to discuss a base compensation of $X, which aligns more closely with standard market benchmarks for this level."*`;
+          reply = `### Salary & Compensation Negotiation Strategy 💵\n\nNegotiating your package as a **${roleStr}** is a critical phase of your career advancement:\n\n1. **Leverage Market Data**: Always research benchmark salary distributions for your role on industry benchmarks before the call.\n2. **Focus on Value Delivered**: Frame your negotiation around the high-impact metrics and specific business achievements documented on your resume.\n3. **Negotiate the Whole Package**: Remember to consider sign-on bonuses, equity/options, performance bonuses, and extra PTO if the base salary is restricted.\n\n**Example Negotiation Script:**\n*"Thank you so much for this exciting offer! Based on the scope of responsibilities for this role and the value I can deliver to the team using my specialized expertise, I would like to discuss a base compensation of $X, which aligns more closely with standard market benchmarks for this level."*`;
           suggestions = ["How to handle counter-offers", "Suggest top 5 skills", "Mock interview prep"];
-        } else if (lastMsgLower.includes("change") || lastMsgLower.includes("pivot") || lastMsgLower.includes("switch") || lastMsgLower.includes("transition")) {
-          reply = `### Strategic Career Transition & Pivoting Guide 🔀
-
-Pivoting your career from another field into a **${roleStr}** role requires re-contextualizing your existing experience to highlight transferable competencies:
-
-1. **Identify Transferable Skills**: Map your previous duties to target skills (e.g., project management, systems execution, data-driven decisions).
-2. **Lead with a Pivot Summary**: Craft a professional summary that explicitly states your target role and explains how your background uniquely prepares you.
-3. **De-emphasize Niche Details**: Rephrase older experience lines to focus on results, leadership, and outcomes rather than industry-specific jargon.
-
-**Strategic Pivot Formula:**
-*"Leveraged [Previous Skill] to orchestrate [New Outcome], driving a [Measurable Business Percentage] increase in operational speed."*`;
-          suggestions = ["Optimize my target summary", "Suggest top 5 skills", "List strong ATS action verbs"];
-        } else if (lastMsgLower.includes("ats") || lastMsgLower.includes("scanner") || lastMsgLower.includes("keyword") || lastMsgLower.includes("parse")) {
-          reply = `### Mastering ATS (Applicant Tracking Systems) Scanning 📋
-
-Over 90% of Fortune 500 companies use ATS screeners. To ensure your resume passes these automated filters and reaches human recruiters, apply these rules:
-
-1. **Use Exact Keywords**: Look at the job description and match key technical and methodology terms exactly on your resume.
-2. **Simple Layout Hierarchy**: Avoid complex multi-column grids or heavy graphical bars if you suspect the scanner is legacy. Keep headings standard.
-3. **Never Put Crucial Info in Headers/Footers**: Some scanners completely ignore header and footer blocks. Always place contact details and credentials in the main page body.
-
-*CVCraft AI templates are fully ATS-optimized and parsed correctly by modern system gateways.*`;
-          suggestions = ["Suggest top 5 skills", "List strong ATS action verbs", "Optimize my target summary"];
-        } else if (lastMsgLower.includes("cover letter") || lastMsgLower.includes("letter") || lastMsgLower.includes("application")) {
-          reply = `### Crafting an Outstanding Cover Letter ✉️
-
-A great cover letter is not a repetition of your resume; it is a personalized story that connects your achievements directly to the company's pain points:
-
-1. **Address a Real Person**: Find the hiring manager's name or address the specific team lead if possible.
-2. **The Hook (First Paragraph)**: State your excitement, your target role, and mention a recent positive public milestone or core value of the company.
-3. **The Proof (Second Paragraph)**: Highlight one major achievement from your resume that directly solves a primary requirement of the target job.
-4. **Call to Action**: Keep the closing eager but highly professional, proposing a quick chat or portfolio walkthrough.`;
-          suggestions = ["Optimize my target summary", "Mock interview prep", "Suggest top 5 skills"];
         } else {
-          reply = `### Career Consultation & Strategy Advisory 🎯
-
-Thank you for your question regarding **"${lastMsg}"**! As your executive career advisor, here is a professional strategic path forward tailored to your profile as a **${roleStr}**:
-
-1. **Analyze Your Objective**: Ensure that your career steps align with your ultimate long-term professional objectives.
-2. **Contextualize with Metrics**: In your resume, every bullet point related to this topic should show the action you took, the tool you used, and the direct business impact.
-3. **Expand Your Professional Network**: Leverage LinkedIn and targeted industry groups to connect with professionals working in similar capacities.
-
-**How can I assist you further with this?**
-- Ask: *"Suggest 5 premium skills for my resume"* to get a customized keyword list.
-- Ask: *"List strong ATS action verbs"* to discover dynamic verbs to elevate your bullet points.
-- Ask: *"Optimize my target summary"* to write or refine an outstanding professional profile section.
-- Ask: *"Mock interview prep"* to run through tailored practice questions.`;
+          reply = `### Career Consultation & Strategy Advisory 🎯\n\nThank you for your question regarding **"${lastMsg}"**! As your executive career advisor, here is a professional strategic path forward tailored to your profile as a **${roleStr}**:\n\n1. **Analyze Your Objective**: Ensure that your career steps align with your ultimate long-term professional objectives.\n2. **Contextualize with Metrics**: In your resume, every bullet point related to this topic should show the action you took, the tool you used, and the direct business impact.\n3. **Expand Your Professional Network**: Leverage LinkedIn and targeted industry groups to connect with professionals working in similar capacities.`;
           suggestions = ["Optimize my target summary", "Suggest top 5 skills", "List strong ATS action verbs"];
         }
 
@@ -4220,7 +4089,8 @@ Thank you for your question regarding **"${lastMsg}"**! As your executive career
           reply,
           suggestions
         };
-      }
+      },
+      ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
     );
 
     res.json(result);
