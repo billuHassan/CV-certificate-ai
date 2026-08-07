@@ -63,9 +63,9 @@ export default function Dashboard({
 
   const isDark = theme?.isDark ?? false;
   const cardBg = theme?.cardClass || (isDark ? "bg-slate-900/80 border-slate-800 shadow-xl" : "bg-white border-slate-200/90 shadow-md shadow-indigo-100/30");
-  const textPrimary = isDark ? "text-slate-100" : "text-slate-900";
-  const textSecondary = isDark ? "text-slate-400" : "text-slate-600";
-  const subCardBg = isDark ? "bg-slate-950/60 border-slate-850" : "bg-slate-50 border-slate-200/80";
+  const textPrimary = theme?.textPrimary || (isDark ? "text-slate-100" : "text-slate-900");
+  const textSecondary = theme?.textMuted || (isDark ? "text-slate-400" : "text-slate-600");
+  const subCardBg = theme?.subCardClass || (isDark ? "bg-slate-950/60 border-slate-850" : "bg-slate-50 border-slate-200/80");
   const modalBg = isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900 shadow-2xl";
   const inputBg = isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-white border-slate-300 text-slate-900";
 

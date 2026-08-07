@@ -17,9 +17,16 @@ export interface ThemeDefinition {
   bgClass: string;
   sidebarClass: string;
   cardClass: string;
+  subCardClass: string;
   borderClass: string;
   accentClass: string;
   textClass: string;
+  textPrimary: string;
+  textMuted: string;
+  textHeading: string;
+  textAccent: string;
+  badgeBg: string;
+  navActiveBg: string;
   dotColors: string[]; // for theme color preview dots
   glowClass: string;
 }
@@ -35,9 +42,16 @@ export const THEMES: ThemeDefinition[] = [
     bgClass: "bg-[#180806] text-amber-50",
     sidebarClass: "bg-[#250d08] border-orange-900/60 shadow-lg shadow-orange-950/40",
     cardClass: "bg-[#2a0e0a]/90 border-orange-800/40 shadow-xl shadow-orange-950/50 backdrop-blur-md",
+    subCardClass: "bg-[#1f0a07]/80 border-orange-900/40 text-amber-100",
     borderClass: "border-orange-900/50",
     accentClass: "bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white shadow-lg shadow-orange-600/30",
     textClass: "text-amber-50",
+    textPrimary: "text-amber-100",
+    textMuted: "text-amber-300/70",
+    textHeading: "text-amber-50",
+    textAccent: "text-orange-400",
+    badgeBg: "bg-orange-950/70 border-orange-800/60 text-orange-300",
+    navActiveBg: "bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 text-white shadow-lg shadow-orange-600/30",
     dotColors: ["#180806", "#f97316", "#ef4444"],
     glowClass: "ambient-glow-fire"
   },
@@ -51,9 +65,16 @@ export const THEMES: ThemeDefinition[] = [
     bgClass: "bg-[#041424] text-cyan-50",
     sidebarClass: "bg-[#09223c] border-cyan-800/60 shadow-lg shadow-cyan-950/40",
     cardClass: "bg-[#0d2a4a]/85 border-cyan-700/40 shadow-xl shadow-cyan-950/50 backdrop-blur-md",
+    subCardClass: "bg-[#06192d]/80 border-cyan-800/40 text-cyan-100",
     borderClass: "border-cyan-800/50",
     accentClass: "bg-gradient-to-r from-cyan-500 via-blue-600 to-teal-500 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30",
     textClass: "text-cyan-50",
+    textPrimary: "text-cyan-100",
+    textMuted: "text-cyan-300/70",
+    textHeading: "text-cyan-50",
+    textAccent: "text-sky-400",
+    badgeBg: "bg-cyan-950/70 border-cyan-800/60 text-cyan-300",
+    navActiveBg: "bg-gradient-to-r from-cyan-600 via-blue-600 to-teal-600 text-white shadow-lg shadow-cyan-600/30",
     dotColors: ["#041424", "#06b6d4", "#3b82f6"],
     glowClass: "ambient-glow-water"
   },
@@ -67,9 +88,16 @@ export const THEMES: ThemeDefinition[] = [
     bgClass: "bg-[#edf6ff] text-slate-900",
     sidebarClass: "bg-white/95 border-sky-200 shadow-md shadow-sky-100/50",
     cardClass: "bg-white/90 border-sky-200 shadow-xl shadow-sky-200/50 backdrop-blur-md",
+    subCardClass: "bg-sky-50/80 border-sky-200 text-slate-800",
     borderClass: "border-sky-200",
     accentClass: "bg-gradient-to-r from-sky-500 via-indigo-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-lg shadow-sky-500/30",
     textClass: "text-slate-900",
+    textPrimary: "text-slate-900",
+    textMuted: "text-slate-600",
+    textHeading: "text-slate-900",
+    textAccent: "text-indigo-600",
+    badgeBg: "bg-sky-100 border-sky-300 text-sky-800",
+    navActiveBg: "bg-gradient-to-r from-indigo-600 via-sky-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25",
     dotColors: ["#edf6ff", "#38bdf8", "#6366f1"],
     glowClass: "ambient-glow-air"
   },
@@ -83,9 +111,16 @@ export const THEMES: ThemeDefinition[] = [
     bgClass: "bg-[#051b11] text-emerald-50",
     sidebarClass: "bg-[#0b2b1d] border-emerald-800/60 shadow-lg shadow-emerald-950/40",
     cardClass: "bg-[#0f3826]/90 border-emerald-700/40 shadow-xl shadow-emerald-950/50 backdrop-blur-md",
+    subCardClass: "bg-[#072115]/80 border-emerald-800/40 text-emerald-100",
     borderClass: "border-emerald-800/50",
     accentClass: "bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white shadow-lg shadow-emerald-500/30",
     textClass: "text-emerald-50",
+    textPrimary: "text-emerald-100",
+    textMuted: "text-emerald-300/70",
+    textHeading: "text-emerald-50",
+    textAccent: "text-emerald-400",
+    badgeBg: "bg-emerald-950/70 border-emerald-800/60 text-emerald-300",
+    navActiveBg: "bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 text-white shadow-lg shadow-emerald-600/30",
     dotColors: ["#051b11", "#10b981", "#84cc16"],
     glowClass: "ambient-glow-forest"
   },
@@ -99,9 +134,16 @@ export const THEMES: ThemeDefinition[] = [
     bgClass: "bg-[#121417] text-stone-100",
     sidebarClass: "bg-[#1a1d24] border-stone-800 shadow-lg shadow-black/50",
     cardClass: "bg-[#21252d]/90 border-stone-700/60 shadow-xl shadow-black/40 backdrop-blur-md",
+    subCardClass: "bg-[#171a20]/80 border-stone-800 text-stone-100",
     borderClass: "border-stone-800",
     accentClass: "bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-stone-950 font-extrabold shadow-lg shadow-amber-500/25",
     textClass: "text-stone-100",
+    textPrimary: "text-stone-100",
+    textMuted: "text-stone-400",
+    textHeading: "text-stone-50",
+    textAccent: "text-amber-400",
+    badgeBg: "bg-stone-900 border-stone-700 text-amber-300",
+    navActiveBg: "bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-stone-950 font-bold shadow-lg shadow-amber-500/30",
     dotColors: ["#121417", "#78716c", "#f59e0b"],
     glowClass: "ambient-glow-rock"
   }
