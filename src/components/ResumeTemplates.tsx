@@ -53,12 +53,12 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
   const getTemplateConfig = () => {
     // 1. Sidebar/Split Layout Templates
     const splitTemplates = [
-      "executive"
+      "executive", "canva_executive_navy", "canva_hybrid_pro"
     ];
     
     // 2. Academic / Serif / Cream templates
     const serifTemplates = [
-      "elegant", "gold_luxe", "royal", "vintage", "milano", "chicago"
+      "elegant", "gold_luxe", "royal", "vintage", "milano", "chicago", "canva_creative_sage", "canva_corporate_gold", "canva_rose_executive"
     ];
 
     // 3. Monospace / Code templates
@@ -100,11 +100,11 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       styleCategory = "brutalist";
     } else if (isSplit) {
       styleCategory = "sidebar";
-    } else if (["toronto", "sydney", "austin"].includes(templateId) || customTpl?.layoutStyle === "banner") {
+    } else if (["toronto", "sydney", "austin", "canva_modern_emerald", "canva_tech_horizon", "canva_nordic_clean", "canva_rose_executive"].includes(templateId) || customTpl?.layoutStyle === "banner") {
       styleCategory = "banner";
     } else if (serifTemplates.includes(templateId) || customTpl?.layoutStyle === "cream") {
       styleCategory = "cream";
-    } else if (["munich", "oslo", "teal_grid", "aurora", "swiss"].includes(templateId) || customTpl?.layoutStyle === "modern-card") {
+    } else if (["munich", "oslo", "teal_grid", "aurora", "swiss", "canva_minimal_slate", "canva_monochrome_chic"].includes(templateId) || customTpl?.layoutStyle === "modern-card") {
       styleCategory = "modern-card";
     }
 
@@ -119,6 +119,10 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
     switch (templateId) {
       case "executive":
         return "bg-slate-900 text-slate-100 border-r border-slate-850";
+      case "canva_executive_navy":
+        return "bg-[#0f172a] text-slate-100 border-r border-amber-500/30";
+      case "canva_hybrid_pro":
+        return "bg-slate-900 text-slate-100 border-r border-indigo-500/30";
       default:
         return "bg-slate-50 text-slate-800 border-r border-slate-200";
     }
@@ -126,6 +130,14 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
 
   const getTopBannerStyles = () => {
     switch (templateId) {
+      case "canva_modern_emerald":
+        return { bg: "bg-[#064e3b]", text: "text-emerald-50", border: "border-b-4 border-emerald-400" };
+      case "canva_tech_horizon":
+        return { bg: "bg-gradient-to-r from-slate-900 via-indigo-950 to-sky-950", text: "text-white", border: "border-b-4 border-sky-500" };
+      case "canva_nordic_clean":
+        return { bg: "bg-[#f0f9ff]", text: "text-slate-900", border: "border-b-2 border-sky-400" };
+      case "canva_rose_executive":
+        return { bg: "bg-fuchsia-950", text: "text-pink-50", border: "border-b-4 border-pink-400" };
       case "toronto":
         return { bg: "bg-[#1e3a8a]", text: "text-white", border: "border-b-4 border-indigo-500" };
       case "sydney":
@@ -144,6 +156,15 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       case "brutalist":
         return "bg-white text-slate-950 border-[6px] border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]";
       case "cream":
+        if (templateId === "canva_corporate_gold") {
+          return "bg-[#fffdfa] text-slate-900 border-[6px] border-double border-[#d4af37] shadow-xl";
+        }
+        if (templateId === "canva_creative_sage") {
+          return "bg-[#f4f7f4] text-stone-900 border-t-8 border-emerald-800 shadow-md";
+        }
+        if (templateId === "canva_rose_executive") {
+          return "bg-[#fdfbfd] text-stone-900 border-t-8 border-fuchsia-950 shadow-lg";
+        }
         if (templateId === "gold_luxe") {
           return "bg-[#faf7f0] text-slate-900 border-[8px] border-double border-[#d4af37] shadow-xl";
         }
@@ -161,6 +182,15 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
         }
         return "bg-[#faf6ee] text-slate-900 border border-amber-900/10 shadow-lg";
       case "modern-card":
+        if (templateId === "canva_monochrome_chic") {
+          return "bg-white text-black border-2 border-black shadow-lg";
+        }
+        if (templateId === "canva_minimal_slate") {
+          return "bg-slate-50 text-slate-900 border-l-[10px] border-slate-700 shadow-md";
+        }
+        if (templateId === "canva_nordic_clean") {
+          return "bg-[#f8fafc] text-slate-900 border-l-8 border-sky-600 shadow-md";
+        }
         if (templateId === "aurora") {
           return "bg-[#090d16] text-slate-100 border border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.2)]";
         }
@@ -178,6 +208,96 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
 
   // Section heading element with high aesthetic differences
   const SectionHeader = ({ title }: { title: string }) => {
+    if (templateId === "canva_modern_emerald") {
+      return (
+        <div className="flex items-center gap-2 mb-3.5 border-b-2 border-emerald-600/30 pb-1.5">
+          <div className="h-3 w-3 bg-emerald-600 rounded-sm" />
+          <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-800 font-sans">
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    if (templateId === "canva_corporate_gold") {
+      return (
+        <div className="text-center mb-4 font-serif">
+          <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#1e3a8a]">
+            {title}
+          </h3>
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <div className="h-[1px] w-12 bg-[#d4af37]" />
+            <div className="h-1.5 w-1.5 bg-[#d4af37] rotate-45" />
+            <div className="h-[1px] w-12 bg-[#d4af37]" />
+          </div>
+        </div>
+      );
+    }
+
+    if (templateId === "canva_creative_sage") {
+      return (
+        <div className="border-b-2 border-emerald-700/20 pb-1.5 mb-3.5 font-serif">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-900 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-700 inline-block" />
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    if (templateId === "canva_minimal_slate") {
+      return (
+        <div className="border-l-4 border-slate-700 pl-3 py-0.5 mb-3.5 font-sans">
+          <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-800">
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    if (templateId === "canva_monochrome_chic") {
+      return (
+        <div className="border-b-2 border-black pb-1 mb-4 font-sans">
+          <h3 className="text-xs font-black uppercase tracking-[0.25em] text-black">
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    if (templateId === "canva_rose_executive") {
+      return (
+        <div className="border-b border-fuchsia-900/30 pb-1.5 mb-3.5 font-serif">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-fuchsia-950 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 bg-fuchsia-800 rotate-45" />
+            {title}
+          </h3>
+        </div>
+      );
+    }
+
+    if (templateId === "canva_nordic_clean") {
+      return (
+        <div className="flex items-center gap-3 mb-3.5 font-sans">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-sky-900">
+            {title}
+          </h3>
+          <div className="h-[2px] grow bg-sky-200" />
+        </div>
+      );
+    }
+
+    if (templateId === "canva_tech_horizon") {
+      return (
+        <div className="border-b border-indigo-200 pb-1.5 mb-3.5 flex items-center justify-between font-sans">
+          <h3 className="text-xs font-extrabold uppercase tracking-widest text-indigo-900">
+            {title}
+          </h3>
+          <div className="h-1.5 w-1.5 bg-sky-500 rounded-full" />
+        </div>
+      );
+    }
+
     if (config.styleCategory === "cyber") {
       return (
         <div className="font-mono text-xs font-bold uppercase tracking-widest text-[#00ff66] border-b border-dashed border-[#00ff66] pb-1.5 mb-3 flex items-center gap-2">
@@ -520,6 +640,249 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
   // Header layouts with high design distinctions
   const renderHeader = () => {
     const hasPhoto = !!personalInfo.profilePhoto;
+
+    // Canva Modern Emerald
+    if (templateId === "canva_modern_emerald") {
+      return (
+        <div className="-mx-8 -mt-8 p-8 mb-6 bg-[#064e3b] text-emerald-50 border-b-4 border-emerald-400 relative font-sans">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              {hasPhoto && (
+                <img
+                  src={personalInfo.profilePhoto}
+                  alt={personalInfo.fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-20 w-20 rounded-xl object-cover ring-4 ring-emerald-300/40 shadow-lg"
+                />
+              )}
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl font-black tracking-tight text-white">
+                  {personalInfo.fullName || "Your Full Name"}
+                </h1>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300 mt-1">
+                  {personalInfo.jobTitle || "Professional Title"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-3 gap-y-1.5 text-[10px] text-emerald-100 max-w-md">
+              {personalInfo.email && <div className="flex items-center gap-1 bg-emerald-900/60 px-2.5 py-1 rounded-md border border-emerald-700/50"><Mail className="h-3 w-3 text-emerald-300" /> {personalInfo.email}</div>}
+              {personalInfo.phone && <div className="flex items-center gap-1 bg-emerald-900/60 px-2.5 py-1 rounded-md border border-emerald-700/50"><Phone className="h-3 w-3 text-emerald-300" /> {personalInfo.phone}</div>}
+              {personalInfo.location && <div className="flex items-center gap-1 bg-emerald-900/60 px-2.5 py-1 rounded-md border border-emerald-700/50"><MapPin className="h-3 w-3 text-emerald-300" /> {personalInfo.location}</div>}
+              {personalInfo.website && <div className="flex items-center gap-1 bg-emerald-900/60 px-2.5 py-1 rounded-md border border-emerald-700/50"><Globe className="h-3 w-3 text-emerald-300" /> {personalInfo.website}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1 bg-emerald-900/60 px-2.5 py-1 rounded-md border border-emerald-700/50"><Linkedin className="h-3 w-3 text-emerald-300" /> {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div className="flex items-center gap-1 bg-emerald-900/60 px-2.5 py-1 rounded-md border border-emerald-700/50"><Github className="h-3 w-3 text-emerald-300" /> {personalInfo.github}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Canva Corporate Gold Prestige
+    if (templateId === "canva_corporate_gold") {
+      return (
+        <div className="text-center pb-6 mb-6 border-b-2 border-[#d4af37] font-serif">
+          <div className="text-[10px] font-bold tracking-[0.25em] text-[#b89742] uppercase mb-2">
+            Curriculum Vitae
+          </div>
+          <h1 className="text-3xl font-serif font-bold text-[#1e3a8a] tracking-wide">
+            {personalInfo.fullName || "Your Full Name"}
+          </h1>
+          <p className="text-xs font-serif italic text-slate-600 mt-1 uppercase tracking-widest font-semibold">
+            {personalInfo.jobTitle || "Professional Title"}
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[11px] text-slate-700 mt-4 max-w-2xl mx-auto border-t border-b border-[#d4af37]/40 py-2 italic">
+            {personalInfo.email && <span>{personalInfo.email}</span>}
+            {personalInfo.phone && <span>• {personalInfo.phone}</span>}
+            {personalInfo.location && <span>• {personalInfo.location}</span>}
+            {personalInfo.website && <span>• {personalInfo.website}</span>}
+            {personalInfo.linkedin && <span>• {personalInfo.linkedin}</span>}
+            {personalInfo.github && <span>• {personalInfo.github}</span>}
+          </div>
+        </div>
+      );
+    }
+
+    // Canva Sage Editorial
+    if (templateId === "canva_creative_sage") {
+      return (
+        <div className="-mx-8 -mt-8 p-8 mb-6 bg-[#166534] text-emerald-50 relative overflow-hidden font-serif">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-5">
+            <div className="flex items-center gap-4">
+              {hasPhoto && (
+                <img
+                  src={personalInfo.profilePhoto}
+                  alt={personalInfo.fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-20 w-20 rounded-full object-cover ring-4 ring-emerald-200/40 shadow-md"
+                />
+              )}
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl font-serif font-bold tracking-tight text-white">
+                  {personalInfo.fullName || "Your Full Name"}
+                </h1>
+                <p className="text-xs font-serif italic tracking-widest text-emerald-200 mt-1 font-semibold">
+                  {personalInfo.jobTitle || "Professional Title"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1 text-[11px] text-emerald-100 italic">
+              {personalInfo.email && <div>{personalInfo.email}</div>}
+              {personalInfo.phone && <div>• {personalInfo.phone}</div>}
+              {personalInfo.location && <div>• {personalInfo.location}</div>}
+              {personalInfo.website && <div>• {personalInfo.website}</div>}
+              {personalInfo.linkedin && <div>• {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div>• {personalInfo.github}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Canva Minimal Slate
+    if (templateId === "canva_minimal_slate") {
+      return (
+        <div className="pb-6 mb-6 border-b-2 border-slate-700 font-sans">
+          <div className="flex flex-col md:flex-row items-baseline justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 uppercase">
+                {personalInfo.fullName || "Your Full Name"}
+              </h1>
+              <p className="text-xs font-bold tracking-[0.2em] text-slate-600 uppercase mt-1">
+                {personalInfo.jobTitle || "Professional Title"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-600">
+              {personalInfo.email && <span className="bg-slate-200/80 px-2 py-0.5 rounded">{personalInfo.email}</span>}
+              {personalInfo.phone && <span className="bg-slate-200/80 px-2 py-0.5 rounded">{personalInfo.phone}</span>}
+              {personalInfo.location && <span className="bg-slate-200/80 px-2 py-0.5 rounded">{personalInfo.location}</span>}
+              {personalInfo.website && <span className="bg-slate-200/80 px-2 py-0.5 rounded">{personalInfo.website}</span>}
+              {personalInfo.linkedin && <span className="bg-slate-200/80 px-2 py-0.5 rounded">{personalInfo.linkedin}</span>}
+              {personalInfo.github && <span className="bg-slate-200/80 px-2 py-0.5 rounded">{personalInfo.github}</span>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Canva Monochrome Chic
+    if (templateId === "canva_monochrome_chic") {
+      return (
+        <div className="text-center pb-6 mb-6 border-b-2 border-black font-sans">
+          <h1 className="text-4xl font-black tracking-[0.15em] text-black uppercase leading-none mb-2">
+            {personalInfo.fullName || "Your Full Name"}
+          </h1>
+          <p className="text-xs font-black tracking-[0.3em] text-stone-600 uppercase border-t border-b border-black/20 py-1.5 my-2">
+            {personalInfo.jobTitle || "Professional Title"}
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-[10px] font-bold text-black uppercase tracking-wider mt-3">
+            {personalInfo.email && <span>{personalInfo.email}</span>}
+            {personalInfo.phone && <span>{personalInfo.phone}</span>}
+            {personalInfo.location && <span>{personalInfo.location}</span>}
+            {personalInfo.website && <span>{personalInfo.website}</span>}
+            {personalInfo.linkedin && <span>{personalInfo.linkedin}</span>}
+            {personalInfo.github && <span>{personalInfo.github}</span>}
+          </div>
+        </div>
+      );
+    }
+
+    // Canva Tech Horizon
+    if (templateId === "canva_tech_horizon") {
+      return (
+        <div className="-mx-8 -mt-8 p-8 mb-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-sky-950 text-white border-b-4 border-sky-500 font-sans">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              {hasPhoto && (
+                <img
+                  src={personalInfo.profilePhoto}
+                  alt={personalInfo.fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-20 w-20 rounded-2xl object-cover ring-2 ring-sky-400/50 shadow-xl"
+                />
+              )}
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl font-black tracking-tight text-white font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-sky-100 to-sky-300">
+                  {personalInfo.fullName || "Your Full Name"}
+                </h1>
+                <p className="text-xs font-mono uppercase tracking-[0.2em] text-sky-400 mt-1 font-semibold">
+                  &lt;{personalInfo.jobTitle || "Tech Specialist"}&gt;
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-3 gap-y-1.5 text-[10px] text-sky-100 font-mono">
+              {personalInfo.email && <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded backdrop-blur-sm"><Mail className="h-3 w-3 text-sky-400" /> {personalInfo.email}</div>}
+              {personalInfo.phone && <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded backdrop-blur-sm"><Phone className="h-3 w-3 text-sky-400" /> {personalInfo.phone}</div>}
+              {personalInfo.location && <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded backdrop-blur-sm"><MapPin className="h-3 w-3 text-sky-400" /> {personalInfo.location}</div>}
+              {personalInfo.website && <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded backdrop-blur-sm"><Globe className="h-3 w-3 text-sky-400" /> {personalInfo.website}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded backdrop-blur-sm"><Linkedin className="h-3 w-3 text-sky-400" /> {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded backdrop-blur-sm"><Github className="h-3 w-3 text-sky-400" /> {personalInfo.github}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Canva Nordic Frost & Slate
+    if (templateId === "canva_nordic_clean") {
+      return (
+        <div className="-mx-8 -mt-8 p-8 mb-6 bg-[#f0f9ff] text-slate-900 border-b-2 border-sky-400 font-sans">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-5">
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-wider text-sky-950 uppercase">
+                {personalInfo.fullName || "Your Full Name"}
+              </h1>
+              <p className="text-xs font-bold tracking-[0.25em] text-sky-700 uppercase mt-1">
+                {personalInfo.jobTitle || "Professional Title"}
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1 text-[10px] font-semibold text-slate-600">
+              {personalInfo.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3 text-sky-600" /> {personalInfo.email}</div>}
+              {personalInfo.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3 text-sky-600" /> {personalInfo.phone}</div>}
+              {personalInfo.location && <div className="flex items-center gap-1"><MapPin className="h-3 w-3 text-sky-600" /> {personalInfo.location}</div>}
+              {personalInfo.website && <div className="flex items-center gap-1"><Globe className="h-3 w-3 text-sky-600" /> {personalInfo.website}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1"><Linkedin className="h-3 w-3 text-sky-600" /> {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div className="flex items-center gap-1"><Github className="h-3 w-3 text-sky-600" /> {personalInfo.github}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Canva Rose Gold Executive
+    if (templateId === "canva_rose_executive") {
+      return (
+        <div className="-mx-8 -mt-8 p-8 mb-6 bg-fuchsia-950 text-fuchsia-50 border-b-4 border-pink-400 relative font-serif">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              {hasPhoto && (
+                <img
+                  src={personalInfo.profilePhoto}
+                  alt={personalInfo.fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-20 w-20 rounded-xl object-cover ring-4 ring-pink-300/40 shadow-lg"
+                />
+              )}
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl font-serif font-bold tracking-tight text-white">
+                  {personalInfo.fullName || "Your Full Name"}
+                </h1>
+                <p className="text-xs font-serif italic tracking-widest text-pink-200 mt-1 font-semibold">
+                  {personalInfo.jobTitle || "Professional Title"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1.5 text-[10px] text-pink-100 font-sans">
+              {personalInfo.email && <div className="flex items-center gap-1 bg-fuchsia-900/60 px-2.5 py-1 rounded border border-pink-800/50"><Mail className="h-3 w-3 text-pink-300" /> {personalInfo.email}</div>}
+              {personalInfo.phone && <div className="flex items-center gap-1 bg-fuchsia-900/60 px-2.5 py-1 rounded border border-pink-800/50"><Phone className="h-3 w-3 text-pink-300" /> {personalInfo.phone}</div>}
+              {personalInfo.location && <div className="flex items-center gap-1 bg-fuchsia-900/60 px-2.5 py-1 rounded border border-pink-800/50"><MapPin className="h-3 w-3 text-pink-300" /> {personalInfo.location}</div>}
+              {personalInfo.website && <div className="flex items-center gap-1 bg-fuchsia-900/60 px-2.5 py-1 rounded border border-pink-800/50"><Globe className="h-3 w-3 text-pink-300" /> {personalInfo.website}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1 bg-fuchsia-900/60 px-2.5 py-1 rounded border border-pink-800/50"><Linkedin className="h-3 w-3 text-pink-300" /> {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div className="flex items-center gap-1 bg-fuchsia-900/60 px-2.5 py-1 rounded border border-pink-800/50"><Github className="h-3 w-3 text-pink-300" /> {personalInfo.github}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     // A. Aurora Cosmic Glow Header (Glowing highlights on space dark background)
     if (templateId === "aurora") {

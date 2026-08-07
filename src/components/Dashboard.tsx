@@ -170,11 +170,18 @@ export default function Dashboard({
   };
 
   const templatesPreview = [
+    { id: "canva_modern_emerald", name: "Canva Modern Emerald Pro", badge: "New Pro" },
+    { id: "canva_executive_navy", name: "Canva Navy Executive", badge: "New Pro" },
+    { id: "canva_creative_sage", name: "Canva Sage Editorial", badge: "New Pro" },
+    { id: "canva_minimal_slate", name: "Canva Minimal Slate", badge: "New Pro" },
+    { id: "canva_corporate_gold", name: "Canva Corporate Prestige", badge: "Premium" },
+    { id: "canva_tech_horizon", name: "Canva Horizon Tech", badge: "New Pro" },
+    { id: "canva_monochrome_chic", name: "Canva Monochrome Chic", badge: "Premium" },
+    { id: "canva_nordic_clean", name: "Canva Nordic Frost", badge: "New Pro" },
+    { id: "canva_rose_executive", name: "Canva Rose Gold Executive", badge: "Premium" },
+    { id: "canva_hybrid_pro", name: "Canva Hybrid Pro Grid", badge: "New Pro" },
     { id: "minimal", name: "Minimalist ATS Pro", badge: "Unlocked" },
     { id: "executive", name: "Executive Split Slate", badge: "Unlocked" },
-    { id: "elegant", name: "Warm Editorial Cream", badge: "Unlocked" },
-    { id: "cyber", name: "Cyberpunk Terminal", badge: "Premium" },
-    { id: "berlin", name: "Berlin Neo-Brutalist", badge: "Premium" },
   ];
 
   return (
@@ -614,6 +621,16 @@ export default function Dashboard({
                   onChange={(e) => setSelectedTemplate(e.target.value)}
                   className={`w-full ${inputBg} rounded-xl p-3 text-xs focus:outline-none`}
                 >
+                  <option value="canva_modern_emerald">Canva Modern Emerald Pro</option>
+                  <option value="canva_executive_navy">Canva Navy Executive Column</option>
+                  <option value="canva_creative_sage">Canva Sage Editorial</option>
+                  <option value="canva_minimal_slate">Canva Minimal Slate</option>
+                  <option value="canva_corporate_gold">Canva Corporate Prestige</option>
+                  <option value="canva_tech_horizon">Canva Horizon Tech</option>
+                  <option value="canva_monochrome_chic">Canva Monochrome Chic</option>
+                  <option value="canva_nordic_clean">Canva Nordic Frost</option>
+                  <option value="canva_rose_executive">Canva Rose Gold Executive</option>
+                  <option value="canva_hybrid_pro">Canva Hybrid Pro Grid</option>
                   <option value="minimal">Minimalist Traditional (ATS-Friendly)</option>
                   <option value="professional">Professional Corporate</option>
                   <option value="modern">Modern Developer Layout</option>

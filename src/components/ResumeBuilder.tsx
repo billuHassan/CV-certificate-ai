@@ -562,6 +562,16 @@ export default function ResumeBuilder({
 
   const templatesList = [
     ...getCustomTemplates(),
+    { id: "canva_modern_emerald", name: "Canva Modern Emerald Pro", desc: "Top-rated Canva executive layout featuring dark emerald headers, rounded skill tags, and crisp typography.", isPremium: false },
+    { id: "canva_executive_navy", name: "Canva Navy Executive Column", desc: "Sleek Canva split-pane layout with midnight navy side rail and gold accent section markers.", isPremium: false },
+    { id: "canva_creative_sage", name: "Canva Sage Editorial", desc: "Calm eucalyptus & sage green header paired with serif title typography for marketing and creative leaders.", isPremium: false },
+    { id: "canva_minimal_slate", name: "Canva Minimal Slate", desc: "Ultra-clean single-column layout with slate accent borders and compact contact pill tags.", isPremium: false },
+    { id: "canva_corporate_gold", name: "Canva Corporate Prestige", desc: "Elite financial and consulting layout with champagne gold borders and double-ruled headings.", isPremium: true },
+    { id: "canva_tech_horizon", name: "Canva Horizon Tech", desc: "Modern tech layout featuring an indigo-to-cyan gradient top banner and monospaced skill badges.", isPremium: false },
+    { id: "canva_monochrome_chic", name: "Canva Monochrome Chic", desc: "Stark, high-fashion black & white layout with bold oversized display headings and wide tracking.", isPremium: true },
+    { id: "canva_nordic_clean", name: "Canva Nordic Frost & Slate", desc: "Clean Scandinavian aesthetic with an ice-blue top bar, slate blue headings, and vertical accent line.", isPremium: false },
+    { id: "canva_rose_executive", name: "Canva Rose Gold Executive", desc: "Elegant dusty rose & plum banner paired with warm cream paper and serif headings.", isPremium: true },
+    { id: "canva_hybrid_pro", name: "Canva Hybrid Pro Grid", desc: "Structured Canva 2-column hybrid layout balancing heavy experience blocks with a dedicated attributes sidebar.", isPremium: false },
     { id: "minimal", name: "Minimalist ATS Pro", desc: "Ultra-clean chronological layout optimized for maximum machine readability and applicant tracking systems.", isPremium: false },
     { id: "executive", name: "Executive Split Slate", desc: "A sleek split-pane layout highlighting core attributes in a deep charcoal side rail.", isPremium: false },
     { id: "elegant", name: "Warm Editorial Cream", desc: "Soft warm tones paired with elegant serif typography and double margins for creative leaders.", isPremium: false },

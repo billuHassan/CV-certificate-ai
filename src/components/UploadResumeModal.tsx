@@ -80,6 +80,16 @@ interface UploadResumeModalProps {
 }
 
 export const PRESET_TEMPLATES = [
+  { id: "canva_modern_emerald", name: "Canva Modern Emerald Pro", category: "Canva Pro", color: "#064e3b", font: "font-sans", desc: "Top Canva executive template with dark emerald header." },
+  { id: "canva_executive_navy", name: "Canva Navy Executive", category: "Canva Pro", color: "#0f172a", font: "font-sans", desc: "Sleek Canva split layout with gold section markers." },
+  { id: "canva_creative_sage", name: "Canva Sage Editorial", category: "Canva Pro", color: "#166534", font: "font-serif", desc: "Serif typography paired with soft sage green banner." },
+  { id: "canva_minimal_slate", name: "Canva Minimal Slate", category: "Canva Pro", color: "#334155", font: "font-sans", desc: "Clean single-column layout with slate accent borders." },
+  { id: "canva_corporate_gold", name: "Canva Corporate Prestige", category: "Canva Pro", color: "#d4af37", font: "font-serif", desc: "Double gold frame with navy serif headings." },
+  { id: "canva_tech_horizon", name: "Canva Horizon Tech", category: "Canva Pro", color: "#0284c7", font: "font-mono", desc: "Gradient indigo-cyan header with monospaced code tags." },
+  { id: "canva_monochrome_chic", name: "Canva Monochrome Chic", category: "Canva Pro", color: "#000000", font: "font-sans", desc: "High-fashion black & white layout with wide tracking." },
+  { id: "canva_nordic_clean", name: "Canva Nordic Frost", category: "Canva Pro", color: "#0284c7", font: "font-sans", desc: "Ice-blue top bar with slate blue section lines." },
+  { id: "canva_rose_executive", name: "Canva Rose Gold Executive", category: "Canva Pro", color: "#831843", font: "font-serif", desc: "Plum & dusty rose header on warm cream backdrop." },
+  { id: "canva_hybrid_pro", name: "Canva Hybrid Pro Grid", category: "Canva Pro", color: "#4f46e5", font: "font-sans", desc: "2-column hybrid layout balancing work history and sidebar." },
   { id: "minimal", name: "Clean Minimalist", category: "Modern", color: "#0f766e", font: "font-sans", desc: "Single-column sleek ATS optimized layout." },
   { id: "executive", name: "Executive Sapphire", category: "Corporate", color: "#1e3a8a", font: "font-sans", desc: "Split sidebar layout for high impact leaders." },
   { id: "modern", name: "Modern Teal", category: "Tech & Product", color: "#0d9488", font: "font-sans", desc: "Balanced structure with accent dividers." },
