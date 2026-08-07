@@ -878,72 +878,76 @@ if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") 
 }
 
 /**
- * Executes a Gemini request using the primary recommended model (gemini-3.6-flash).
- * If quota or API errors occur, seamlessly falls back to the dynamic generator.
+ * Executes a Gemini request using recommended models with fallback (gemini-3.6-flash, gemini-2.5-flash, gemini-1.5-flash).
+ * If quota or high demand (503) errors occur, it tries candidate models, then seamlessly falls back to the dynamic generator.
  */
 async function callGeminiWithFallback<T>(
   fn: (modelName: string) => Promise<T>,
   fallbackGenerator: () => T,
-  _preferredModels?: string[]
+  preferredModels?: string[]
 ): Promise<T> {
   if (geminiIsBlocked || !ai || Date.now() < geminiBlockedUntil) {
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     return fallbackGenerator();
   }
 
-  const primaryModel = "gemini-3.6-flash";
-  let attempts = 2; // Up to 2 attempts for transient spikes (503)
+  const modelsToTry = preferredModels && preferredModels.length > 0
+    ? preferredModels
+    : ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
 
-  while (attempts > 0) {
-    try {
-      return await fn(primaryModel);
-    } catch (err: any) {
-      attempts--;
-      const errMsg = err?.message || String(err || "");
-      const status = err?.status || err?.statusCode || 0;
+  for (const modelName of modelsToTry) {
+    let attempts = 2; // Up to 2 attempts per model for transient spikes
+    while (attempts > 0) {
+      try {
+        return await fn(modelName);
+      } catch (err: any) {
+        attempts--;
+        const errMsg = err?.message || String(err || "");
+        const status = err?.status || err?.statusCode || 0;
 
-      lastGeminiErrorDetails = {
-        message: errMsg,
-        status: status,
-        name: err?.name
-      };
+        lastGeminiErrorDetails = {
+          message: errMsg,
+          status: status,
+          name: err?.name,
+          model: modelName
+        };
 
-      // Check if it's a quota or permanent auth error
-      if (
-        status === 429 ||
-        status === 401 ||
-        status === 403 ||
-        errMsg.includes("RESOURCE_EXHAUSTED") ||
-        errMsg.includes("quota") ||
-        errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
-        errMsg.includes("SERVICE_DISABLED")
-      ) {
-        if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-          geminiBlockedUntil = Date.now() + 60000; // 60s cooldown
-        } else {
+        // Check permanent key block vs quota
+        if (
+          status === 401 ||
+          status === 403 ||
+          errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
+          errMsg.includes("SERVICE_DISABLED")
+        ) {
           geminiIsBlocked = true;
+          return fallbackGenerator();
         }
-        return fallbackGenerator();
+
+        if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+          geminiBlockedUntil = Date.now() + 30000; // 30s cooldown
+          // Break to try next candidate model or fallback
+          break;
+        }
+
+        // If it's a transient server issue (503 / 502 / high demand / overloaded) and we have attempts left, wait briefly and retry
+        const isTransient =
+          status === 503 ||
+          status === 502 ||
+          status === 504 ||
+          errMsg.includes("503") ||
+          errMsg.includes("UNAVAILABLE") ||
+          errMsg.includes("high demand") ||
+          errMsg.includes("overloaded");
+
+        if (isTransient && attempts > 0) {
+          console.warn(`[Gemini API] Transient 503 high demand on ${modelName}. Retrying in 400ms...`);
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          continue;
+        }
+
+        console.warn(`[Gemini API] ${modelName} failed (${errMsg}). Trying next candidate or fallback.`);
+        break; // Move to next model in loop
       }
-
-      // If it's a transient server issue (503 / 502 / high demand / overloaded) and we have attempts left, wait briefly and retry
-      const isTransient =
-        status === 503 ||
-        status === 502 ||
-        status === 504 ||
-        errMsg.includes("503") ||
-        errMsg.includes("UNAVAILABLE") ||
-        errMsg.includes("high demand") ||
-        errMsg.includes("overloaded");
-
-      if (isTransient && attempts > 0) {
-        console.warn(`[Gemini API] Transient 503 high demand on ${primaryModel}. Retrying in 500ms...`);
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        continue;
-      }
-
-      console.warn(`[Gemini API] ${primaryModel} failed (${errMsg}). Seamlessly serving local dynamic response.`);
-      return fallbackGenerator();
     }
   }
 

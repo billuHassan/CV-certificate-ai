@@ -488,6 +488,72 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
     printWindow.document.close();
   };
 
+  // Download DOCX
+  const handleDownloadDOCX = () => {
+    if (!parsedResume) return;
+
+    const previewElem = document.getElementById("scanned-resume-preview-pane");
+    const resumeHtml = previewElem ? previewElem.innerHTML : "";
+    const fullName = parsedResume.personalInfo?.fullName || "Candidate";
+    const title = parsedResume.title || "Resume";
+
+    const docxContent = `<html xmlns:o="urn:schemas-microsoft-office:office" xmlns:w="urn:schemas-microsoft-office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="utf-8">
+  <title>${fullName} - ${title}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForCustomXSL/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    @page Section1 {
+      size: 8.5in 11.0in;
+      margin: 0.5in 0.5in 0.5in 0.5in;
+      mso-header-margin: 0.5in;
+      mso-footer-margin: 0.5in;
+      mso-paper-source: 0;
+    }
+    div.Section1 { page: Section1; }
+    body {
+      font-family: 'Calibri', 'Arial', sans-serif;
+      font-size: 10.5pt;
+      color: #0f172a;
+      line-height: 1.35;
+      background: white;
+    }
+    h1 { font-size: 20pt; font-weight: bold; color: #0f172a; margin-bottom: 2pt; }
+    h2 { font-size: 13pt; font-weight: bold; color: #0f766e; border-bottom: 1.5pt solid #0f766e; padding-bottom: 2pt; margin-top: 10pt; margin-bottom: 4pt; text-transform: uppercase; }
+    h3 { font-size: 11pt; font-weight: bold; color: #1e293b; margin-top: 5pt; margin-bottom: 2pt; }
+    p { margin-top: 0; margin-bottom: 3pt; }
+    ul { margin-top: 2pt; margin-bottom: 4pt; padding-left: 16pt; }
+    li { margin-bottom: 2pt; }
+  </style>
+</head>
+<body>
+  <div class="Section1">
+    ${resumeHtml}
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob(['\ufeff' + docxContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${fullName.replace(/\s+/g, "_")}_Resume.docx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setSuccessMessage(`Exported editable DOCX file for Microsoft Word!`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
@@ -1598,15 +1664,27 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                   Upload Different Resume
                 </button>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                   {parsedResume && (
-                    <button
-                      onClick={handleDownloadPDF}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 transition flex items-center justify-center gap-2"
-                    >
-                      <Printer className="w-4 h-4" />
-                      Print / Download PDF
-                    </button>
+                    <>
+                      <button
+                        onClick={handleDownloadPDF}
+                        className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 transition flex items-center justify-center gap-2"
+                        title="Print or export as PDF"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Download PDF
+                      </button>
+
+                      <button
+                        onClick={handleDownloadDOCX}
+                        className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 transition flex items-center justify-center gap-2"
+                        title="Download editable Microsoft Word DOCX document"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download DOCX
+                      </button>
+                    </>
                   )}
 
                   <button

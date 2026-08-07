@@ -524,6 +524,74 @@ export default function ResumeBuilder({
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadDOCX = () => {
+    triggerInterstitial(() => {
+      const container = document.getElementById("resume-preview-container");
+      if (!container) {
+        alert("Resume preview not found.");
+        return;
+      }
+
+      const resumeHtml = container.innerHTML;
+      const title = resume.title || "Resume";
+      const fullName = resume.personalInfo.fullName || "Candidate";
+
+      const docxContent = `<html xmlns:o="urn:schemas-microsoft-office:office" xmlns:w="urn:schemas-microsoft-office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="utf-8">
+  <title>${fullName} - ${title}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForCustomXSL/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    @page Section1 {
+      size: 8.5in 11.0in;
+      margin: 0.5in 0.5in 0.5in 0.5in;
+      mso-header-margin: 0.5in;
+      mso-footer-margin: 0.5in;
+      mso-paper-source: 0;
+    }
+    div.Section1 { page: Section1; }
+    body {
+      font-family: 'Calibri', 'Arial', sans-serif;
+      font-size: 10.5pt;
+      color: #0f172a;
+      line-height: 1.35;
+      background: white;
+    }
+    h1 { font-size: 20pt; font-weight: bold; color: #0f172a; margin-bottom: 2pt; }
+    h2 { font-size: 13pt; font-weight: bold; color: #0f766e; border-bottom: 1.5pt solid #0f766e; padding-bottom: 2pt; margin-top: 10pt; margin-bottom: 4pt; text-transform: uppercase; }
+    h3 { font-size: 11pt; font-weight: bold; color: #1e293b; margin-top: 5pt; margin-bottom: 2pt; }
+    p { margin-top: 0; margin-bottom: 3pt; }
+    ul { margin-top: 2pt; margin-bottom: 4pt; padding-left: 16pt; }
+    li { margin-bottom: 2pt; }
+  </style>
+</head>
+<body>
+  <div class="Section1">
+    ${resumeHtml}
+  </div>
+</body>
+</html>`;
+
+      const blob = new Blob(['\ufeff' + docxContent], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${fullName.replace(/\s+/g, "_")}_Resume.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+  };
+
   const handleSectionToggle = (sect: string) => {
     setOpenSection(openSection === sect ? "" : sect);
   };
@@ -611,20 +679,27 @@ export default function ResumeBuilder({
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={handleDownloadHTML}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
-            title="Download fully styled offline-ready HTML. Best format for printing or converting to PDF!"
+            onClick={handleDownloadDOCX}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/10"
+            title="Download editable Microsoft Word DOCX file"
           >
-            <Download className="h-3.5 w-3.5" /> Download HTML (Get PDF)
+            <Download className="h-3.5 w-3.5" /> Download DOCX
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition border border-slate-700"
-            title="Open the browser print/PDF dialog directly"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
+            title="Open browser PDF print dialog"
           >
-            <Printer className="h-3.5 w-3.5" /> Print
+            <Printer className="h-3.5 w-3.5" /> Download PDF
+          </button>
+          <button
+            onClick={handleDownloadHTML}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
+            title="Download fully styled offline HTML file"
+          >
+            HTML
           </button>
         </div>
       </div>
