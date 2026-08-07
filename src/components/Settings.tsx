@@ -989,7 +989,7 @@ export default function Settings({
               <div className="mt-4 p-3 bg-slate-950/80 border border-slate-800 rounded-xl flex items-start gap-2.5">
                 <SettingsIcon className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                 <span className="text-[11px] text-slate-400 leading-relaxed">
-                  Selecting an elemental theme instantly updates all page layouts, top navigation headers, card surfaces, and control buttons across RahmoraAI.
+                  Selecting an elemental theme instantly updates all page layouts, top navigation headers, card surfaces, and control buttons across RAHMORA.
                 </span>
               </div>
             </div>

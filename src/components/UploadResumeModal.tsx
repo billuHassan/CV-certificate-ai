@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Download, Edit3, ArrowRight, X, RefreshCw, Eye, Wand2, ShieldCheck, Palette, Plus, Trash2, Printer, Check, LayoutGrid, Layers, ArrowUpRight
+  Upload, FileText, FileCheck, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Download, Edit3, ArrowRight, X, RefreshCw, Eye, Wand2, ShieldCheck, Palette, Plus, Trash2, Printer, Check, LayoutGrid, Layers, ArrowUpRight
 } from "lucide-react";
 import { ResumeData, WorkExperience, Education, Project, Certification, Language, Reference } from "../types";
 import ResumeTemplates from "./ResumeTemplates";
@@ -106,6 +106,8 @@ export const PRESET_TEMPLATES = [
 
 export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }: UploadResumeModalProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -296,7 +298,19 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
               ...r,
               id: r.id || crypto.randomUUID()
             })),
-            sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references"],
+            customSections: (data.parsedResume?.customSections || []).map((cs: any) => ({
+              id: cs.id || crypto.randomUUID(),
+              title: cs.title || "Custom Section",
+              items: (cs.items || []).map((item: any) => ({
+                id: item.id || crypto.randomUUID(),
+                heading: item.heading || "",
+                subheading: item.subheading || "",
+                date: item.date || "",
+                location: item.location || "",
+                description: item.description || ""
+              }))
+            })),
+            sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references", "customSections"],
             templateId: activeTemplateId,
             colorTheme: data.extractedTemplateStyle?.colorTheme || "#0f766e",
             fontFamily: data.extractedTemplateStyle?.fontFamily || "font-sans",
@@ -308,7 +322,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
           setParsedResume(fullData);
           setAuditReport(data.auditReport);
           setExtractedStyle(data.extractedTemplateStyle);
-          setActiveView("audit");
+          setActiveView("edit");
         } catch (err: any) {
           console.error(err);
           setError(err.message || "Failed to process uploaded file.");
@@ -512,40 +526,73 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         {/* Modal Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
           {!parsedResume ? (
-            /* Upload Screen (Temporarily Offline) */
+            /* Active Upload Screen */
             <div className="max-w-2xl mx-auto space-y-6">
-              <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs flex items-start gap-3 shadow-lg">
-                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-amber-300 text-sm">Upload Feature Temporarily Offline</span>
-                    <span className="text-[10px] bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded border border-amber-700/60 uppercase font-mono font-bold">Under Maintenance</span>
-                  </div>
-                  <p className="text-amber-200/90 leading-relaxed text-xs">
-                    Document upload & automated file parsing is temporarily un-enabled while system upgrades are in progress.
-                  </p>
-                  <p className="text-[11px] text-amber-300/80">
-                    💡 Please use the <strong className="text-amber-200">New Resume</strong> or <strong className="text-amber-200">AI Resume Coach</strong> tools directly to build and edit ATS-optimized resumes.
-                  </p>
-                </div>
-              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg"
+                onChange={handleFileChange}
+                className="hidden"
+              />
 
               <div
-                className="border-2 border-dashed border-slate-700 rounded-2xl p-8 sm:p-12 text-center bg-slate-900/40 relative opacity-60 cursor-not-allowed"
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => { setIsDragging(false); handleDrop(e); }}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition cursor-pointer relative ${
+                  isDragging
+                    ? "border-teal-400 bg-teal-500/10 scale-[1.01]"
+                    : file
+                    ? "border-emerald-500/60 bg-emerald-950/20"
+                    : "border-slate-700 bg-slate-900/50 hover:border-teal-500/50 hover:bg-slate-900/80"
+                }`}
               >
-                <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 text-slate-500 flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-8 h-8" />
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border transition ${
+                  file ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-teal-400 border-slate-700"
+                }`}>
+                  {file ? <FileCheck className="w-8 h-8 text-emerald-400" /> : <Upload className="w-8 h-8 text-teal-400" />}
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-slate-400 mb-1">
-                  Document Upload Offline
-                </h3>
-                <p className="text-xs text-slate-500 mb-4">
-                  PDF & DOCX document scanning is temporarily paused for maintenance
-                </p>
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-500 font-semibold text-xs cursor-not-allowed border border-slate-700">
-                  <Upload className="w-4 h-4" />
-                  Upload Disabled
-                </span>
+
+                {file ? (
+                  <div className="space-y-2">
+                    <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2.5 py-1 rounded-full inline-block">
+                      File Ready for Scanning
+                    </span>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-100 break-all">
+                      {file.name}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type || "Document"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFile(null);
+                      }}
+                      className="text-xs text-rose-400 hover:text-rose-300 underline font-medium mt-2 inline-block"
+                    >
+                      Remove & Choose Different File
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-200">
+                      Drag & Drop your Resume here or <span className="text-teal-400 underline">Browse Files</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                      Supports PDF, DOCX, TXT, PNG, JPG documents. Multi-layer parsing extracts full work experience, education, skills, and layout design automatically.
+                    </p>
+                    <div className="pt-3 flex flex-wrap justify-center gap-2 text-[11px] font-mono text-slate-400">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ PDF & DOCX</span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ ATS Audit</span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ Template Match</span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ 1-Click Fix</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {error && (
@@ -559,23 +606,30 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                 <div className="p-6 rounded-2xl bg-slate-950/60 border border-teal-500/30 text-center space-y-3">
                   <RefreshCw className="w-8 h-8 text-teal-400 animate-spin mx-auto" />
                   <p className="text-sm font-semibold text-teal-300">{loadingStep}</p>
-                  <p className="text-xs text-slate-400">Extracting full text, work experience, skills, and detecting layout template...</p>
+                  <p className="text-xs text-slate-400">Extracting full text, work experience, skills, custom sections, and detecting layout template...</p>
                 </div>
               )}
 
               <div className="flex justify-end gap-3">
                 <button
+                  type="button"
                   onClick={onClose}
                   className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
                 >
-                  Close
+                  Cancel
                 </button>
                 <button
-                  disabled={true}
-                  className="px-6 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-500 cursor-not-allowed transition flex items-center gap-2 border border-slate-700"
+                  type="button"
+                  disabled={!file || loading}
+                  onClick={processResumeUpload}
+                  className={`px-6 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
+                    !file || loading
+                      ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                      : "bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold hover:shadow-lg hover:shadow-teal-500/25 active:scale-95"
+                  }`}
                 >
                   <Sparkles className="w-4 h-4" />
-                  Upload Temporarily Disabled
+                  {loading ? "Scanning Document..." : "Scan & Parse Resume"}
                 </button>
               </div>
             </div>
@@ -1209,6 +1263,217 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                               placeholder="Phone Number"
                               className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
                             />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom / Additional Sections */}
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-teal-400">Custom & Extra Sections ({parsedResume.customSections?.length || 0})</h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Extra fields found in your uploaded resume (e.g., Volunteer, Publications, Awards, Patents)</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newCS = {
+                            id: crypto.randomUUID(),
+                            title: "Volunteer Work & Achievements",
+                            items: [{
+                              id: crypto.randomUUID(),
+                              heading: "Organization / Project",
+                              subheading: "Role / Contributor",
+                              date: "2023",
+                              location: "City, Country",
+                              description: "Detailed contribution or achievement."
+                            }]
+                          };
+                          setParsedResume({ ...parsedResume, customSections: [...(parsedResume.customSections || []), newCS] });
+                        }}
+                        className="px-3 py-1 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 hover:bg-teal-500/30 transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Extra Section
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {(parsedResume.customSections || []).map((cs) => (
+                        <div key={cs.id} className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <input
+                              type="text"
+                              value={cs.title}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                customSections: (parsedResume.customSections || []).map(c => c.id === cs.id ? { ...c, title: e.target.value } : c)
+                              })}
+                              placeholder="Section Title (e.g. Volunteer Work)"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-teal-300 font-bold"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParsedResume({
+                                  ...parsedResume,
+                                  customSections: (parsedResume.customSections || []).filter(c => c.id !== cs.id)
+                                });
+                              }}
+                              className="text-rose-400 hover:text-rose-300 text-xs p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            {cs.items.map((item) => (
+                              <div key={item.id} className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2 text-xs relative">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setParsedResume({
+                                      ...parsedResume,
+                                      customSections: (parsedResume.customSections || []).map(c => {
+                                        if (c.id === cs.id) {
+                                          return { ...c, items: c.items.filter(i => i.id !== item.id) };
+                                        }
+                                        return c;
+                                      })
+                                    });
+                                  }}
+                                  className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 text-xs"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pr-6">
+                                  <input
+                                    type="text"
+                                    value={item.heading || ""}
+                                    onChange={(e) => setParsedResume({
+                                      ...parsedResume,
+                                      customSections: (parsedResume.customSections || []).map(c => {
+                                        if (c.id === cs.id) {
+                                          return {
+                                            ...c,
+                                            items: c.items.map(i => i.id === item.id ? { ...i, heading: e.target.value } : i)
+                                          };
+                                        }
+                                        return c;
+                                      })
+                                    })}
+                                    placeholder="Item Title / Organization"
+                                    className="bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-100"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.subheading || ""}
+                                    onChange={(e) => setParsedResume({
+                                      ...parsedResume,
+                                      customSections: (parsedResume.customSections || []).map(c => {
+                                        if (c.id === cs.id) {
+                                          return {
+                                            ...c,
+                                            items: c.items.map(i => i.id === item.id ? { ...i, subheading: e.target.value } : i)
+                                          };
+                                        }
+                                        return c;
+                                      })
+                                    })}
+                                    placeholder="Subheading / Role"
+                                    className="bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-100"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  <input
+                                    type="text"
+                                    value={item.date || ""}
+                                    onChange={(e) => setParsedResume({
+                                      ...parsedResume,
+                                      customSections: (parsedResume.customSections || []).map(c => {
+                                        if (c.id === cs.id) {
+                                          return {
+                                            ...c,
+                                            items: c.items.map(i => i.id === item.id ? { ...i, date: e.target.value } : i)
+                                          };
+                                        }
+                                        return c;
+                                      })
+                                    })}
+                                    placeholder="Date / Year"
+                                    className="bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-100"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.location || ""}
+                                    onChange={(e) => setParsedResume({
+                                      ...parsedResume,
+                                      customSections: (parsedResume.customSections || []).map(c => {
+                                        if (c.id === cs.id) {
+                                          return {
+                                            ...c,
+                                            items: c.items.map(i => i.id === item.id ? { ...i, location: e.target.value } : i)
+                                          };
+                                        }
+                                        return c;
+                                      })
+                                    })}
+                                    placeholder="Location (Optional)"
+                                    className="bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-100"
+                                  />
+                                </div>
+
+                                <textarea
+                                  rows={2}
+                                  value={item.description || ""}
+                                  onChange={(e) => setParsedResume({
+                                    ...parsedResume,
+                                    customSections: (parsedResume.customSections || []).map(c => {
+                                      if (c.id === cs.id) {
+                                        return {
+                                          ...c,
+                                          items: c.items.map(i => i.id === item.id ? { ...i, description: e.target.value } : i)
+                                        };
+                                      }
+                                      return c;
+                                    })
+                                  })}
+                                  placeholder="Description / Highlights..."
+                                  className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-100"
+                                />
+                              </div>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParsedResume({
+                                  ...parsedResume,
+                                  customSections: (parsedResume.customSections || []).map(c => {
+                                    if (c.id === cs.id) {
+                                      return {
+                                        ...c,
+                                        items: [...c.items, {
+                                          id: crypto.randomUUID(),
+                                          heading: "New Entry",
+                                          subheading: "",
+                                          date: "",
+                                          location: "",
+                                          description: ""
+                                        }]
+                                      };
+                                    }
+                                    return c;
+                                  })
+                                });
+                              }}
+                              className="w-full py-1.5 border border-dashed border-slate-800 hover:border-slate-700 text-xs text-slate-400 hover:text-white rounded-lg transition"
+                            >
+                              + Add Item to {cs.title}
+                            </button>
                           </div>
                         </div>
                       ))}

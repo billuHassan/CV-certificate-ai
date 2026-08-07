@@ -6,6 +6,9 @@ import os from "os";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
+import mammoth from "mammoth";
+import * as pdfParseModule from "pdf-parse";
+const pdfParse: any = (pdfParseModule as any).default || pdfParseModule;
 import { initializeApp, getApps, App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import firebaseConfig from "./firebase-applet-config.json";
@@ -3705,7 +3708,7 @@ app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
       return res.status(400).json({ error: "Resume text or file data is required." });
     }
 
-    let extractedDocxText = "";
+    let extractedDocumentText = "";
     let inlineDataPart: any = null;
 
     if (fileDataUri && fileDataUri.startsWith("data:")) {
@@ -3713,57 +3716,81 @@ app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
       if (matches) {
         const mimeType = matches[1];
         const base64Data = matches[2];
+        const buf = Buffer.from(base64Data, "base64");
 
-        // Supported document/image MIME types in Gemini
-        if (
-          mimeType.includes("pdf") ||
-          mimeType.includes("image") ||
-          mimeType.includes("text")
-        ) {
+        if (mimeType.includes("pdf") || fileName?.toLowerCase().endsWith(".pdf")) {
           inlineDataPart = {
             inlineData: {
-              mimeType: mimeType.includes("pdf")
-                ? "application/pdf"
-                : mimeType.includes("text")
-                ? "text/plain"
-                : mimeType,
+              mimeType: "application/pdf",
               data: base64Data
             }
           };
+          try {
+            const pdfRes = await pdfParse(buf);
+            if (pdfRes && pdfRes.text) {
+              extractedDocumentText = pdfRes.text;
+            }
+          } catch (e) {
+            console.warn("PDF parse error:", e);
+          }
         } else if (
           mimeType.includes("wordprocessingml") ||
           fileName?.toLowerCase().endsWith(".docx") ||
           fileName?.toLowerCase().endsWith(".doc")
         ) {
           try {
-            const buf = Buffer.from(base64Data, "base64");
-            const rawStr = buf.toString("utf-8");
-            extractedDocxText = rawStr
-              .replace(/<[^>]+>/g, " ")
-              .replace(/\s+/g, " ")
-              .trim();
+            const mammothRes = await mammoth.extractRawText({ buffer: buf });
+            if (mammothRes && mammothRes.value) {
+              extractedDocumentText = mammothRes.value;
+            }
           } catch (e) {
-            console.warn("Error parsing docx string:", e);
+            console.warn("Mammoth docx parse error:", e);
+          }
+        } else if (mimeType.includes("image")) {
+          inlineDataPart = {
+            inlineData: {
+              mimeType,
+              data: base64Data
+            }
+          };
+        } else if (mimeType.includes("text") || fileName?.toLowerCase().endsWith(".txt")) {
+          try {
+            extractedDocumentText = buf.toString("utf-8");
+          } catch (e) {
+            console.warn("Text parse error:", e);
           }
         }
       }
     }
 
     const combinedText = [
-      resumeText ? `Provided Resume Raw Text:\n${resumeText}` : "",
-      extractedDocxText ? `Extracted Word Document Text:\n${extractedDocxText}` : ""
+      resumeText ? `Provided Client Raw Text:\n${resumeText}` : "",
+      extractedDocumentText ? `Extracted Full Document Raw Text:\n${extractedDocumentText}` : ""
     ].filter(Boolean).join("\n\n");
 
     const result = await callGeminiWithFallback(
       async (modelName) => {
         if (!ai) throw new Error("AI client is offline.");
 
-        const promptText = `You are an Executive ATS Resume Scanner & Document Parser.
-CRITICAL MANDATORY INSTRUCTION: Analyze the attached document file (PDF/Image/Text) and extract ALL ACTUAL candidate details into structured JSON.
-DO NOT substitute fake placeholders or generic sample text if real content is visible in the file.
-Extract the EXACT full name, job title/headline, contact email, phone, location, linkedin, github, summary paragraph, work experience entries (company names, job positions, dates, location, bullet point achievements), education details (school, degree, field, dates, GPA), projects, skills list, languages, certifications, and professional references.
+        const promptText = `You are RAHMORA's Executive ATS Resume Scanner & Document Parser.
+CRITICAL MANDATORY INSTRUCTION FOR COMPLETE RESUME EXTRACTION:
+Analyze the attached document (PDF/Image/Word/Text) and extract 100% OF ALL ACTUAL candidate details into structured JSON.
+DO NOT STOP AFTER THE TOP HEADER OR FIRST PAGE. You MUST parse every single page, section, job, education entry, skill, and bullet point from top to bottom.
+DO NOT substitute fake placeholders or generic sample text if real content is visible in the file or text below.
 
-${combinedText ? `--- DOCUMENT TEXT CONTENT ---\n${combinedText.slice(0, 15000)}\n--- END CONTENT ---` : ""}
+Extract:
+- EXACT Full Name, Job Title/Headline, Email, Phone, Location, Website, LinkedIn, GitHub
+- Summary paragraph / objective
+- Work Experience entries: company names, job titles, start/end dates, current status, locations, AND ALL bullet points/descriptions for EVERY job
+- Education entries: university/school, degree, field of study, start/end dates, GPA, location for EVERY school
+- Projects: project names, roles, dates, links, descriptions
+- Skills: comprehensive list of ALL technical, soft, and domain skills mentioned
+- Languages: name and proficiency for ALL languages
+- Certifications: name, issuer, date, URL
+- References: full reference contacts
+- Custom / Additional Sections: Volunteer Work, Publications, Awards, Patents, Coursework, Interests, etc.
+
+${combinedText ? `--- COMPLETE EXTRACTED DOCUMENT TEXT CONTENT ---\n${combinedText.slice(0, 30000)}\n--- END CONTENT ---` : ""}
 
 Perform THREE distinct tasks:
 
@@ -3778,6 +3805,7 @@ Extract ALL information from the uploaded resume into structured fields matching
 - languages: array of { id, name, proficiency }
 - certifications: array of { id, name, issuer, date, url }
 - references: array of { id, name, company, title, email, phone } (Extract all references or provide placeholder if missing)
+- customSections: array of { id, title, items: [{ id, heading, subheading, date, location, description }] } for any extra or custom sections in the candidate's resume (such as "Volunteer Work", "Publications", "Awards & Honors", "Patents", "Coursework", "Interests", etc.) so NO information is lost!
 
 TASK 2: COMPREHENSIVE SECTION-BY-SECTION DEFICIENCY AUDIT
 Evaluate the resume with reality-check standards:
@@ -3929,6 +3957,30 @@ Return JSON matching the schema.`;
                           title: { type: Type.STRING },
                           email: { type: Type.STRING },
                           phone: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    customSections: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          title: { type: Type.STRING },
+                          items: {
+                            type: Type.ARRAY,
+                            items: {
+                              type: Type.OBJECT,
+                              properties: {
+                                id: { type: Type.STRING },
+                                heading: { type: Type.STRING },
+                                subheading: { type: Type.STRING },
+                                date: { type: Type.STRING },
+                                location: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                              }
+                            }
+                          }
                         }
                       }
                     }

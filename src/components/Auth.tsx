@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain } from "lucide-react";
+import RahmoraLogo from "./RahmoraLogo";
 import { auth, db } from "../lib/firebase";
 import {
   signInWithEmailAndPassword,
@@ -619,18 +620,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
         {/* Top Header Navigation */}
         <header className="relative z-10 w-full max-w-6xl mx-auto flex items-center justify-between py-4 border-b border-slate-800/80">
-          <div className="flex items-center gap-3">
-            <div className="relative flex items-center justify-center h-10 w-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-400 p-[1.5px] shadow-lg shadow-indigo-500/20">
-              <div className="h-full w-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-indigo-400 animate-pulse" />
-              </div>
-            </div>
-            <div>
-              <span className="font-extrabold text-xl tracking-tight text-white font-display">
-                Rahmora<span className="text-indigo-400">AI</span>
-              </span>
-              <span className="text-[10px] text-slate-500 block font-mono">Career Intelligence Suite</span>
-            </div>
+          <div>
+            <RahmoraLogo size="md" />
+            <span className="text-[10px] text-slate-500 block font-mono mt-0.5">Career Intelligence Platform</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -670,10 +662,10 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           {/* Hero Headline */}
           <div className="space-y-4 max-w-3xl mx-auto">
             <h1 className="text-4xl sm:text-6xl font-black text-white font-display tracking-tight leading-[1.1]">
-              Elevate Your Career with <span className="bg-gradient-to-r from-white via-indigo-200 to-sky-400 bg-clip-text text-transparent">RahmoraAI</span>
+              Elevate Your Career with <span className="bg-gradient-to-r from-white via-indigo-200 to-teal-400 bg-clip-text text-transparent">RAHMORA</span>
             </h1>
             <p className="text-slate-400 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
-              Craft ATS-optimized CVs, generate tailored cover letters, and discover up to 10 matching area hiring employers in seconds with live intelligence.
+              Craft ATS-optimized CVs, generate tailored cover letters, and discover matching local area hiring employers in seconds with live intelligence.
             </p>
           </div>
 
@@ -717,9 +709,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 setIsLogin(false);
                 setShowLanding(false);
               }}
-              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 to-sky-500 hover:from-indigo-500 hover:to-sky-400 text-white font-bold text-sm rounded-2xl transition shadow-2xl shadow-indigo-500/25 flex items-center justify-center gap-2.5 group"
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-500 hover:from-indigo-500 hover:to-teal-400 text-white font-bold text-sm rounded-2xl transition shadow-2xl shadow-teal-500/20 flex items-center justify-center gap-2.5 group"
             >
-              <span>Get Started with RahmoraAI</span>
+              <span>Get Started with RAHMORA</span>
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition" />
             </button>
             <button
@@ -736,7 +728,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
         {/* Footer */}
         <footer className="relative z-10 w-full max-w-6xl mx-auto text-center py-4 border-t border-slate-850 text-xs text-slate-500 font-mono">
-          &copy; {new Date().getFullYear()} RahmoraAI. All rights reserved. Empowering careers worldwide.
+          &copy; {new Date().getFullYear()} RAHMORA. All rights reserved. Empowering global careers.
         </footer>
       </div>
     );
@@ -1094,23 +1086,19 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           onClick={() => setShowLanding(true)}
           className="mb-4 text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-semibold"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to RahmoraAI Intro
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to RAHMORA Intro
         </button>
 
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-sky-400 p-[1.5px] shadow-lg shadow-indigo-500/10 mb-3">
-            <div className="h-full w-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-indigo-400" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-bold text-white font-display">
-            {isLogin ? "Welcome to RahmoraAI" : "Create RahmoraAI Account"}
+          <RahmoraLogo size="lg" className="mb-2" />
+          <h2 className="text-xl font-bold text-white font-display mt-1">
+            {isLogin ? "Welcome to RAHMORA" : "Create RAHMORA Account"}
           </h2>
           <p className="text-slate-400 text-xs mt-1 text-center">
             {isLogin
-              ? "Sign in to access your intelligence dashboard & resume builder"
-              : "Register to unlock AI resume crafting and regional hiring insights"}
+              ? "Sign in to access your career intelligence suite & resume builder"
+              : "Register to unlock executive CV crafting and regional career insights"}
           </p>
         </div>
 
@@ -1251,7 +1239,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 I agree to the{" "}
                 <button
                   type="button"
-                  onClick={() => alert("Terms of Service: RahmoraAI protects your data with end-to-end encryption and respects user privacy.")}
+                  onClick={() => alert("Terms of Service: RAHMORA protects your data with end-to-end encryption and respects user privacy.")}
                   className="text-indigo-400 underline font-medium"
                 >
                   Terms of Service
@@ -1353,7 +1341,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 />
               </svg>
               <h3 className="text-sm font-bold text-slate-100 font-display">Sign in with Google</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">to continue securely to RahmoraAI</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">to continue securely to RAHMORA</p>
             </div>
 
             <form onSubmit={handleCustomGoogleSubmit} className="space-y-3.5">

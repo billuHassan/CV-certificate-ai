@@ -1409,6 +1409,222 @@ export default function ResumeBuilder({
                     </div>
                   )}
                 </div>
+
+                {/* 10. CUSTOM SECTIONS */}
+                <div className="border border-slate-800 rounded-xl bg-slate-900/40 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => handleSectionToggle("customSections")}
+                    className="w-full p-4 flex items-center justify-between text-left font-bold text-slate-200 hover:bg-slate-900/80 transition"
+                  >
+                    <span className="flex items-center gap-2 text-sm">
+                      <Sparkles className="h-4.5 w-4.5 text-indigo-400" /> Custom / Additional Sections ({(resume.customSections || []).length})
+                    </span>
+                    {openSection === "customSections" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
+
+                  {openSection === "customSections" && (
+                    <div className="p-4 border-t border-slate-800 space-y-4 bg-slate-950/40">
+                      {(resume.customSections || []).map((cs) => (
+                        <div key={cs.id} className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-3 relative group">
+                          <div className="flex items-center justify-between gap-2">
+                            <input
+                              type="text"
+                              value={cs.title}
+                              onChange={(e) => {
+                                setResume({
+                                  ...resume,
+                                  customSections: (resume.customSections || []).map(c => c.id === cs.id ? { ...c, title: e.target.value } : c)
+                                });
+                              }}
+                              placeholder="Section Title (e.g. Volunteer Work)"
+                              className="bg-slate-950 border border-slate-800 rounded p-2 text-xs font-bold text-indigo-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setResume({
+                                  ...resume,
+                                  customSections: (resume.customSections || []).filter(c => c.id !== cs.id)
+                                });
+                              }}
+                              className="text-slate-600 hover:text-rose-400 transition"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            {cs.items.map((item) => (
+                              <div key={item.id} className="p-3 bg-slate-900/60 border border-slate-800 rounded-lg space-y-2 relative">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setResume({
+                                      ...resume,
+                                      customSections: (resume.customSections || []).map(c => {
+                                        if (c.id === cs.id) {
+                                          return { ...c, items: c.items.filter(i => i.id !== item.id) };
+                                        }
+                                        return c;
+                                      })
+                                    });
+                                  }}
+                                  className="absolute top-2 right-2 text-slate-600 hover:text-rose-400"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+
+                                <div className="grid grid-cols-2 gap-2 pr-6">
+                                  <input
+                                    type="text"
+                                    value={item.heading || ""}
+                                    onChange={(e) => {
+                                      setResume({
+                                        ...resume,
+                                        customSections: (resume.customSections || []).map(c => {
+                                          if (c.id === cs.id) {
+                                            return {
+                                              ...c,
+                                              items: c.items.map(i => i.id === item.id ? { ...i, heading: e.target.value } : i)
+                                            };
+                                          }
+                                          return c;
+                                        })
+                                      });
+                                    }}
+                                    placeholder="Heading / Organization"
+                                    className="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.subheading || ""}
+                                    onChange={(e) => {
+                                      setResume({
+                                        ...resume,
+                                        customSections: (resume.customSections || []).map(c => {
+                                          if (c.id === cs.id) {
+                                            return {
+                                              ...c,
+                                              items: c.items.map(i => i.id === item.id ? { ...i, subheading: e.target.value } : i)
+                                            };
+                                          }
+                                          return c;
+                                        })
+                                      });
+                                    }}
+                                    placeholder="Subheading / Role"
+                                    className="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input
+                                    type="text"
+                                    value={item.date || ""}
+                                    onChange={(e) => {
+                                      setResume({
+                                        ...resume,
+                                        customSections: (resume.customSections || []).map(c => {
+                                          if (c.id === cs.id) {
+                                            return {
+                                              ...c,
+                                              items: c.items.map(i => i.id === item.id ? { ...i, date: e.target.value } : i)
+                                            };
+                                          }
+                                          return c;
+                                        })
+                                      });
+                                    }}
+                                    placeholder="Date / Year"
+                                    className="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.location || ""}
+                                    onChange={(e) => {
+                                      setResume({
+                                        ...resume,
+                                        customSections: (resume.customSections || []).map(c => {
+                                          if (c.id === cs.id) {
+                                            return {
+                                              ...c,
+                                              items: c.items.map(i => i.id === item.id ? { ...i, location: e.target.value } : i)
+                                            };
+                                          }
+                                          return c;
+                                        })
+                                      });
+                                    }}
+                                    placeholder="Location"
+                                    className="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white"
+                                  />
+                                </div>
+
+                                <textarea
+                                  value={item.description || ""}
+                                  onChange={(e) => {
+                                    setResume({
+                                      ...resume,
+                                      customSections: (resume.customSections || []).map(c => {
+                                        if (c.id === cs.id) {
+                                          return {
+                                            ...c,
+                                            items: c.items.map(i => i.id === item.id ? { ...i, description: e.target.value } : i)
+                                          };
+                                        }
+                                        return c;
+                                      })
+                                    });
+                                  }}
+                                  placeholder="Description..."
+                                  className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs font-mono text-white"
+                                  rows={2}
+                                />
+                              </div>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setResume({
+                                  ...resume,
+                                  customSections: (resume.customSections || []).map(c => {
+                                    if (c.id === cs.id) {
+                                      return {
+                                        ...c,
+                                        items: [...c.items, { id: crypto.randomUUID(), heading: "New Entry" }]
+                                      };
+                                    }
+                                    return c;
+                                  })
+                                });
+                              }}
+                              className="w-full py-1.5 border border-dashed border-slate-800 hover:border-slate-700 text-xs text-slate-400 hover:text-white rounded-lg transition"
+                            >
+                              + Add Item to {cs.title}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newCS = {
+                            id: crypto.randomUUID(),
+                            title: "Volunteer Work & Honors",
+                            items: [{ id: crypto.randomUUID(), heading: "Organization / Title", subheading: "Role / Details", date: "2023" }]
+                          };
+                          setResume({ ...resume, customSections: [...(resume.customSections || []), newCS] });
+                        }}
+                        className="w-full py-2.5 border border-dashed border-slate-800 hover:border-slate-600 hover:bg-slate-900/40 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add New Custom Section
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

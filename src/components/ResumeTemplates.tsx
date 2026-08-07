@@ -28,6 +28,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
     languages = [],
     certifications = [],
     references = [],
+    customSections = [],
     sectionsOrder = ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references"],
     templateId = "minimal",
     colorTheme = "#3b82f6", // Default blue
@@ -632,8 +633,82 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
           </div>
         );
 
-      default:
+      case "customSections": {
+        const cSections = customSections || [];
+        if (cSections.length === 0) return null;
+        return (
+          <div key="customSections" className="space-y-4">
+            {cSections.map((cs) => (
+              <div key={cs.id} className="break-inside-avoid">
+                <SectionHeader title={cs.title} />
+                <div className={itemSpacingClasses[spacing]}>
+                  {cs.items.map((item) => (
+                    <div key={item.id} className={`text-xs break-inside-avoid p-1.5 rounded ${config.styleCategory === 'modern-card' ? 'bg-white p-3 border border-slate-100 rounded-lg' : ''}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between font-bold text-slate-800">
+                        <span className={config.styleCategory === 'cyber' ? "text-[#00ff66]" : ""}>{item.heading}</span>
+                        {item.date && (
+                          <span className={`text-[10px] text-slate-500 font-normal ${config.styleCategory === 'cyber' ? "text-[#00ff66]/70" : ""}`}>
+                            {item.date}
+                          </span>
+                        )}
+                      </div>
+                      {(item.subheading || item.location) && (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 font-medium mt-0.5">
+                          {item.subheading && <span style={{ color: config.styleCategory !== 'cyber' ? colorTheme : undefined }}>{item.subheading}</span>}
+                          {item.location && <span className="italic font-normal">{item.location}</span>}
+                        </div>
+                      )}
+                      {item.description && (
+                        <p className={`text-slate-600 mt-1.5 leading-relaxed ${config.styleCategory === 'cyber' ? "text-[#00ff66]/85" : ""}`}>
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      default: {
+        const cSections = customSections || [];
+        const matchingCustom = cSections.find((c) => c.id === sectionId || c.title?.toLowerCase() === sectionId?.toLowerCase());
+        if (matchingCustom) {
+          return (
+            <div key={matchingCustom.id} className="break-inside-avoid">
+              <SectionHeader title={matchingCustom.title} />
+              <div className={itemSpacingClasses[spacing]}>
+                {matchingCustom.items.map((item) => (
+                  <div key={item.id} className={`text-xs break-inside-avoid p-1.5 rounded ${config.styleCategory === 'modern-card' ? 'bg-white p-3 border border-slate-100 rounded-lg' : ''}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between font-bold text-slate-800">
+                      <span className={config.styleCategory === 'cyber' ? "text-[#00ff66]" : ""}>{item.heading}</span>
+                      {item.date && (
+                        <span className={`text-[10px] text-slate-500 font-normal ${config.styleCategory === 'cyber' ? "text-[#00ff66]/70" : ""}`}>
+                          {item.date}
+                        </span>
+                      )}
+                    </div>
+                    {(item.subheading || item.location) && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 font-medium mt-0.5">
+                        {item.subheading && <span style={{ color: config.styleCategory !== 'cyber' ? colorTheme : undefined }}>{item.subheading}</span>}
+                        {item.location && <span className="italic font-normal">{item.location}</span>}
+                      </div>
+                    )}
+                    {item.description && (
+                      <p className={`text-slate-600 mt-1.5 leading-relaxed ${config.styleCategory === 'cyber' ? "text-[#00ff66]/85" : ""}`}>
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
         return null;
+      }
     }
   };
 
@@ -1222,6 +1297,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
             {sectionsOrder
               .filter((id) => id !== "skills" && id !== "languages") // Exclude sidebar components from main body
               .map((id) => renderSection(id))}
+            {!sectionsOrder.includes("customSections") && renderSection("customSections")}
           </div>
         </div>
       ) : (
@@ -1230,6 +1306,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
           {renderHeader()}
           <div className="space-y-5">
             {sectionsOrder.map((id) => renderSection(id))}
+            {!sectionsOrder.includes("customSections") && renderSection("customSections")}
           </div>
         </div>
       )}

@@ -66,6 +66,21 @@ export interface Reference {
   phone: string;
 }
 
+export interface CustomSectionItem {
+  id: string;
+  heading?: string;
+  subheading?: string;
+  date?: string;
+  location?: string;
+  description?: string;
+}
+
+export interface CustomSection {
+  id: string;
+  title: string;
+  items: CustomSectionItem[];
+}
+
 export interface ResumeData {
   id: string;
   title: string;
@@ -78,6 +93,7 @@ export interface ResumeData {
   languages: Language[];
   certifications: Certification[];
   references: Reference[];
+  customSections?: CustomSection[];
   sectionsOrder: string[]; // e.g., ['summary', 'experience', 'education', 'projects', 'skills', 'languages', 'certifications', 'references']
   templateId: string;
   colorTheme: string; // primary hex

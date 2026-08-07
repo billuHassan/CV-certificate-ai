@@ -23,6 +23,7 @@ import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
 import AIChat from "./components/AIChat";
 import UploadResumeModal from "./components/UploadResumeModal";
+import RahmoraLogo from "./components/RahmoraLogo";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, query, where } from "firebase/firestore";
@@ -932,10 +933,7 @@ export default function App() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-                <span className={`font-extrabold tracking-tight ${activeThemeObj.isDark ? "text-white" : "text-slate-900"} font-display text-lg`}>RahmoraAI</span>
-              </div>
+              <RahmoraLogo size="md" lightTheme={!activeThemeObj.isDark} />
               {isOfflineMode && (
                 <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[9px] font-semibold w-fit">
                   <Activity className="h-2.5 w-2.5 animate-pulse text-amber-500" />
