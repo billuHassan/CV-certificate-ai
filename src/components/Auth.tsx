@@ -609,7 +609,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     handleSelectGoogleAccount(customGoogleEmail.trim(), derivedName);
   };
 
-  // --- STARTUP / HERO SPLASH LANDING FOR RahmoraAI ---
+  // --- STARTUP / HERO SPLASH LANDING FOR RAHMORA ---
   if (showLanding) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-8 relative overflow-hidden font-sans">
@@ -648,24 +648,29 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         </header>
 
         {/* Main Hero Showcase */}
-        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-12 px-4 space-y-8">
+        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-10 px-4 space-y-8">
           
-          {/* Animated Logo Badge */}
-          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-indigo-500/30 text-indigo-300 text-xs font-mono font-semibold shadow-2xl backdrop-blur-md animate-fade-in">
-            <Cpu className="h-4 w-4 text-sky-400 animate-spin" />
-            <span>AI-POWERED RESUME & CAREER ARCHITECT</span>
-            <span className="bg-indigo-500/20 text-indigo-300 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase">
-              2026 Edition
+          {/* Prominent Hero RAHMORA Logo Emblem */}
+          <div className="pt-2">
+            <RahmoraLogo size="hero" />
+          </div>
+
+          {/* Animated Tech Tag */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-teal-500/30 text-teal-300 text-xs font-mono font-semibold shadow-2xl backdrop-blur-md">
+            <Cpu className="h-4 w-4 text-teal-400 animate-pulse" />
+            <span>AI-POWERED CAREER & RESUME INTELLIGENCE</span>
+            <span className="bg-teal-500/20 text-teal-300 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-teal-500/30 uppercase">
+              Pro Executive Edition
             </span>
           </div>
 
           {/* Hero Headline */}
           <div className="space-y-4 max-w-3xl mx-auto">
-            <h1 className="text-4xl sm:text-6xl font-black text-white font-display tracking-tight leading-[1.1]">
-              Elevate Your Career with <span className="bg-gradient-to-r from-white via-indigo-200 to-teal-400 bg-clip-text text-transparent">RAHMORA</span>
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-display tracking-tight leading-[1.15]">
+              Accelerate Your Career Trajectory with <span className="bg-gradient-to-r from-teal-300 via-indigo-200 to-emerald-400 bg-clip-text text-transparent">RAHMORA</span>
             </h1>
-            <p className="text-slate-400 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
-              Craft ATS-optimized CVs, generate tailored cover letters, and discover matching local area hiring employers in seconds with live intelligence.
+            <p className="text-slate-300 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
+              Craft ATS-optimized CVs, generate tailored cover letters, and discover matching local area hiring employers in seconds with executive AI intelligence.
             </p>
           </div>
 

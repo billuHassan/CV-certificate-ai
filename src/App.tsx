@@ -198,6 +198,14 @@ export default function App() {
     if (saved && THEMES.some((t) => t.id === saved)) return saved;
     return "fire";
   });
+  const [appFont, setAppFont] = useState<string>(() => {
+    return localStorage.getItem("rahmora_app_font") || "jakarta";
+  });
+
+  const handleFontChange = (fontId: string) => {
+    setAppFont(fontId);
+    localStorage.setItem("rahmora_app_font", fontId);
+  };
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
@@ -921,7 +929,7 @@ export default function App() {
   const glowClass = activeThemeObj.glowClass || (activeThemeObj.isDark ? "ambient-glow" : "ambient-glow-light");
 
   return (
-    <div className={`min-h-screen ${activeThemeObj.bgClass} flex flex-col md:flex-row font-sans transition-colors duration-300 relative overflow-x-hidden`}>
+    <div className={`min-h-screen ${activeThemeObj.bgClass} flex flex-col md:flex-row font-theme-${appFont} transition-colors duration-300 relative overflow-x-hidden`}>
       {/* Decorative Grid and Glow Backdrops */}
       <div className={`absolute inset-0 ${gridClass} pointer-events-none opacity-80 z-0`} />
       <div className={`absolute inset-0 ${glowClass} pointer-events-none z-0`} />
@@ -1375,6 +1383,8 @@ export default function App() {
               setCurrentTheme(themeId);
               localStorage.setItem("cvcraft_theme", themeId);
             }}
+            appFont={appFont}
+            onFontChange={handleFontChange}
           />
         )}
 

@@ -152,6 +152,74 @@ export const WORLD_LANGUAGES = [
   { name: "Malayalam (Malayalam)", code: "ml" }
 ];
 
+export interface FontDefinition {
+  id: string;
+  name: string;
+  subtitle: string;
+  category: string;
+  sampleText: string;
+  className: string;
+}
+
+export const FONT_OPTIONS: FontDefinition[] = [
+  {
+    id: "jakarta",
+    name: "Plus Jakarta Sans",
+    subtitle: "Modern Executive Sans",
+    category: "Sans-Serif (Default)",
+    sampleText: "RAHMORA Executive Intelligence & Career Architect",
+    className: "font-theme-jakarta"
+  },
+  {
+    id: "outfit",
+    name: "Outfit",
+    subtitle: "Sleek Geometric Tech",
+    category: "Geometric Sans",
+    sampleText: "RAHMORA Executive Intelligence & Career Architect",
+    className: "font-theme-outfit"
+  },
+  {
+    id: "playfair",
+    name: "Playfair Display",
+    subtitle: "Luxury High-End Serif",
+    category: "Editorial Serif",
+    sampleText: "RAHMORA Executive Intelligence & Career Architect",
+    className: "font-theme-playfair"
+  },
+  {
+    id: "syne",
+    name: "Syne",
+    subtitle: "Bold Creative Display",
+    category: "Avant-Garde Display",
+    sampleText: "RAHMORA Executive Intelligence & Career Architect",
+    className: "font-theme-syne"
+  },
+  {
+    id: "grotesk",
+    name: "Space Grotesk",
+    subtitle: "Technical Grotesk",
+    category: "Monospace Hybrid",
+    sampleText: "RAHMORA Executive Intelligence & Career Architect",
+    className: "font-theme-grotesk"
+  },
+  {
+    id: "cinzel",
+    name: "Cinzel",
+    subtitle: "Classic Leadership Roman",
+    category: "Executive Serif",
+    sampleText: "RAHMORA Executive Intelligence & Career Architect",
+    className: "font-theme-cinzel"
+  },
+  {
+    id: "inter",
+    name: "Inter",
+    subtitle: "Ultra Clean Minimalist",
+    category: "Neutral Sans",
+    sampleText: "RAHMORA Executive Intelligence & Career Architect",
+    className: "font-theme-inter"
+  }
+];
+
 interface SettingsProps {
   user: UserSession;
   resumes: ResumeData[];
@@ -161,6 +229,8 @@ interface SettingsProps {
   onUpdateUser: (updatedUser: UserSession) => void;
   currentTheme: string;
   onThemeChange: (themeId: string) => void;
+  appFont?: string;
+  onFontChange?: (fontId: string) => void;
 }
 
 export default function Settings({
@@ -171,7 +241,9 @@ export default function Settings({
   onImportBackup,
   onUpdateUser,
   currentTheme,
-  onThemeChange
+  onThemeChange,
+  appFont = "jakarta",
+  onFontChange
 }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<"profile" | "language" | "display" | "notifications">("profile");
 
@@ -991,6 +1063,67 @@ export default function Settings({
                 <span className="text-[11px] text-slate-400 leading-relaxed">
                   Selecting an elemental theme instantly updates all page layouts, top navigation headers, card surfaces, and control buttons across RAHMORA.
                 </span>
+              </div>
+
+              {/* SECTION 2: Application Typography Font Family */}
+              <div className="pt-6 border-t border-slate-800/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-100 font-display flex items-center gap-2">
+                      <span className="text-teal-400 text-lg">Aa</span> Global Application Typography Suite
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Customize the typography font family across the entire RAHMORA platform for optimal legibility and aesthetic elegance.
+                    </p>
+                  </div>
+                  <span className="text-[10px] bg-teal-500/10 border border-teal-500/20 text-teal-300 font-mono px-2.5 py-1 rounded-md font-bold uppercase">
+                    Live Dynamic Font Engine
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {FONT_OPTIONS.map((font) => {
+                    const isSelected = appFont === font.id;
+                    return (
+                      <button
+                        key={font.id}
+                        type="button"
+                        onClick={() => onFontChange?.(font.id)}
+                        className={`p-4 rounded-xl border text-left transition duration-200 group relative ${
+                          isSelected
+                            ? "bg-slate-950 border-teal-500 shadow-lg shadow-teal-500/10 ring-2 ring-teal-500/30"
+                            : "bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-950"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-xs font-bold text-white block">{font.name}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{font.subtitle}</span>
+                          </div>
+                          {isSelected ? (
+                            <span className="h-5 w-5 rounded-full bg-teal-500 text-slate-950 flex items-center justify-center shrink-0 shadow">
+                              <Check className="h-3.5 w-3.5 font-bold" />
+                            </span>
+                          ) : (
+                            <span className="text-[9px] text-slate-600 font-mono uppercase border border-slate-800 px-2 py-0.5 rounded">
+                              Apply
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Font Live Sample Preview Box */}
+                        <div className={`mt-3 p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 ${font.className}`}>
+                          <p className="text-xs font-bold text-teal-300 truncate">
+                            {font.sampleText}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            ABCDEFGHIJKLM 1234567890
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

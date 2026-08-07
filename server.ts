@@ -8,7 +8,30 @@ import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
 import mammoth from "mammoth";
 import * as pdfParseModule from "pdf-parse";
-const pdfParse: any = (pdfParseModule as any).default || pdfParseModule;
+
+async function parsePdfBuffer(buf: Buffer): Promise<string> {
+  try {
+    const mod: any = pdfParseModule;
+    const PDFParseClass = mod?.PDFParse || mod?.default?.PDFParse;
+    if (typeof PDFParseClass === "function") {
+      const parser = new PDFParseClass({ data: buf });
+      const text = await parser.getText();
+      if (typeof parser.destroy === "function") {
+        try { parser.destroy(); } catch (_) {}
+      }
+      return text || "";
+    }
+
+    const fn: any = typeof mod === "function" ? mod : mod?.default;
+    if (typeof fn === "function") {
+      const res = await fn(buf);
+      return res?.text || "";
+    }
+  } catch (err) {
+    console.warn("parsePdfBuffer error:", err);
+  }
+  return "";
+}
 import { initializeApp, getApps, App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import firebaseConfig from "./firebase-applet-config.json";
@@ -3726,9 +3749,9 @@ app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
             }
           };
           try {
-            const pdfRes = await pdfParse(buf);
-            if (pdfRes && pdfRes.text) {
-              extractedDocumentText = pdfRes.text;
+            const pdfText = await parsePdfBuffer(buf);
+            if (pdfText) {
+              extractedDocumentText = pdfText;
             }
           } catch (e) {
             console.warn("PDF parse error:", e);
