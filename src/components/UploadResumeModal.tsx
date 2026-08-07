@@ -122,6 +122,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
 
   // Active Tab View: "audit" | "edit" | "template" | "preview"
   const [activeView, setActiveView] = useState<"audit" | "edit" | "template" | "preview">("audit");
+  const [reAuditing, setReAuditing] = useState(false);
 
   // Load custom templates from localStorage on mount
   useEffect(() => {
@@ -343,7 +344,39 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
     }
   };
 
-  // 1-Click Apply Single Fix
+  // Trigger Real-Time AI Audit of current resume model
+  const handleReAuditWithAI = async () => {
+    if (!parsedResume) return;
+
+    setReAuditing(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/ai/audit-resume-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeData: parsedResume })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to re-audit resume content.");
+      }
+
+      const data = await response.json();
+      if (data.auditReport) {
+        setAuditReport(data.auditReport);
+        setSuccessMessage("Real-Time AI Resume Audit & ATS Score updated successfully!");
+        setTimeout(() => setSuccessMessage(null), 3500);
+      }
+    } catch (err: any) {
+      console.error("Re-audit error:", err);
+      setError(err.message || "Failed to complete AI audit.");
+    } finally {
+      setReAuditing(false);
+    }
+  };
+
+  // 1-Click Apply Single Fix across any section
   const handleApplyFix = (sectionKey: string, field: string, value: string) => {
     if (!parsedResume) return;
 
@@ -360,6 +393,12 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
       updated.experience = updated.experience.map((exp, idx) => idx === 0 ? { ...exp, [field]: value } : exp);
     } else if (sectionKey === "education" && updated.education.length > 0) {
       updated.education = updated.education.map((edu, idx) => idx === 0 ? { ...edu, [field]: value } : edu);
+    } else if (sectionKey === "projects" && updated.projects.length > 0) {
+      updated.projects = updated.projects.map((proj, idx) => idx === 0 ? { ...proj, [field]: value } : proj);
+    } else if (sectionKey === "certifications" && updated.certifications.length > 0) {
+      updated.certifications = updated.certifications.map((cert, idx) => idx === 0 ? { ...cert, [field]: value } : cert);
+    } else if (sectionKey === "languages" && updated.languages.length > 0) {
+      updated.languages = updated.languages.map((lang, idx) => idx === 0 ? { ...lang, [field]: value } : lang);
     }
 
     setParsedResume(updated);
@@ -413,6 +452,14 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         } else if (sec.sectionKey === "education" && updatedResume.education.length > 0) {
           updatedResume.education = updatedResume.education.map((edu, idx) =>
             idx === 0 ? { ...edu, [change.field]: change.suggestedValue } : edu
+          );
+        } else if (sec.sectionKey === "projects" && updatedResume.projects.length > 0) {
+          updatedResume.projects = updatedResume.projects.map((proj, idx) =>
+            idx === 0 ? { ...proj, [change.field]: change.suggestedValue } : proj
+          );
+        } else if (sec.sectionKey === "certifications" && updatedResume.certifications.length > 0) {
+          updatedResume.certifications = updatedResume.certifications.map((cert, idx) =>
+            idx === 0 ? { ...cert, [change.field]: change.suggestedValue } : cert
           );
         }
       });
@@ -820,16 +867,30 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                   </button>
                 </div>
 
-                {/* Prominent "Apply All Suggestions" Button */}
-                {auditReport && auditReport.sections.some(s => s.suggestedChanges?.length > 0) && (
+                <div className="flex items-center gap-2">
+                  {/* Re-run AI Real-Time Audit Button */}
                   <button
-                    onClick={handleApplyAllSuggestions}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 text-slate-950 hover:brightness-110 transition flex items-center gap-2 shadow-lg shadow-teal-500/20"
+                    type="button"
+                    onClick={handleReAuditWithAI}
+                    disabled={reAuditing}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 transition flex items-center gap-2 disabled:opacity-50"
                   >
-                    <Sparkles className="w-4 h-4 fill-slate-950" />
-                    Apply All AI Suggestions
+                    <RefreshCw className={`w-3.5 h-3.5 ${reAuditing ? "animate-spin text-teal-400" : ""}`} />
+                    {reAuditing ? "Analyzing Resume..." : "Re-run AI Real-Time Audit"}
                   </button>
-                )}
+
+                  {/* Prominent "Apply All Suggestions" Button */}
+                  {auditReport && auditReport.sections.some(s => s.suggestedChanges?.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={handleApplyAllSuggestions}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 text-slate-950 hover:brightness-110 transition flex items-center gap-2 shadow-lg shadow-teal-500/20"
+                    >
+                      <Sparkles className="w-4 h-4 fill-slate-950" />
+                      Apply All AI Suggestions
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* VIEW 1: AUDIT & ANALYSIS */}
@@ -1241,6 +1302,257 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                               className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
                             />
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Projects Section */}
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-teal-400">Projects ({parsedResume.projects?.length || 0})</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newProj: Project = {
+                            id: crypto.randomUUID(),
+                            name: "Project Name",
+                            role: "Lead Developer",
+                            startDate: "2023",
+                            endDate: "2024",
+                            url: "https://github.com/example/project",
+                            description: "Key project highlights and technical implementation details."
+                          };
+                          setParsedResume({ ...parsedResume, projects: [...(parsedResume.projects || []), newProj] });
+                        }}
+                        className="px-3 py-1 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 hover:bg-teal-500/30 transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Project
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(parsedResume.projects || []).map((proj, idx) => (
+                        <div key={proj.id} className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-300">Project #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParsedResume({
+                                  ...parsedResume,
+                                  projects: (parsedResume.projects || []).filter(p => p.id !== proj.id)
+                                });
+                              }}
+                              className="text-rose-400 hover:text-rose-300 text-xs p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={proj.name}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                projects: (parsedResume.projects || []).map(p => p.id === proj.id ? { ...p, name: e.target.value } : p)
+                              })}
+                              placeholder="Project Name"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={proj.role || ""}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                projects: (parsedResume.projects || []).map(p => p.id === proj.id ? { ...p, role: e.target.value } : p)
+                              })}
+                              placeholder="Your Role (e.g. Lead Developer)"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={proj.url || ""}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                projects: (parsedResume.projects || []).map(p => p.id === proj.id ? { ...p, url: e.target.value } : p)
+                              })}
+                              placeholder="Project Link / GitHub URL"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                value={proj.startDate || ""}
+                                onChange={(e) => setParsedResume({
+                                  ...parsedResume,
+                                  projects: (parsedResume.projects || []).map(p => p.id === proj.id ? { ...p, startDate: e.target.value } : p)
+                                })}
+                                placeholder="Start Date"
+                                className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                              />
+                              <input
+                                type="text"
+                                value={proj.endDate || ""}
+                                onChange={(e) => setParsedResume({
+                                  ...parsedResume,
+                                  projects: (parsedResume.projects || []).map(p => p.id === proj.id ? { ...p, endDate: e.target.value } : p)
+                                })}
+                                placeholder="End Date"
+                                className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                              />
+                            </div>
+                          </div>
+
+                          <textarea
+                            rows={2}
+                            value={proj.description}
+                            onChange={(e) => setParsedResume({
+                              ...parsedResume,
+                              projects: (parsedResume.projects || []).map(p => p.id === proj.id ? { ...p, description: e.target.value } : p)
+                            })}
+                            placeholder="Project achievements, technologies used, impact..."
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-100"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Certifications Section */}
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-teal-400">Certifications ({parsedResume.certifications?.length || 0})</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newCert: Certification = {
+                            id: crypto.randomUUID(),
+                            name: "AWS Certified Solutions Architect",
+                            issuer: "Amazon Web Services",
+                            date: "2023",
+                            url: ""
+                          };
+                          setParsedResume({ ...parsedResume, certifications: [...(parsedResume.certifications || []), newCert] });
+                        }}
+                        className="px-3 py-1 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 hover:bg-teal-500/30 transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Certification
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(parsedResume.certifications || []).map((cert, idx) => (
+                        <div key={cert.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-300">Certification #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParsedResume({
+                                  ...parsedResume,
+                                  certifications: (parsedResume.certifications || []).filter(c => c.id !== cert.id)
+                                });
+                              }}
+                              className="text-rose-400 hover:text-rose-300 text-xs p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <input
+                              type="text"
+                              value={cert.name}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                certifications: (parsedResume.certifications || []).map(c => c.id === cert.id ? { ...c, name: e.target.value } : c)
+                              })}
+                              placeholder="Certification Name"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={cert.issuer}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                certifications: (parsedResume.certifications || []).map(c => c.id === cert.id ? { ...c, issuer: e.target.value } : c)
+                              })}
+                              placeholder="Issuing Organization"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={cert.date}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                certifications: (parsedResume.certifications || []).map(c => c.id === cert.id ? { ...c, date: e.target.value } : c)
+                              })}
+                              placeholder="Issue Date"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Languages Section */}
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-teal-400">Languages ({parsedResume.languages?.length || 0})</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newLang: Language = {
+                            id: crypto.randomUUID(),
+                            name: "Language",
+                            proficiency: "Fluent"
+                          };
+                          setParsedResume({ ...parsedResume, languages: [...(parsedResume.languages || []), newLang] });
+                        }}
+                        className="px-3 py-1 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 hover:bg-teal-500/30 transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Language
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {(parsedResume.languages || []).map((lang) => (
+                        <div key={lang.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-2 text-xs">
+                          <input
+                            type="text"
+                            value={lang.name}
+                            onChange={(e) => setParsedResume({
+                              ...parsedResume,
+                              languages: (parsedResume.languages || []).map(l => l.id === lang.id ? { ...l, name: e.target.value } : l)
+                            })}
+                            placeholder="Language Name"
+                            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                          />
+                          <input
+                            type="text"
+                            value={lang.proficiency}
+                            onChange={(e) => setParsedResume({
+                              ...parsedResume,
+                              languages: (parsedResume.languages || []).map(l => l.id === lang.id ? { ...l, proficiency: e.target.value } : l)
+                            })}
+                            placeholder="Proficiency (e.g. Native, Fluent)"
+                            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setParsedResume({
+                                ...parsedResume,
+                                languages: (parsedResume.languages || []).filter(l => l.id !== lang.id)
+                              });
+                            }}
+                            className="text-rose-400 hover:text-rose-300 p-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
