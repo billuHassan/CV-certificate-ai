@@ -866,40 +866,62 @@ async function callGeminiWithFallback<T>(
   }
 
   const primaryModel = "gemini-3.6-flash";
+  let attempts = 2; // Up to 2 attempts for transient spikes (503)
 
-  try {
-    return await fn(primaryModel);
-  } catch (err: any) {
-    const errMsg = err?.message || String(err || "");
-    const status = err?.status || err?.statusCode || 0;
+  while (attempts > 0) {
+    try {
+      return await fn(primaryModel);
+    } catch (err: any) {
+      attempts--;
+      const errMsg = err?.message || String(err || "");
+      const status = err?.status || err?.statusCode || 0;
 
-    lastGeminiErrorDetails = {
-      message: errMsg,
-      status: status,
-      name: err?.name
-    };
+      lastGeminiErrorDetails = {
+        message: errMsg,
+        status: status,
+        name: err?.name
+      };
 
-    // If quota / auth limit encountered, set 60s cooldown and use local generator
-    if (
-      status === 429 ||
-      status === 401 ||
-      status === 403 ||
-      errMsg.includes("RESOURCE_EXHAUSTED") ||
-      errMsg.includes("quota") ||
-      errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
-      errMsg.includes("SERVICE_DISABLED")
-    ) {
-      if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-        geminiBlockedUntil = Date.now() + 60000; // 60s cooldown
-      } else {
-        geminiIsBlocked = true;
+      // Check if it's a quota or permanent auth error
+      if (
+        status === 429 ||
+        status === 401 ||
+        status === 403 ||
+        errMsg.includes("RESOURCE_EXHAUSTED") ||
+        errMsg.includes("quota") ||
+        errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
+        errMsg.includes("SERVICE_DISABLED")
+      ) {
+        if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+          geminiBlockedUntil = Date.now() + 60000; // 60s cooldown
+        } else {
+          geminiIsBlocked = true;
+        }
+        return fallbackGenerator();
       }
+
+      // If it's a transient server issue (503 / 502 / high demand / overloaded) and we have attempts left, wait briefly and retry
+      const isTransient =
+        status === 503 ||
+        status === 502 ||
+        status === 504 ||
+        errMsg.includes("503") ||
+        errMsg.includes("UNAVAILABLE") ||
+        errMsg.includes("high demand") ||
+        errMsg.includes("overloaded");
+
+      if (isTransient && attempts > 0) {
+        console.warn(`[Gemini API] Transient 503 high demand on ${primaryModel}. Retrying in 500ms...`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
+
+      console.warn(`[Gemini API] ${primaryModel} failed (${errMsg}). Seamlessly serving local dynamic response.`);
       return fallbackGenerator();
     }
-
-    console.warn(`[Gemini API] Request failed with ${primaryModel}. Using fallback generator.`, errMsg);
-    return fallbackGenerator();
   }
+
+  return fallbackGenerator();
 }
 
 // ----------------------------------------------------
