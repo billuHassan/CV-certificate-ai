@@ -263,8 +263,8 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
             id: `uploaded_${Date.now()}`,
             title: data.parsedResume?.title || file.name.replace(/\.[^/.]+$/, "") || "Uploaded Resume",
             personalInfo: {
-              fullName: data.parsedResume?.personalInfo?.fullName || "Candidate Name",
-              jobTitle: data.parsedResume?.personalInfo?.jobTitle || "Professional Title",
+              fullName: data.parsedResume?.personalInfo?.fullName || "",
+              jobTitle: data.parsedResume?.personalInfo?.jobTitle || "",
               email: data.parsedResume?.personalInfo?.email || "",
               phone: data.parsedResume?.personalInfo?.phone || "",
               location: data.parsedResume?.personalInfo?.location || "",

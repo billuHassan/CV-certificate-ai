@@ -3801,24 +3801,28 @@ app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
         if (!ai) throw new Error("AI client is offline.");
 
         const promptText = `You are RAHMORA's Executive ATS Resume Scanner & Document Parser.
-CRITICAL MANDATORY INSTRUCTION FOR COMPLETE RESUME EXTRACTION:
+CRITICAL MANDATORY INSTRUCTIONS FOR 100% COMPLETE & FAITHFUL RESUME EXTRACTION:
 Analyze the attached document (PDF/Image/Word/Text) and extract 100% OF ALL ACTUAL candidate details into structured JSON.
-DO NOT STOP AFTER THE TOP HEADER OR FIRST PAGE. You MUST parse every single page, section, job, education entry, skill, and bullet point from top to bottom.
-DO NOT substitute fake placeholders or generic sample text if real content is visible in the file or text below.
 
-Extract:
-- EXACT Full Name, Job Title/Headline, Email, Phone, Location, Website, LinkedIn, GitHub
-- Summary paragraph / objective
-- Work Experience entries: company names, job titles, start/end dates, current status, locations, AND ALL bullet points/descriptions for EVERY job
-- Education entries: university/school, degree, field of study, start/end dates, GPA, location for EVERY school
-- Projects: project names, roles, dates, links, descriptions
-- Skills: comprehensive list of ALL technical, soft, and domain skills mentioned
-- Languages: name and proficiency for ALL languages
-- Certifications: name, issuer, date, URL
-- References: full reference contacts
-- Custom / Additional Sections: Volunteer Work, Publications, Awards, Patents, Coursework, Interests, etc.
+CRITICAL NO-HALLUCINATION & NO-OMISSION RULES:
+1. DO NOT HALLUCINATE OR INVENT ANY INFORMATION NOT PRESENT IN THE DOCUMENT.
+2. DO NOT insert fake sample text, synthetic phone numbers, placeholder emails, or fake reference contacts. If a field is not present in the document, return an empty string "" or an empty array [].
+3. DO NOT OMIT OR TRUNCATE ANY SECTIONS OR PAGES. Parse every single page, section, job entry, school, project, skill, language, certification, and bullet point from top to bottom.
+4. Extract ALL text faithfully as written in the candidate's document.
 
-${combinedText ? `--- COMPLETE EXTRACTED DOCUMENT TEXT CONTENT ---\n${combinedText.slice(0, 30000)}\n--- END CONTENT ---` : ""}
+COMPREHENSIVE MULTI-CATEGORY EXTRACTION MANDATE:
+- Personal Info: Exact Full Name, Job Title/Headline, Email, Phone, Location, Website/Portfolio, LinkedIn URL, GitHub URL, Profile Photo (if present).
+- Summary: Complete professional profile / executive summary / objective statement.
+- Work Experience: Parse EVERY position listed. Include company, position title, location, start date, end date (or "Present"), current status, and ALL bullet points/descriptions for EVERY job without truncation.
+- Education: Parse EVERY school/university. Include school name, degree, field of study, start date, end date, current status, location, GPA (if stated), and any honors/coursework/description.
+- Projects: Parse EVERY project. Include project name, role, dates, repo/live URL, and complete description.
+- Skills: Extract a comprehensive list of ALL technical skills, software, tools, languages, frameworks, methodologies, domain capabilities, and soft skills mentioned anywhere across the document.
+- Languages: Name and proficiency for ALL languages listed.
+- Certifications: Name, issuer/organization, date/year, and credential URL for ALL certifications/licenses.
+- References: Extract ALL references explicitly listed in the document. If NO references are mentioned, return an empty array [].
+- Custom / Additional Sections: For ANY extra or non-standard sections (such as Volunteer Work, Publications, Awards & Honors, Patents, Coursework, Affiliations, Speaking Engagements, Hobbies, Interests, Clearances), create items in 'customSections' with exact section titles so ZERO information is lost!
+
+${combinedText ? `--- COMPLETE EXTRACTED DOCUMENT TEXT CONTENT ---\n${combinedText.slice(0, 100000)}\n--- END CONTENT ---` : ""}
 
 Perform THREE distinct tasks:
 
@@ -3827,13 +3831,13 @@ Extract ALL information from the uploaded resume into structured fields matching
 - personalInfo: fullName, jobTitle (or headline), email, phone, location, website, linkedin, github, profilePhoto
 - summary: professional profile/summary paragraph
 - experience: array of { id, company, position, startDate, endDate, current, location, description }
-- education: array of { id, school, degree, fieldOfStudy, startDate, endDate, current, location, gpa }
+- education: array of { id, school, degree, fieldOfStudy, startDate, endDate, current, location, gpa, description }
 - projects: array of { id, name, role, startDate, endDate, url, description }
 - skills: array of skill strings
 - languages: array of { id, name, proficiency }
 - certifications: array of { id, name, issuer, date, url }
-- references: array of { id, name, company, title, email, phone } (Extract all references or provide placeholder if missing)
-- customSections: array of { id, title, items: [{ id, heading, subheading, date, location, description }] } for any extra or custom sections in the candidate's resume (such as "Volunteer Work", "Publications", "Awards & Honors", "Patents", "Coursework", "Interests", etc.) so NO information is lost!
+- references: array of { id, name, company, title, email, phone } (ONLY extract real references present in document; return [] if none)
+- customSections: array of { id, title, items: [{ id, heading, subheading, date, location, description }] } for any extra or custom sections in the candidate's resume so NO information is lost!
 
 TASK 2: COMPREHENSIVE SECTION-BY-SECTION DEFICIENCY AUDIT
 Evaluate the resume with reality-check standards:
@@ -3850,7 +3854,7 @@ Evaluate the resume with reality-check standards:
   - sectionTitle
   - score (0-100)
   - status ("error" | "warning" | "success")
-  - deficiencies: array of specific issues found (e.g., "Missing phone number or email", "Experience bullet points lack metric achievements", "References section lacks email/phone contact details").
+  - deficiencies: array of specific issues found.
   - suggestedChanges: array of { field, currentValue, suggestedValue, explanation } providing 1-click auto-fix values for the section!
 
 TASK 3: TEMPLATE STYLE EXTRACTION
@@ -3930,7 +3934,8 @@ Return JSON matching the schema.`;
                           endDate: { type: Type.STRING },
                           current: { type: Type.BOOLEAN },
                           location: { type: Type.STRING },
-                          gpa: { type: Type.STRING }
+                          gpa: { type: Type.STRING },
+                          description: { type: Type.STRING }
                         }
                       }
                     },
