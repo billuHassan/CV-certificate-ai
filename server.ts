@@ -3929,26 +3929,25 @@ app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
         if (!ai) throw new Error("AI client is offline.");
 
         const promptText = `You are RAHMORA's Executive ATS Resume Scanner & Document Parser.
-CRITICAL MANDATORY INSTRUCTIONS FOR 100% COMPLETE & FAITHFUL RESUME EXTRACTION:
+CRITICAL MANDATORY INSTRUCTIONS FOR 100% COMPLETE & FAITHFUL RESUME EXTRACTION (ZERO-OMISSION MANDATE):
 Analyze the attached document (PDF/Image/Word/Text) and extract 100% OF ALL ACTUAL candidate details into structured JSON.
 
-CRITICAL NO-HALLUCINATION & NO-OMISSION RULES:
+ZERO-OMISSION & FAITHFULNESS DIRECTIVES:
 1. DO NOT HALLUCINATE OR INVENT ANY INFORMATION NOT PRESENT IN THE DOCUMENT.
 2. DO NOT insert fake sample text, synthetic phone numbers, placeholder emails, or fake reference contacts. If a field is not present in the document, return an empty string "" or an empty array [].
-3. DO NOT OMIT OR TRUNCATE ANY SECTIONS OR PAGES. Parse every single page, section, job entry, school, project, skill, language, certification, and bullet point from top to bottom.
-4. Extract ALL text faithfully as written in the candidate's document.
-
-COMPREHENSIVE MULTI-CATEGORY EXTRACTION MANDATE:
-- Personal Info: Exact Full Name, Job Title/Headline, Email, Phone, Location, Website/Portfolio, LinkedIn URL, GitHub URL, Profile Photo (if present).
-- Summary: Complete professional profile / executive summary / objective statement.
-- Work Experience: Parse EVERY position listed. Include company, position title, location, start date, end date (or "Present"), current status, and ALL bullet points/descriptions for EVERY job without truncation.
-- Education: Parse EVERY school/university. Include school name, degree, field of study, start date, end date, current status, location, GPA (if stated), and any honors/coursework/description.
-- Projects: Parse EVERY project. Include project name, role, dates, repo/live URL, and complete description.
-- Skills: Extract a comprehensive list of ALL technical skills, software, tools, languages, frameworks, methodologies, domain capabilities, and soft skills mentioned anywhere across the document.
-- Languages: Name and proficiency for ALL languages listed.
-- Certifications: Name, issuer/organization, date/year, and credential URL for ALL certifications/licenses.
-- References: Extract ALL references explicitly listed in the document. If NO references are mentioned, return an empty array [].
-- Custom / Additional Sections: For ANY extra or non-standard sections (such as Volunteer Work, Publications, Awards & Honors, Patents, Coursework, Affiliations, Speaking Engagements, Hobbies, Interests, Clearances), create items in 'customSections' with exact section titles so ZERO information is lost!
+3. DO NOT OMIT OR TRUNCATE ANY SECTIONS OR PAGES. Parse every single page, section, job entry, school, project, skill, language, certification, reference, and bullet point from top to bottom.
+4. MULTI-PAGE TOP-TO-BOTTOM MANDATE: If the document has multiple pages, continue parsing page 1, page 2, page 3, etc. without stopping or truncating until the very last word of the document is extracted.
+5. ALL SECTIONS EXTRACTION MANDATE:
+   - Personal Info: Exact Full Name, Job Title/Headline, Email, Phone, Location, Website/Portfolio, LinkedIn URL, GitHub URL, Profile Photo (if present).
+   - Summary: Complete professional profile / executive summary / objective statement.
+   - Work Experience: Parse EVERY SINGLE position listed across all pages. Include company, position title, location, start date, end date (or "Present"), current status, and ALL bullet points/descriptions for EVERY job without dropping or truncating any entry.
+   - Education: Parse EVERY school/university. Include school name, degree, field of study, start date, end date, current status, location, GPA (if stated), and any honors/coursework/description.
+   - Projects: Parse EVERY project. Include project name, role, dates, repo/live URL, and complete description.
+   - Skills: Extract a comprehensive list of ALL technical skills, software, tools, languages, frameworks, methodologies, domain capabilities, and soft skills mentioned anywhere across the entire document.
+   - Languages: Name and proficiency for ALL languages listed.
+   - Certifications: Name, issuer/organization, date/year, and credential URL for ALL certifications/licenses.
+   - References: Extract ALL references explicitly listed in the document. If NO references are mentioned, return an empty array [].
+   - Custom / Additional Sections: For ANY extra or non-standard sections (such as Volunteer Work, Publications, Awards & Honors, Patents, Coursework, Affiliations, Speaking Engagements, Hobbies, Interests, Clearances), create items in 'customSections' with exact section titles so ZERO information is lost!
 
 ${combinedText ? `--- COMPLETE EXTRACTED DOCUMENT TEXT CONTENT ---\n${combinedText.slice(0, 100000)}\n--- END CONTENT ---` : ""}
 
@@ -4678,25 +4677,56 @@ Return JSON schema:
         let suggestions: string[] = [];
 
         if (lastMsgLower.includes("summary") || lastMsgLower.includes("profile") || lastMsgLower.includes("about me") || lastMsgLower.includes("bio")) {
-          reply = `### Career Summary Strategy for ${roleStr} 🚀\n\nA strong summary immediately establishes your expertise and value proposition for a **${roleStr}** role:\n\n1. **Lead with Core Title & Tenure**: State your exact role name and years of hands-on impact.\n2. **Highlight High-Demand Skillsets**: Mention core tools, frameworks, and methodologies relevant to ${roleStr}.\n3. **Include Quantified Metrics**: Highlight concrete results (e.g., *'increased performance by 30%'* or *'reduced error rates by 40%'*).\n\n**Tailored Draft for Your Profile:**\n*"Results-driven **${roleStr}** with proven experience executing high-impact projects, optimizing operational workflows, and driving measurable team success. Skilled in modern industry methodologies and dedicated to continuous value delivery."*`;
+          reply = `### Career Summary Strategy for ${roleStr}\n\n` +
+            `A strong summary immediately establishes your expertise and value proposition for a ${roleStr} role:\n\n` +
+            `1. Lead with Core Title & Tenure: State your exact role name and years of hands-on impact.\n` +
+            `2. Highlight High-Demand Skillsets: Mention core tools, frameworks, and methodologies relevant to ${roleStr}.\n` +
+            `3. Include Quantified Metrics: Highlight concrete results.\n\n` +
+            `Tailored Draft for Your Profile:\n` +
+            `Results-driven ${roleStr} with proven experience executing high-impact projects, optimizing operational workflows, and driving measurable team success.`;
           suggestions = ["How do I add metrics?", "Suggest strong action verbs", "Mock interview prep"];
         } else if (lastMsgLower.includes("skill") || lastMsgLower.includes("tech") || lastMsgLower.includes("tool") || lastMsgLower.includes("stack")) {
-          reply = `### Key Skill & Technology Alignment for ${roleStr} 💡\n\nTo pass modern ATS filters and stand out to hiring managers for **${roleStr}** roles, prioritize these core skill categories:\n\n- **Core Technical Competencies**: Domain execution, system design, and specialized tools.\n- **Workflows & Methodologies**: Agile practices, process optimization, and standards compliance.\n- **Soft & Leadership Skills**: Cross-functional communication, stakeholder management, and problem solving.\n\n*Pro Tip:* For every skill listed on your resume, demonstrate its application in at least one work experience bullet point with measurable impact.`;
+          reply = `### Key Skill & Technology Alignment for ${roleStr}\n\n` +
+            `To pass modern ATS filters and stand out to hiring managers for ${roleStr} roles, prioritize these core skill categories:\n\n` +
+            `- Core Technical Competencies: Domain execution, system design, and specialized tools.\n` +
+            `- Workflows & Methodologies: Agile practices, process optimization, and standards compliance.\n` +
+            `- Soft & Leadership Skills: Cross-functional communication, stakeholder management, and problem solving.`;
           suggestions = ["List strong ATS action verbs", "Mock interview prep", "Optimize my target summary"];
         } else if (lastMsgLower.includes("verb") || lastMsgLower.includes("word") || lastMsgLower.includes("bullet") || lastMsgLower.includes("action")) {
-          reply = `### High-Impact ATS Action Verbs for ${roleStr} ⚡\n\nElevate your experience descriptions by replacing weak verbs like *"worked on"* or *"helped with"* with strong action words:\n\n- **Leadership & Ownership**: *Spearheaded*, *Orchestrated*, *Engineered*, *Championed*, *Directed*.\n- **Optimization & Efficiency**: *Streamlined*, *Accelerated*, *Consolidated*, *Automated*, *Optimized*.\n- **Impact & Growth**: *Maximized*, *Catalyzed*, *Transformed*, *Delivered*, *Expanded*.\n\n**Example Transformation:**\n- ❌ *Passive*: "Was responsible for helping the team finish projects on time."\n- **ATS-Pro**: "**Orchestrated** cross-functional project deliverables, **accelerating** deployment timelines by 25%."`;
+          reply = `### High-Impact ATS Action Verbs for ${roleStr}\n\n` +
+            `Elevate your experience descriptions by replacing weak verbs with strong action words:\n\n` +
+            `- Leadership & Ownership: Spearheaded, Orchestrated, Engineered, Championed, Directed.\n` +
+            `- Optimization & Efficiency: Streamlined, Accelerated, Consolidated, Automated, Optimized.\n` +
+            `- Impact & Growth: Maximized, Catalyzed, Transformed, Delivered, Expanded.`;
           suggestions = ["Optimize my target summary", "Mock interview prep", "Suggest top 5 skills"];
         } else if (lastMsgLower.includes("interview") || lastMsgLower.includes("star") || lastMsgLower.includes("prep") || lastMsgLower.includes("mock") || lastMsgLower.includes("behavioral")) {
-          reply = `### Strategic Interview Preparation for ${roleStr} 🎤\n\nWhen interviewing for a **${roleStr}** position, structure your answers using the **STAR** method:\n\n1. **S - Situation**: Briefly set the scene and context (15 seconds).\n2. **T - Task**: Describe the challenge or goal you needed to address (15 seconds).\n3. **A - Action**: Explain the specific steps and tools you personally used (60 seconds).\n4. **R - Result**: Share quantifiable achievements and lessons learned (30 seconds).\n\n**Top Questions to Prepare:**\n- *"Tell me about a complex project you led for a ${roleStr} role and how you handled roadblocks."*\n- *"How do you prioritize competing deadlines under pressure?"*`;
+          reply = `### Strategic Interview Preparation for ${roleStr}\n\n` +
+            `When interviewing for a ${roleStr} position, structure your answers using the STAR method:\n\n` +
+            `1. S - Situation: Briefly set the scene and context.\n` +
+            `2. T - Task: Describe the challenge or goal you needed to address.\n` +
+            `3. A - Action: Explain the specific steps and tools you personally used.\n` +
+            `4. R - Result: Share quantifiable achievements and lessons learned.`;
           suggestions = ["How to highlight leadership", "List strong ATS action verbs", "Salary negotiation tips"];
         } else if (lastMsgLower.includes("salary") || lastMsgLower.includes("negotiat") || lastMsgLower.includes("pay") || lastMsgLower.includes("offer") || lastMsgLower.includes("compensation")) {
-          reply = `### Salary Negotiation & Offer Strategy for ${roleStr} 💵\n\nMaximize your compensation package for a **${roleStr}** role with these research-backed steps:\n\n1. **Establish Market Benchmark**: Research salary bands for your role, location, and experience level using verified compensation databases.\n2. **Focus on Value Delivered**: Anchor your negotiation request on specific accomplishments and metrics from your career history.\n3. **Evaluate Total Rewards**: Look beyond base salary—consider sign-on bonuses, equity, performance incentives, flexible hours, and professional development allowances.\n\n**Sample Script:**\n*"Based on my experience in ${roleStr} initiatives and the value I will bring to the team, I am seeking a base salary in the range of $X, which aligns with market benchmarks for this level."*`;
+          reply = `### Salary Negotiation & Offer Strategy for ${roleStr}\n\n` +
+            `Maximize your compensation package for a ${roleStr} role with these research-backed steps:\n\n` +
+            `1. Establish Market Benchmark: Research salary bands for your role, location, and experience level.\n` +
+            `2. Focus on Value Delivered: Anchor your negotiation request on specific accomplishments and metrics.\n` +
+            `3. Evaluate Total Rewards: Look beyond base salary to total compensation.`;
           suggestions = ["How to handle counter-offers", "Suggest top 5 skills", "Mock interview prep"];
         } else if (lastMsgLower.includes("cover letter") || lastMsgLower.includes("application") || lastMsgLower.includes("letter")) {
-          reply = `### Executive Cover Letter Strategy for ${roleStr} ✉️\n\nA persuasive cover letter for a **${roleStr}** role should complement your resume by telling a compelling story:\n\n1. **Engaging Opening**: State the target role, why you are drawn to the company's mission, and your primary qualification.\n2. **Impact Core Paragraph**: Highlight 1-2 major achievements that directly solve key challenges mentioned in the job description.\n3. **Action-Oriented Closing**: Express enthusiastic alignment with company goals and invite a discussion.`;
+          reply = `### Executive Cover Letter Strategy for ${roleStr}\n\n` +
+            `A persuasive cover letter for a ${roleStr} role should complement your resume by telling a compelling story:\n\n` +
+            `1. Engaging Opening: State the target role and why you are drawn to the company's mission.\n` +
+            `2. Impact Core Paragraph: Highlight major achievements that solve key challenges.\n` +
+            `3. Action-Oriented Closing: Express enthusiastic alignment with company goals.`;
           suggestions = ["Generate a cover letter draft", "Optimize my target summary", "Suggest top 5 skills"];
         } else {
-          reply = `### Insights & Strategic Guidance for "${lastMsg}" 🎯\n\nRegarding your question about **"${lastMsg}"** for a **${roleStr}** role:\n\n1. **Direct Focus**: When addressing **"${lastMsg}"**, ensure your approach aligns directly with industry standards for a **${roleStr}**.\n2. **Actionable Implementation**: Incorporate measurable achievements, specific tools, and clear methodology into your resume and interview responses.\n3. **Key Strategic Step**: Clearly articulate *how* your background directly addresses the target employer's core needs.\n\nHow would you like to proceed? Select a suggestion below or ask a specific follow-up question!`;
+          reply = `### Insights & Strategic Guidance for ${lastMsg}\n\n` +
+            `Regarding your question about ${lastMsg} for a ${roleStr} role:\n\n` +
+            `1. Direct Focus: When addressing ${lastMsg}, ensure your approach aligns directly with industry standards for a ${roleStr}.\n` +
+            `2. Actionable Implementation: Incorporate measurable achievements, specific tools, and clear methodology.\n` +
+            `3. Key Strategic Step: Clearly articulate how your background directly addresses the target employer's core needs.`;
           suggestions = [
             `Tailor my ${roleStr} summary`,
             "Suggest high-impact skills",
@@ -4732,9 +4762,15 @@ app.post("/api/ai/analyze-image", async (req, res) => {
     if (customPrompt) {
       promptText = customPrompt;
     } else if (mode === "resume") {
-      promptText = `You are an expert OCR resume scanner and document parser using gemini-3.1-pro-preview.
-Analyze this photo/scan of a paper resume or CV document.
-Extract all structured data (Personal Info, Job Title, Professional Summary, Work Experience, Education, Skills, Projects) with high accuracy.
+      promptText = `You are RAHMORA's Executive OCR Resume Scanner & Document Parser using gemini-3.1-pro-preview.
+CRITICAL MANDATORY ZERO-OMISSION INSTRUCTION:
+Analyze this photo/scan/image of a paper resume or CV document from top to bottom.
+Extract 100% OF ALL ACTUAL candidate details into structured JSON without omitting or truncating any job experience, education, skills, projects, certifications, languages, references, or custom sections.
+
+ZERO-OMISSION RULES:
+1. Parse every page/section visible from top to bottom.
+2. Do not invent information not in the document.
+3. Extract all bullet points and descriptions for every single job entry.
 
 Return JSON matching this schema:
 {
