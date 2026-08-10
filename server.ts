@@ -878,7 +878,7 @@ if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") 
 }
 
 /**
- * Executes a Gemini request using recommended models with fallback (gemini-3.6-flash, gemini-2.5-flash, gemini-1.5-flash).
+ * Executes a Gemini request using recommended models with fallback (gemini-3.6-flash, gemini-3.1-pro-preview, gemini-3.1-flash-lite).
  * If quota or high demand (503) errors occur, it tries candidate models, then seamlessly falls back to the dynamic generator.
  */
 async function callGeminiWithFallback<T>(
@@ -893,7 +893,7 @@ async function callGeminiWithFallback<T>(
 
   const modelsToTry = preferredModels && preferredModels.length > 0
     ? preferredModels
-    : ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
+    : ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"];
 
   for (const modelName of modelsToTry) {
     let attempts = 2; // Up to 2 attempts per model for transient spikes
@@ -924,24 +924,25 @@ async function callGeminiWithFallback<T>(
         }
 
         if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-          geminiBlockedUntil = Date.now() + 30000; // 30s cooldown
-          // Break to try next candidate model or fallback
+          // Try next candidate model before applying block cooldown
           break;
         }
 
-        // If it's a transient server issue (503 / 502 / high demand / overloaded) and we have attempts left, wait briefly and retry
+        // If it's a transient server issue (503 / 502 / high demand / overloaded / 404 / UNAVAILABLE) and we have attempts left, wait briefly and retry
         const isTransient =
           status === 503 ||
           status === 502 ||
           status === 504 ||
+          status === 404 ||
           errMsg.includes("503") ||
           errMsg.includes("UNAVAILABLE") ||
           errMsg.includes("high demand") ||
-          errMsg.includes("overloaded");
+          errMsg.includes("overloaded") ||
+          errMsg.includes("not found");
 
         if (isTransient && attempts > 0) {
-          console.warn(`[Gemini API] Transient 503 high demand on ${modelName}. Retrying in 400ms...`);
-          await new Promise((resolve) => setTimeout(resolve, 400));
+          console.warn(`[Gemini API] Transient issue (${errMsg}) on ${modelName}. Retrying in 300ms...`);
+          await new Promise((resolve) => setTimeout(resolve, 300));
           continue;
         }
 
@@ -1710,7 +1711,7 @@ INSTRUCTION: You MUST adapt, rewrite, or refine the cover letter according to th
           keyKeywordsUsed: ["Strategic Execution", "Operational Leadership", "Technical Alignment"]
         };
       },
-      ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
     );
 
     res.json(result);
@@ -1825,7 +1826,7 @@ Return JSON matching schema:
           analysisSummary: `Analyzed resume profile for ${candidateName} (${candidateTitle}) and auto-drafted aligned cover letter.`
         };
       },
-      ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
     );
 
     res.json(result);
@@ -3435,7 +3436,7 @@ Return JSON matching the schema.`;
           ]
         };
       },
-      ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
     );
 
     res.json(result);
@@ -3512,7 +3513,7 @@ Return JSON matching this schema:
           recruiterFeedback: "Solid communication style! Ensure you emphasize the STAR 'Result' phase with numbers during your real interview."
         };
       },
-      ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
     );
 
     res.json(result);
@@ -4195,7 +4196,7 @@ Return JSON matching the schema.`;
           }
         };
       },
-      ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
     );
 
     res.json(result);
@@ -4757,7 +4758,7 @@ Return JSON matching this schema:
           };
         }
       },
-      ["gemini-3.1-pro-preview", "gemini-3.5-flash"]
+      ["gemini-3.1-pro-preview", "gemini-3.6-flash", "gemini-3.1-flash-lite"]
     );
 
     res.json(result);
