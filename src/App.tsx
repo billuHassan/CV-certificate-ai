@@ -543,6 +543,16 @@ export default function App() {
     };
   }, [user]);
 
+  const activeThemeObj = THEMES.find((t) => t.id === currentTheme) || THEMES[0];
+
+  useEffect(() => {
+    if (activeThemeObj.isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [activeThemeObj.isDark]);
+
   const handleAuthSuccess = (u: { email: string; displayName: string }) => {
     // Session is handled automatically by onAuthStateChanged subscription for real Firebase users.
     // If Firebase Auth is not signed in but we succeeded via fallback, let's configure local session.
@@ -924,12 +934,11 @@ export default function App() {
     };
     const effectiveLetter = activeLetter || fallbackLetter;
 
-  const activeThemeObj = THEMES.find((t) => t.id === currentTheme) || THEMES[0];
   const gridClass = activeThemeObj.isDark ? "subtle-grid" : "subtle-grid-light";
   const glowClass = activeThemeObj.glowClass || (activeThemeObj.isDark ? "ambient-glow" : "ambient-glow-light");
 
   return (
-    <div className={`min-h-screen ${activeThemeObj.bgClass} flex flex-col md:flex-row font-theme-${appFont} transition-colors duration-300 relative overflow-x-hidden`}>
+    <div data-theme={activeThemeObj.id} className={`min-h-screen ${activeThemeObj.bgClass} flex flex-col md:flex-row font-theme-${appFont} transition-colors duration-300 relative overflow-x-hidden ${activeThemeObj.textClass}`}>
       {/* Decorative Grid and Glow Backdrops */}
       <div className={`absolute inset-0 ${gridClass} pointer-events-none opacity-80 z-0`} />
       <div className={`absolute inset-0 ${glowClass} pointer-events-none z-0`} />
