@@ -3,7 +3,7 @@ import {
   Plus, FileText, Sparkles, Award, Trash2, Edit2, Copy, BarChart2, Check,
   ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle,
   FileSearch, Building2, Upload, Brain, ChevronLeft, ChevronRight, TrendingUp, Zap,
-  Target, ShieldCheck, ArrowUpRight, CheckCircle2
+  Target, ShieldCheck, ArrowUpRight, CheckCircle2, RefreshCw, Filter, Compass, Briefcase, UserCheck, X
 } from "lucide-react";
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { ThemeDefinition } from "./Settings";
@@ -53,6 +53,112 @@ export default function Dashboard({
 
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "resume" | "letter"; title: string } | null>(null);
   const tipsScrollRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic AI Career Tips State
+  const defaultTipsList = [
+    {
+      id: "tip_1",
+      category: "Bullet Formula",
+      title: "Google X-Y-Z Achievement Formula",
+      description: "Structure bullet points as: Accomplished [X] as measured by [Y], by doing [Z]. Always lead with measurable impact.",
+      action: "Example: 'Boosted deployment speed by 40% across 12 services by building automated CI/CD pipelines.'",
+      isPersonalized: false,
+    },
+    {
+      id: "tip_2",
+      category: "ATS Filter",
+      title: "Verbatim Keyword Mirroring",
+      description: "Scan target job descriptions and incorporate key technical skills and tools directly into your Skills and Experience sections.",
+      action: "Bypasses automated recruitment filters with 90%+ relevance.",
+      isPersonalized: false,
+    },
+    {
+      id: "tip_3",
+      category: "Quantification",
+      title: "Metrics in Every Work Role",
+      description: "Ensure every work experience entry includes at least 2 quantified numbers ($ figures, percentages, scale of users).",
+      action: "Quantified bullets double interview callback probabilities.",
+      isPersonalized: false,
+    },
+    {
+      id: "tip_4",
+      category: "Interview Prep",
+      title: "The STAR Framework Technique",
+      description: "Frame all behavioral interview responses around Situation (15%), Task (15%), Action (50%), and Result (20%).",
+      action: "Focus heavily on the Action and measurable Result.",
+      isPersonalized: false,
+    },
+    {
+      id: "tip_5",
+      category: "Outreach",
+      title: "The 3-Sentence Cold Outreach",
+      description: "Send direct, concise messages to hiring managers: 1 line compliment, 1 line value proposition, 1 simple call-to-action.",
+      action: "Generates 3x higher response rates than standard portals.",
+      isPersonalized: false,
+    },
+    {
+      id: "tip_6",
+      category: "Salary Strategy",
+      title: "Compensation Benchmarking",
+      description: "Research market rates on levels.fyi and Glassdoor before first recruiter calls. Let them state their range first.",
+      action: "Anchors negotiation in actual industry standard data.",
+      isPersonalized: false,
+    },
+    {
+      id: "tip_7",
+      category: "Elevator Pitch",
+      title: "The 30-Second Executive Intro",
+      description: "Prepare a crisp pitch: Target role + Core competency + Signature achievement + What excites you about the company.",
+      action: "Delivers an instant confident impression during opening questions.",
+      isPersonalized: false,
+    },
+    {
+      id: "tip_8",
+      category: "Follow-Up",
+      title: "24-Hour Thank You Note",
+      description: "Send a personalized email within 24 hours referencing 1 specific insight discussed during the interview.",
+      action: "Re-engages interviewers and demonstrates proactive commitment.",
+      isPersonalized: false,
+    }
+  ];
+
+  const [tipsList, setTipsList] = useState(defaultTipsList);
+  const [isGeneratingTips, setIsGeneratingTips] = useState(false);
+  const [tipFilter, setTipFilter] = useState<"all" | "personalized" | "general">("all");
+  const [targetIndustry, setTargetIndustry] = useState("Software & Technology");
+  const [selectedTipDetail, setSelectedTipDetail] = useState<any | null>(null);
+
+  const handleGenerateAiTips = async () => {
+    try {
+      setIsGeneratingTips(true);
+      const activeRes = resumes[0];
+      const response = await fetch("/api/ai/career-tips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume: activeRes,
+          targetIndustry,
+          focusArea: tipFilter
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.tips && Array.isArray(data.tips) && data.tips.length > 0) {
+          setTipsList(data.tips);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to generate AI career tips:", err);
+    } finally {
+      setIsGeneratingTips(false);
+    }
+  };
+
+  const filteredTips = tipsList.filter((tip) => {
+    if (tipFilter === "personalized") return tip.isPersonalized;
+    if (tipFilter === "general") return !tip.isPersonalized;
+    return true;
+  });
 
   const scrollTips = (direction: "left" | "right") => {
     if (tipsScrollRef.current) {
@@ -415,35 +521,120 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Dynamic Horizontally Scrollable Job Hunting Tips Carousel */}
+      {/* Dynamic Horizontally Scrollable Job Hunting & AI Career Tips Carousel */}
       <div className={`${cardBg} rounded-2xl p-6 space-y-4 shadow-xl border border-indigo-500/10`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0">
-              <BookOpen className="h-4 w-4" />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold shrink-0 shadow-md">
+              <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h3 className={`text-sm font-bold ${textPrimary} font-display`}>Dynamic Job Hunting & Career Tips</h3>
-              <p className={`text-[11px] ${textSecondary}`}>Scroll horizontally to explore tactical recruitment strategies</p>
+              <div className="flex items-center gap-2">
+                <h3 className={`text-base font-bold ${textPrimary} font-display`}>Dynamic Job Hunting & Career Tips</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 uppercase tracking-wider">
+                  AI Powered
+                </span>
+              </div>
+              <p className={`text-xs ${textSecondary}`}>
+                Dynamic general & AI-personalized career advice referring directly to {activeResume?.personalInfo?.fullName ? `${activeResume.personalInfo.fullName}'s (${activeResume.personalInfo.jobTitle || 'Profile'})` : 'your resume background'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Target Industry Selector */}
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <select
+                value={targetIndustry}
+                onChange={(e) => setTargetIndustry(e.target.value)}
+                className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+              >
+                <option value="Software & Technology" className="dark:bg-slate-900">Software & Tech</option>
+                <option value="Finance & Banking" className="dark:bg-slate-900">Finance & Banking</option>
+                <option value="Healthcare & Biotech" className="dark:bg-slate-900">Healthcare & Biotech</option>
+                <option value="Executive Management" className="dark:bg-slate-900">Executive Management</option>
+                <option value="Marketing & Creative" className="dark:bg-slate-900">Marketing & Creative</option>
+                <option value="Sales & Business Dev" className="dark:bg-slate-900">Sales & Business Dev</option>
+                <option value="General Professional" className="dark:bg-slate-900">General Professional</option>
+              </select>
+            </div>
+
+            {/* AI Generate Button */}
             <button
-              onClick={() => scrollTips("left")}
-              className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
-              title="Scroll left"
+              onClick={handleGenerateAiTips}
+              disabled={isGeneratingTips}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/20 transition flex items-center gap-2 disabled:opacity-50"
             >
-              <ChevronLeft className="h-4 w-4" />
+              {isGeneratingTips ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Generating AI Tips...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                  Generate Fresh AI Tips
+                </>
+              )}
             </button>
-            <button
-              onClick={() => scrollTips("right")}
-              className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
-              title="Scroll right"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+
+            {/* Scroll Nav Buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => scrollTips("left")}
+                className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
+                title="Scroll left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => scrollTips("right")}
+                className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
+                title="Scroll right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-800/80">
+          <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+            <Filter className="w-3 h-3" /> Filter:
+          </span>
+          <button
+            onClick={() => setTipFilter("all")}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+              tipFilter === "all"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            All Tips ({tipsList.length})
+          </button>
+          <button
+            onClick={() => setTipFilter("personalized")}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              tipFilter === "personalized"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+            AI Personalized ({tipsList.filter(t => t.isPersonalized).length})
+          </button>
+          <button
+            onClick={() => setTipFilter("general")}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+              tipFilter === "general"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            General Strategies ({tipsList.filter(t => !t.isPersonalized).length})
+          </button>
         </div>
 
         {/* Scrollable Container */}
@@ -451,21 +642,43 @@ export default function Dashboard({
           ref={tipsScrollRef}
           className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory"
         >
-          {jobTipsList.map((tip, idx) => (
+          {filteredTips.map((tip, idx) => (
             <div
-              key={idx}
-              className={`min-w-[280px] sm:min-w-[320px] max-w-[340px] p-4 ${subCardBg} rounded-xl space-y-2.5 snap-start shrink-0 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/40 transition shadow-sm`}
+              key={tip.id || idx}
+              className={`min-w-[290px] sm:min-w-[330px] max-w-[350px] p-4.5 ${subCardBg} rounded-xl space-y-3 snap-start shrink-0 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 transition shadow-sm relative group flex flex-col justify-between`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
-                  {tip.category}
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">Tip #{idx + 1}</span>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                    {tip.category}
+                  </span>
+                  {tip.isPersonalized ? (
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Zap className="w-2.5 h-2.5 fill-emerald-400" /> Tailored
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-mono">General</span>
+                  )}
+                </div>
+
+                <h4 className={`text-xs font-bold ${textPrimary} leading-snug group-hover:text-indigo-400 transition`}>
+                  {tip.title}
+                </h4>
+                <p className={`text-xs ${textSecondary} leading-relaxed line-clamp-3`}>
+                  {tip.description}
+                </p>
               </div>
-              <h4 className={`text-xs font-bold ${textPrimary}`}>{tip.title}</h4>
-              <p className={`text-xs ${textSecondary} leading-relaxed`}>{tip.description}</p>
-              <div className="pt-1.5 border-t border-slate-200 dark:border-slate-800/80 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                ⚡ {tip.action}
+
+              <div className="pt-2.5 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium line-clamp-2">
+                  ⚡ {tip.action}
+                </div>
+                <button
+                  onClick={() => setSelectedTipDetail(tip)}
+                  className="w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/10 transition flex items-center justify-center gap-1 border border-indigo-500/20"
+                >
+                  <BookOpen className="w-3 h-3" /> View Action Plan
+                </button>
               </div>
             </div>
           ))}
@@ -763,6 +976,80 @@ export default function Dashboard({
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-lg"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- AI TIP DETAIL MODAL --- */}
+      {selectedTipDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className={`w-full max-w-xl ${modalBg} rounded-2xl p-6 shadow-2xl space-y-5 border border-indigo-500/20 max-h-[90vh] overflow-y-auto`}>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center shrink-0 font-bold">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                      {selectedTipDetail.category}
+                    </span>
+                    {selectedTipDetail.isPersonalized ? (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Zap className="w-2.5 h-2.5 fill-emerald-400" /> Tailored Strategy
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-mono">General Best Practice</span>
+                    )}
+                  </div>
+                  <h3 className={`text-base font-bold ${textPrimary} mt-1`}>{selectedTipDetail.title}</h3>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedTipDetail(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className={`p-4 ${subCardBg} rounded-xl space-y-2 border border-slate-200 dark:border-slate-800`}>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">Strategic Overview</h4>
+                <p className={`text-xs ${textPrimary} leading-relaxed`}>{selectedTipDetail.description}</p>
+              </div>
+
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+                <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" /> Immediate Action Step
+                </h4>
+                <p className="text-xs text-slate-700 dark:text-emerald-100 font-medium leading-relaxed">
+                  {selectedTipDetail.action}
+                </p>
+              </div>
+
+              {activeResume && (
+                <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-2">
+                  <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    <Target className="w-4 h-4" /> Tailored Application to Your Resume
+                  </h4>
+                  <p className="text-xs text-slate-700 dark:text-indigo-200 leading-relaxed">
+                    Referencing <strong>{activeResume.personalInfo?.fullName || "Candidate"}</strong> ({activeResume.personalInfo?.jobTitle || "Professional"}): Implement this strategy across your top work experiences to improve hiring response probability.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSelectedTipDetail(null)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg"
+              >
+                Got It, Apply Strategy
               </button>
             </div>
           </div>

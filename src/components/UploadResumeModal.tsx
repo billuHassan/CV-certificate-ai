@@ -105,6 +105,8 @@ export const PRESET_TEMPLATES = [
 ];
 
 export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }: UploadResumeModalProps) {
+  const [inputMode, setInputMode] = useState<"file" | "paste">("file");
+  const [pastedText, setPastedText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -202,6 +204,96 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
   };
 
   const processResumeUpload = async () => {
+    if (inputMode === "paste") {
+      if (!pastedText.trim()) {
+        setError("Please paste or type your full resume content first.");
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      setSuccessMessage(null);
+      setTemplateStatusNotice(null);
+      setLoadingStep("AI Scanning pasted resume text & extracting 100% of fields...");
+
+      try {
+        const response = await fetch("/api/ai/parse-and-audit-resume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resumeText: pastedText,
+            fileName: "Pasted Resume.txt"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to parse pasted resume content.");
+        }
+
+        const data = await response.json();
+        setLoadingStep("Running ATS Reality Audit & Template Deduplication check...");
+
+        let activeTemplateId = "minimal";
+        if (data.extractedTemplateStyle) {
+          const deduplicationResult = deduplicateAndSaveTemplate(data.extractedTemplateStyle);
+          activeTemplateId = deduplicationResult.finalId;
+        }
+
+        const fullData: ResumeData = {
+          id: `uploaded_${Date.now()}`,
+          title: data.parsedResume?.title || "Pasted Resume Content",
+          personalInfo: {
+            fullName: data.parsedResume?.personalInfo?.fullName || "",
+            jobTitle: data.parsedResume?.personalInfo?.jobTitle || "",
+            email: data.parsedResume?.personalInfo?.email || "",
+            phone: data.parsedResume?.personalInfo?.phone || "",
+            location: data.parsedResume?.personalInfo?.location || "",
+            website: data.parsedResume?.personalInfo?.website || "",
+            linkedin: data.parsedResume?.personalInfo?.linkedin || "",
+            github: data.parsedResume?.personalInfo?.github || "",
+            profilePhoto: data.parsedResume?.personalInfo?.profilePhoto || ""
+          },
+          summary: data.parsedResume?.summary || "",
+          experience: (data.parsedResume?.experience || []).map((e: any) => ({ ...e, id: e.id || crypto.randomUUID() })),
+          education: (data.parsedResume?.education || []).map((e: any) => ({ ...e, id: e.id || crypto.randomUUID() })),
+          projects: (data.parsedResume?.projects || []).map((p: any) => ({ ...p, id: p.id || crypto.randomUUID() })),
+          skills: data.parsedResume?.skills || [],
+          languages: (data.parsedResume?.languages || []).map((l: any) => ({ ...l, id: l.id || crypto.randomUUID() })),
+          certifications: (data.parsedResume?.certifications || []).map((c: any) => ({ ...c, id: c.id || crypto.randomUUID() })),
+          references: (data.parsedResume?.references || []).map((r: any) => ({ ...r, id: r.id || crypto.randomUUID() })),
+          customSections: (data.parsedResume?.customSections || []).map((cs: any) => ({
+            id: cs.id || crypto.randomUUID(),
+            title: cs.title || "Custom Section",
+            items: (cs.items || []).map((item: any) => ({
+              id: item.id || crypto.randomUUID(),
+              heading: item.heading || "",
+              subheading: item.subheading || "",
+              date: item.date || "",
+              location: item.location || "",
+              description: item.description || ""
+            }))
+          })),
+          sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references", "customSections"],
+          templateId: activeTemplateId,
+          colorTheme: data.extractedTemplateStyle?.colorTheme || "#0f766e",
+          fontFamily: data.extractedTemplateStyle?.fontFamily || "font-sans",
+          spacing: "comfortable",
+          layoutMode: "auto",
+          updatedAt: new Date().toISOString()
+        };
+
+        setParsedResume(fullData);
+        setAuditReport(data.auditReport);
+        setExtractedStyle(data.extractedTemplateStyle);
+        setActiveView("edit");
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Failed to process pasted resume text.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!file) return;
 
     setLoading(true);
@@ -640,73 +732,125 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
           {!parsedResume ? (
             /* Active Upload Screen */
-            <div className="max-w-2xl mx-auto space-y-6">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => { setIsDragging(false); handleDrop(e); }}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition cursor-pointer relative ${
-                  isDragging
-                    ? "border-teal-400 bg-teal-500/10 scale-[1.01]"
-                    : file
-                    ? "border-emerald-500/60 bg-emerald-950/20"
-                    : "border-slate-700 bg-slate-900/50 hover:border-teal-500/50 hover:bg-slate-900/80"
-                }`}
-              >
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border transition ${
-                  file ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-teal-400 border-slate-700"
-                }`}>
-                  {file ? <FileCheck className="w-8 h-8 text-emerald-400" /> : <Upload className="w-8 h-8 text-teal-400" />}
-                </div>
-
-                {file ? (
-                  <div className="space-y-2">
-                    <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2.5 py-1 rounded-full inline-block">
-                      File Ready for Scanning
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-100 break-all">
-                      {file.name}
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type || "Document"}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFile(null);
-                      }}
-                      className="text-xs text-rose-400 hover:text-rose-300 underline font-medium mt-2 inline-block"
-                    >
-                      Remove & Choose Different File
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-200">
-                      Drag & Drop your Resume here or <span className="text-teal-400 underline">Browse Files</span>
-                    </h3>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                      Supports PDF, DOCX, TXT, PNG, JPG documents. Multi-layer parsing extracts full work experience, education, skills, and layout design automatically.
-                    </p>
-                    <div className="pt-3 flex flex-wrap justify-center gap-2 text-[11px] font-mono text-slate-400">
-                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ PDF & DOCX</span>
-                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ ATS Audit</span>
-                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ Template Match</span>
-                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ 1-Click Fix</span>
-                    </div>
-                  </div>
-                )}
+            <div className="max-w-2xl mx-auto space-y-5">
+              {/* Mode Switcher Tabs */}
+              <div className="flex items-center gap-2 p-1 bg-slate-950/70 border border-slate-800 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => { setInputMode("file"); setError(null); }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 ${
+                    inputMode === "file"
+                      ? "bg-gradient-to-r from-teal-500/20 to-emerald-500/20 text-teal-300 border border-teal-500/30 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Upload className="w-4 h-4 text-teal-400" /> Upload Document File (.pdf, .docx, .png)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setInputMode("paste"); setError(null); }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 ${
+                    inputMode === "paste"
+                      ? "bg-gradient-to-r from-teal-500/20 to-emerald-500/20 text-teal-300 border border-teal-500/30 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <FileText className="w-4 h-4 text-teal-400" /> Direct Text Paste (Guaranteed 100% Extraction)
+                </button>
               </div>
+
+              {inputMode === "file" ? (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => { setIsDragging(false); handleDrop(e); }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition cursor-pointer relative ${
+                      isDragging
+                        ? "border-teal-400 bg-teal-500/10 scale-[1.01]"
+                        : file
+                        ? "border-emerald-500/60 bg-emerald-950/20"
+                        : "border-slate-700 bg-slate-900/50 hover:border-teal-500/50 hover:bg-slate-900/80"
+                    }`}
+                  >
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border transition ${
+                      file ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-teal-400 border-slate-700"
+                    }`}>
+                      {file ? <FileCheck className="w-8 h-8 text-emerald-400" /> : <Upload className="w-8 h-8 text-teal-400" />}
+                    </div>
+
+                    {file ? (
+                      <div className="space-y-2">
+                        <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2.5 py-1 rounded-full inline-block">
+                          File Ready for Scanning
+                        </span>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-100 break-all">
+                          {file.name}
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type || "Document"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFile(null);
+                          }}
+                          className="text-xs text-rose-400 hover:text-rose-300 underline font-medium mt-2 inline-block"
+                        >
+                          Remove & Choose Different File
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <h3 className="text-base sm:text-lg font-bold text-slate-200">
+                          Drag & Drop your Resume here or <span className="text-teal-400 underline">Browse Files</span>
+                        </h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                          Supports PDF, DOCX, TXT, PNG, JPG documents. Multi-layer parsing extracts full work experience, education, skills, and layout design automatically.
+                        </p>
+                        <div className="pt-3 flex flex-wrap justify-center gap-2 text-[11px] font-mono text-slate-400">
+                          <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ PDF & DOCX</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ ATS Audit</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ Template Match</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">✓ 1-Click Fix</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Paste Text Area */
+                <div className="space-y-3 bg-slate-900/80 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-teal-300 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-teal-400" /> Paste Raw Resume Text / CV Content
+                    </label>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {pastedText.length.toLocaleString()} characters
+                    </span>
+                  </div>
+                  <textarea
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                    rows={12}
+                    placeholder="Paste full text of your resume or CV here (including summary, work experience, education, skills, references, and custom sections)..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs font-mono text-slate-200 focus:outline-none focus:border-teal-500/50 resize-y leading-relaxed placeholder:text-slate-600"
+                  />
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    💡 <strong>Tip:</strong> Pasting your raw resume text directly bypasses any PDF layout formatting quirks and guarantees 100% complete field-by-field extraction with zero omissions!
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-3">
@@ -733,10 +877,10 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                 </button>
                 <button
                   type="button"
-                  disabled={!file || loading}
+                  disabled={loading || (inputMode === "file" ? !file : !pastedText.trim())}
                   onClick={processResumeUpload}
                   className={`px-6 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
-                    !file || loading
+                    loading || (inputMode === "file" ? !file : !pastedText.trim())
                       ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
                       : "bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold hover:shadow-lg hover:shadow-teal-500/25 active:scale-95"
                   }`}

@@ -2493,6 +2493,134 @@ app.post("/api/ai/career-recommendation", async (req, res) => {
   }
 });
 
+// 6.28 AI Dynamic Job Hunting & Career Tips Generator
+app.post("/api/ai/career-tips", async (req, res) => {
+  try {
+    serverStats.totalRequests++;
+    const { resume, targetIndustry, focusArea } = req.body;
+
+    const candidateTitle = resume?.personalInfo?.jobTitle || "Professional";
+    const candidateName = resume?.personalInfo?.fullName || "Candidate";
+    const skillsText = (resume?.skills || []).join(", ");
+    const experienceSummary = (resume?.experience || [])
+      .map((e: any) => `${e.position} at ${e.company} (${e.description || ""})`)
+      .slice(0, 4)
+      .join("; ");
+
+    const promptText = `You are RAHMORA's Chief Career Strategist & Executive Talent Advisor.
+Generate a structured, highly actionable collection of 8 to 10 dynamic, tactical job hunting and career advancement tips.
+
+Requirements:
+1. Include GENERAL job hunting strategies (e.g. ATS optimization, salary negotiation, STAR interview techniques, networking outreach).
+2. If candidate resume details are provided below, generate at least 4-5 PERSONALIZED tips specifically tailored to the candidate's background (${candidateTitle}, Skills: ${skillsText || "General"}, Experience: ${experienceSummary || "Entry/Mid level"}).
+${targetIndustry ? `3. Target Industry focus: ${targetIndustry}` : ""}
+${focusArea ? `4. Focus area highlight: ${focusArea}` : ""}
+
+Each tip MUST be clear, practical, non-generic, and provide a concrete example or ⚡ action step.
+
+Return JSON matching the schema with an array 'tips'.`;
+
+    const schema = {
+      type: Type.OBJECT,
+      properties: {
+        tips: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              category: { type: Type.STRING },
+              title: { type: Type.STRING },
+              description: { type: Type.STRING },
+              action: { type: Type.STRING },
+              isPersonalized: { type: Type.BOOLEAN }
+            },
+            required: ["id", "category", "title", "description", "action", "isPersonalized"]
+          }
+        }
+      },
+      required: ["tips"]
+    };
+
+    const result = await callGeminiWithFallback<{ tips: any[] }>(
+      async (modelName) => {
+        if (!ai) throw new Error("AI client is offline.");
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: promptText,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: schema,
+            temperature: 0.7
+          }
+        });
+        const text = response.text || "";
+        return JSON.parse(text);
+      },
+      () => {
+        return {
+          tips: [
+            {
+              id: "tip_gen_1",
+              category: "Bullet Strategy",
+              title: "Google X-Y-Z Achievement Formula",
+              description: "Structure bullet points as: Accomplished [X] as measured by [Y], by doing [Z]. Always lead with quantified impact.",
+              action: "Example: 'Boosted deployment speed by 40% across 12 services by building automated CI/CD pipelines.'",
+              isPersonalized: false
+            },
+            {
+              id: "tip_pers_1",
+              category: "Personalized Strategy",
+              title: `High-Impact Positioning for ${candidateTitle}`,
+              description: `As a ${candidateTitle}, align your top bullet points with measurable outcome keywords relevant to ${skillsText.slice(0, 30) || "your core domain"}.`,
+              action: `Highlight signature projects matching high-demand requirements in ${targetIndustry || "your target field"}.`,
+              isPersonalized: true
+            },
+            {
+              id: "tip_gen_2",
+              category: "ATS Optimization",
+              title: "Exact Keyword Mirroring",
+              description: "Scan target job descriptions and incorporate exact tool names and key phrases directly into your Skills and Experience sections.",
+              action: "Bypasses automated recruitment screeners with a 90%+ match rate.",
+              isPersonalized: false
+            },
+            {
+              id: "tip_pers_2",
+              category: "Personalized Outreach",
+              title: `Targeted Networking for ${candidateName}`,
+              description: `Connect directly with Engineering/Hiring Managers hiring for ${candidateTitle} roles on LinkedIn rather than relying solely on job boards.`,
+              action: "Send a 3-sentence note highlighting 1 relevant achievement from your recent experience.",
+              isPersonalized: true
+            },
+            {
+              id: "tip_gen_3",
+              category: "Interview Prep",
+              title: "STAR Framework Strategy",
+              description: "Structure behavioral responses as Situation (15%), Task (15%), Action (50%), and Result (20%). Focus heavily on what YOU did.",
+              action: "Prepare 5 core stories covering leadership, conflict, technical failure, and tight deadlines.",
+              isPersonalized: false
+            },
+            {
+              id: "tip_gen_4",
+              category: "Salary Negotiation",
+              title: "Compensation Benchmarking",
+              description: "Research market rates on levels.fyi and Glassdoor before your first recruiter call. Always let the recruiter state their budget range first.",
+              action: "Anchors salary discussion in objective market data.",
+              isPersonalized: false
+            }
+          ]
+        };
+      },
+      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("AI Career Tips Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to generate career tips." });
+  }
+});
+
 // 6.35 Analyze Job Poster / Flyer / URL / Posting Text
 app.post("/api/ai/analyze-job-poster", async (req, res) => {
   try {
@@ -3883,6 +4011,8 @@ Return JSON matching the schema.`;
           contents: contentsParts,
           config: {
             responseMimeType: "application/json",
+            maxOutputTokens: 16384,
+            temperature: 0.1,
             responseSchema: {
               type: Type.OBJECT,
               properties: {
