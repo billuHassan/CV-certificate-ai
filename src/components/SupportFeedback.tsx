@@ -129,7 +129,7 @@ export default function SupportFeedback({ user, onOpenDirectMessages }: SupportF
   useEffect(() => {
     if (!firebaseUser) return;
 
-    const pathStr = "user_reviews";
+    const pathStr = "reviews";
     const q = query(
       collection(db, pathStr),
       where("userId", "==", firebaseUser.uid)
@@ -140,7 +140,7 @@ export default function SupportFeedback({ user, onOpenDirectMessages }: SupportF
       (snapshot) => {
         const revs: UserReview[] = [];
         snapshot.forEach((doc) => {
-          revs.push(doc.data() as UserReview);
+          revs.push({ id: doc.id, ...doc.data() } as UserReview);
         });
         revs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setMyReviews(revs);
@@ -177,7 +177,7 @@ export default function SupportFeedback({ user, onOpenDirectMessages }: SupportF
     };
 
     try {
-      await setDoc(doc(db, "user_reviews", reviewId), newReview);
+      await setDoc(doc(db, "reviews", reviewId), newReview);
       setReviewStatus({ type: "success", message: "Thank you! Your feedback has been submitted successfully." });
       setReviewComment("");
       setRating(5);
