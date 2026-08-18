@@ -142,6 +142,21 @@ export interface ScoreReport {
   suggestions: string[];
 }
 
+export interface UserSettings {
+  theme?: string;
+  font?: string;
+  lang?: string;
+  region?: string;
+  currency?: string;
+  notifs?: {
+    email?: boolean;
+    ats?: boolean;
+    views?: boolean;
+    updates?: boolean;
+  };
+  customZoom?: number;
+}
+
 export interface UserSession {
   uid?: string;
   email: string;
@@ -150,6 +165,7 @@ export interface UserSession {
   creationsCount?: number;
   adViews?: number;
   profilePhoto?: string;
+  settings?: UserSettings;
 }
 
 export interface CareerRecommendation {

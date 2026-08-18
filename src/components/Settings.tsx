@@ -475,6 +475,15 @@ export default function Settings({
       localStorage.setItem(`cvcraft_${user.uid}_lang`, lang);
       localStorage.setItem(`cvcraft_${user.uid}_region`, region);
       localStorage.setItem(`cvcraft_${user.uid}_currency`, currency);
+      onUpdateUser({
+        ...user,
+        settings: {
+          ...user.settings,
+          lang,
+          region,
+          currency
+        }
+      });
     }
     localStorage.setItem("cvcraft_lang", lang);
     localStorage.setItem("cvcraft_region", region);
@@ -501,6 +510,18 @@ export default function Settings({
       localStorage.setItem(`cvcraft_${user.uid}_notif_ats`, String(notifsAtsResults));
       localStorage.setItem(`cvcraft_${user.uid}_notif_views`, String(notifsViews));
       localStorage.setItem(`cvcraft_${user.uid}_notif_updates`, String(notifsUpdates));
+      onUpdateUser({
+        ...user,
+        settings: {
+          ...user.settings,
+          notifs: {
+            email: notifsEmailAlerts,
+            ats: notifsAtsResults,
+            views: notifsViews,
+            updates: notifsUpdates
+          }
+        }
+      });
     }
     localStorage.setItem("cvcraft_notif_email", String(notifsEmailAlerts));
     localStorage.setItem("cvcraft_notif_ats", String(notifsAtsResults));

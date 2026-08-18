@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles, FileText, Activity, Settings as SettingsIcon, LogOut, LayoutDashboard,
   Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X, Compass, MessageSquare,
-  Brain, FileSearch, Building2
+  Brain, FileSearch, Building2, Users
 } from "lucide-react";
 import { UserSession, ResumeData, CoverLetterData, ScoreReport } from "./types";
 import Onboarding from "./components/Onboarding";
@@ -21,6 +21,7 @@ import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
 import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
+import DirectMessages from "./components/DirectMessages";
 import AIChat from "./components/AIChat";
 import SkillArena from "./components/SkillArena";
 import UploadResumeModal from "./components/UploadResumeModal";
@@ -134,10 +135,11 @@ export default function App() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
   const [scoreReport, setScoreReport] = useState<ScoreReport | null>(null);
-  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach" | "job-intelligence" | "interview-intelligence" | "resume-analytics" | "skill-arena">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach" | "job-intelligence" | "interview-intelligence" | "resume-analytics" | "skill-arena" | "direct-messages">("dashboard");
   const [userUnreadCount, setUserUnreadCount] = useState<number>(0);
+  const [directUnreadCount, setDirectUnreadCount] = useState<number>(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
-  const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" } | null>(null);
+  const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" | "direct-messages" } | null>(null);
 
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
     return localStorage.getItem("cvcraft_offline_mode") === "true";
@@ -203,9 +205,28 @@ export default function App() {
     return localStorage.getItem("rahmora_app_font") || "jakarta";
   });
 
+  const handleThemeChange = (themeId: string) => {
+    setCurrentTheme(themeId);
+    if (user?.uid) {
+      localStorage.setItem(`cvcraft_${user.uid}_theme`, themeId);
+      if (!isOfflineMode && auth.currentUser) {
+        updateDoc(doc(db, "users", user.uid), { "settings.theme": themeId }).catch(console.warn);
+      }
+    } else {
+      localStorage.setItem("cvcraft_theme", themeId);
+    }
+  };
+
   const handleFontChange = (fontId: string) => {
     setAppFont(fontId);
-    localStorage.setItem("rahmora_app_font", fontId);
+    if (user?.uid) {
+      localStorage.setItem(`cvcraft_${user.uid}_font`, fontId);
+      if (!isOfflineMode && auth.currentUser) {
+        updateDoc(doc(db, "users", user.uid), { "settings.font": fontId }).catch(console.warn);
+      }
+    } else {
+      localStorage.setItem("rahmora_app_font", fontId);
+    }
   };
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -316,13 +337,14 @@ export default function App() {
           
           // Set up real-time listener for the user profile document itself
           unsubUserDoc = onSnapshot(userDocRef, (docSnap) => {
-            let profileData = {
+            let profileData: any = {
               email: firebaseUser.email || "",
               displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
               isPremium: true,
               creationsCount: 0,
               adViews: 0,
-              profilePhoto: firebaseUser.photoURL || ""
+              profilePhoto: firebaseUser.photoURL || "",
+              settings: {}
             };
 
             if (!docSnap.exists()) {
@@ -334,6 +356,27 @@ export default function App() {
                 ...profileData,
                 ...data
               };
+
+              // Restore per-user theme and typography settings strictly for this user
+              if (data?.settings?.theme && THEMES.some(t => t.id === data.settings.theme)) {
+                setCurrentTheme(data.settings.theme);
+                localStorage.setItem(`cvcraft_${firebaseUser.uid}_theme`, data.settings.theme);
+              } else {
+                const localUserTheme = localStorage.getItem(`cvcraft_${firebaseUser.uid}_theme`);
+                if (localUserTheme && THEMES.some(t => t.id === localUserTheme)) {
+                  setCurrentTheme(localUserTheme);
+                }
+              }
+
+              if (data?.settings?.font) {
+                setAppFont(data.settings.font);
+                localStorage.setItem(`cvcraft_${firebaseUser.uid}_font`, data.settings.font);
+              } else {
+                const localUserFont = localStorage.getItem(`cvcraft_${firebaseUser.uid}_font`);
+                if (localUserFont) {
+                  setAppFont(localUserFont);
+                }
+              }
             }
 
             setUser({
@@ -343,7 +386,8 @@ export default function App() {
               isPremium: true,
               creationsCount: profileData.creationsCount,
               adViews: profileData.adViews,
-              profilePhoto: profileData.profilePhoto
+              profilePhoto: profileData.profilePhoto,
+              settings: profileData.settings
             });
           }, (err) => {
             console.warn("User document real-time listener info:", err);
@@ -430,20 +474,18 @@ export default function App() {
   useEffect(() => {
     if (!user || isOfflineMode) {
       setUserUnreadCount(0);
+      setDirectUnreadCount(0);
       return;
     }
 
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return;
 
-    let adminUnread = 0;
-    let directUnread = 0;
-
     // 1. Listen to user-specific Admin chat messages in real time to count unread admin replies
     const q1 = query(collection(db, "admin_chats"), where("userId", "==", firebaseUser.uid));
     const unsubscribe1 = onSnapshot(q1, (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as any);
-      adminUnread = docs.filter(m => m.senderId !== firebaseUser.uid && !m.read).length;
+      const adminUnread = docs.filter(m => m.senderId !== firebaseUser.uid && !m.read).length;
       
       if (!isUserChatsFirstLoad.current) {
         docs.forEach(m => {
@@ -460,23 +502,23 @@ export default function App() {
       
       docs.forEach(m => seenMessagesRef.current.add(m.id));
       isUserChatsFirstLoad.current = false;
-      setUserUnreadCount(adminUnread + directUnread);
+      setUserUnreadCount(adminUnread);
     }, (err) => console.error("Error user admin_chats listener:", err));
 
     // 2. Listen to direct_messages sent to this user
     const q2 = query(collection(db, "direct_messages"), where("recipientId", "==", firebaseUser.uid));
     const unsubscribe2 = onSnapshot(q2, (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as any);
-      directUnread = docs.filter(m => !m.read).length;
+      const directUnread = docs.filter(m => !m.read).length;
       
       if (!isDirectMsgFirstLoad.current) {
         docs.forEach(m => {
           if (!m.read && !seenMessagesRef.current.has(m.id)) {
             setActiveToast({
               id: m.id,
-              title: `New Direct Message from ${m.senderName || "User"}`,
+              title: `Direct Message from ${m.senderName || "Member"}`,
               body: m.message || "Sent an attachment",
-              view: "support"
+              view: "direct-messages"
             });
           }
         });
@@ -484,7 +526,7 @@ export default function App() {
       
       docs.forEach(m => seenMessagesRef.current.add(m.id));
       isDirectMsgFirstLoad.current = false;
-      setUserUnreadCount(adminUnread + directUnread);
+      setDirectUnreadCount(directUnread);
     }, (err) => console.error("Error user direct_messages listener:", err));
 
     return () => {
@@ -596,12 +638,16 @@ export default function App() {
     }
     if (!auth.currentUser) return;
     try {
-      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+      const updateData: Record<string, any> = {
         displayName: updatedUser.displayName,
         profilePhoto: updatedUser.profilePhoto || "",
         adViews: updatedUser.adViews || 0,
         creationsCount: updatedUser.creationsCount || 0
-      });
+      };
+      if (updatedUser.settings) {
+        updateData.settings = updatedUser.settings;
+      }
+      await updateDoc(doc(db, "users", auth.currentUser.uid), updateData);
       setUser(updatedUser);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
@@ -1058,7 +1104,7 @@ export default function App() {
 
               {/* Navigation Items Organized by Section */}
               <nav className="space-y-4">
-                {/* SECTION 1: WORKSPACE */}
+                {/* SECTION 1: CORE WORKSPACE */}
                 <div className="space-y-1">
                   <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
                     Core Workspace
@@ -1152,12 +1198,46 @@ export default function App() {
                     </div>
                     <span className="font-bold">Cover Letters</span>
                   </button>
+
+                  {/* 3D Resume Analytics */}
+                  <button
+                    onClick={() => {
+                      if (resumes.length > 0) {
+                        if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
+                        setCurrentView("resume-analytics");
+                      } else {
+                        alert("Please create or scan a resume first to view 3D analytics!");
+                      }
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                      currentView === "resume-analytics"
+                        ? activeThemeObj.navActiveBg
+                        : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                        currentView === "resume-analytics"
+                          ? "bg-white/20 text-white shadow-inner"
+                          : "bg-pink-500/15 border border-pink-500/30 text-pink-400"
+                      }`}>
+                        <BarChart2 className="h-4 w-4" />
+                      </div>
+                      <span className="font-bold">3D Analytics</span>
+                    </div>
+                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
+                      currentView === "resume-analytics" ? "bg-white/20 text-white border-white/30" : "bg-pink-500/15 text-pink-300 border-pink-500/30"
+                    }`}>
+                      8-Metric
+                    </span>
+                  </button>
                 </div>
 
-                {/* SECTION 2: AI INTELLIGENCE */}
+                {/* SECTION 2: AI CAREER INTELLIGENCE */}
                 <div className="space-y-1 pt-1">
                   <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
-                    AI Intelligence
+                    AI Career Intelligence
                   </div>
 
                   {/* AI Resume Coach */}
@@ -1189,59 +1269,6 @@ export default function App() {
                     </div>
                   </button>
 
-                  {/* Job Intelligence */}
-                  <button
-                    onClick={() => {
-                      setCurrentView("job-intelligence");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                      currentView === "job-intelligence"
-                        ? activeThemeObj.navActiveBg
-                        : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                        currentView === "job-intelligence"
-                          ? "bg-white/20 text-white shadow-inner"
-                          : "bg-sky-500/15 border border-sky-500/30 text-sky-400"
-                      }`}>
-                        <FileSearch className="h-4 w-4" />
-                      </div>
-                      <span className="font-bold">Job Intelligence</span>
-                    </div>
-                  </button>
-
-                  {/* 3D Resume Analytics */}
-                  <button
-                    onClick={() => {
-                      if (resumes.length > 0) {
-                        if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
-                        setCurrentView("resume-analytics");
-                      } else {
-                        alert("Please create or scan a resume first to view 3D analytics!");
-                      }
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                      currentView === "resume-analytics"
-                        ? activeThemeObj.navActiveBg
-                        : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                        currentView === "resume-analytics"
-                          ? "bg-white/20 text-white shadow-inner"
-                          : "bg-pink-500/15 border border-pink-500/30 text-pink-400"
-                      }`}>
-                        <BarChart2 className="h-4 w-4" />
-                      </div>
-                      <span className="font-bold">3D Analytics</span>
-                    </div>
-                  </button>
-
                   {/* Interview Intelligence */}
                   <button
                     onClick={() => {
@@ -1263,6 +1290,30 @@ export default function App() {
                         <Brain className="h-4 w-4" />
                       </div>
                       <span className="font-bold">Interview AI</span>
+                    </div>
+                  </button>
+
+                  {/* Job Intelligence */}
+                  <button
+                    onClick={() => {
+                      setCurrentView("job-intelligence");
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                      currentView === "job-intelligence"
+                        ? activeThemeObj.navActiveBg
+                        : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                        currentView === "job-intelligence"
+                          ? "bg-white/20 text-white shadow-inner"
+                          : "bg-sky-500/15 border border-sky-500/30 text-sky-400"
+                      }`}>
+                        <FileSearch className="h-4 w-4" />
+                      </div>
+                      <span className="font-bold">Job Intelligence</span>
                     </div>
                   </button>
 
@@ -1289,6 +1340,43 @@ export default function App() {
                       <span className="font-bold">AI Career Chat</span>
                     </div>
                   </button>
+                </div>
+
+                {/* SECTION 3: COMMUNITY & ARENA */}
+                <div className="space-y-1 pt-1">
+                  <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
+                    Community & Arena
+                  </div>
+
+                  {/* Direct Messages */}
+                  <button
+                    onClick={() => {
+                      setCurrentView("direct-messages");
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                      currentView === "direct-messages"
+                        ? activeThemeObj.navActiveBg
+                        : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                        currentView === "direct-messages"
+                          ? "bg-white/20 text-white shadow-inner"
+                          : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
+                      }`}>
+                        <Users className="h-4 w-4" />
+                      </div>
+                      <span className="font-bold">Direct Messages</span>
+                    </div>
+                    {directUnreadCount > 0 && (
+                      <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-bounce">
+                        {directUnreadCount}
+                      </span>
+                    )}
+                  </button>
+
                   {/* Daily Skill Arena */}
                   <button
                     onClick={() => {
@@ -1317,7 +1405,7 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* SECTION 3: SYSTEM & PREFERENCES */}
+                {/* SECTION 4: SYSTEM & PREFERENCES */}
                 <div className="space-y-1 pt-1">
                   <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
                     System & Support
@@ -1514,7 +1602,7 @@ export default function App() {
 
           {/* Navigation Items Organized by Section */}
           <nav className="space-y-4">
-            {/* SECTION 1: WORKSPACE */}
+            {/* SECTION 1: CORE WORKSPACE */}
             <div className="space-y-1">
               <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
                 Core Workspace
@@ -1605,12 +1693,45 @@ export default function App() {
                 </div>
                 <span className="font-bold">Cover Letters</span>
               </button>
+
+              {/* 3D Resume Analytics */}
+              <button
+                onClick={() => {
+                  if (resumes.length > 0) {
+                    if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
+                    setCurrentView("resume-analytics");
+                  } else {
+                    alert("Please create or scan a resume first to view 3D analytics!");
+                  }
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                  currentView === "resume-analytics"
+                    ? activeThemeObj.navActiveBg
+                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                    currentView === "resume-analytics"
+                      ? "bg-white/20 text-white shadow-inner"
+                      : "bg-pink-500/15 border border-pink-500/30 text-pink-400"
+                  }`}>
+                    <BarChart2 className="h-4 w-4" />
+                  </div>
+                  <span className="font-bold">3D Analytics</span>
+                </div>
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
+                  currentView === "resume-analytics" ? "bg-white/20 text-white border-white/30" : "bg-pink-500/15 text-pink-300 border-pink-500/30"
+                }`}>
+                  8-Metric
+                </span>
+              </button>
             </div>
 
-            {/* SECTION 2: AI INTELLIGENCE */}
+            {/* SECTION 2: AI CAREER INTELLIGENCE */}
             <div className="space-y-1 pt-1">
               <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
-                AI Intelligence
+                AI Career Intelligence
               </div>
 
               {/* AI Resume Coach */}
@@ -1646,67 +1767,6 @@ export default function App() {
                 </span>
               </button>
 
-              {/* Job Intelligence */}
-              <button
-                onClick={() => {
-                  setCurrentView("job-intelligence");
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "job-intelligence"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "job-intelligence"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-sky-500/15 border border-sky-500/30 text-sky-400"
-                  }`}>
-                    <FileSearch className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">Job Intelligence</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "job-intelligence" ? "bg-white/20 text-white border-white/30" : "bg-sky-500/15 text-sky-300 border-sky-500/30"
-                }`}>
-                  10 Alts
-                </span>
-              </button>
-
-              {/* 3D Resume Analytics */}
-              <button
-                onClick={() => {
-                  if (resumes.length > 0) {
-                    if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
-                    setCurrentView("resume-analytics");
-                  } else {
-                    alert("Please create or scan a resume first to view 3D analytics!");
-                  }
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "resume-analytics"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "resume-analytics"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-pink-500/15 border border-pink-500/30 text-pink-400"
-                  }`}>
-                    <BarChart2 className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">3D Analytics</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "resume-analytics" ? "bg-white/20 text-white border-white/30" : "bg-pink-500/15 text-pink-300 border-pink-500/30"
-                }`}>
-                  8-Metric
-                </span>
-              </button>
-
               {/* Interview Intelligence */}
               <button
                 onClick={() => {
@@ -1732,6 +1792,34 @@ export default function App() {
                   currentView === "interview-intelligence" ? "bg-white/20 text-white border-white/30" : "bg-purple-500/15 text-purple-300 border-purple-500/30"
                 }`}>
                   Sim
+                </span>
+              </button>
+
+              {/* Job Intelligence */}
+              <button
+                onClick={() => {
+                  setCurrentView("job-intelligence");
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                  currentView === "job-intelligence"
+                    ? activeThemeObj.navActiveBg
+                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                    currentView === "job-intelligence"
+                      ? "bg-white/20 text-white shadow-inner"
+                      : "bg-sky-500/15 border border-sky-500/30 text-sky-400"
+                  }`}>
+                    <FileSearch className="h-4 w-4" />
+                  </div>
+                  <span className="font-bold">Job Intelligence</span>
+                </div>
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
+                  currentView === "job-intelligence" ? "bg-white/20 text-white border-white/30" : "bg-sky-500/15 text-sky-300 border-sky-500/30"
+                }`}>
+                  10 Alts
                 </span>
               </button>
 
@@ -1762,6 +1850,42 @@ export default function App() {
                   Ask AI
                 </span>
               </button>
+            </div>
+
+            {/* SECTION 3: COMMUNITY & ARENA */}
+            <div className="space-y-1 pt-1">
+              <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
+                Community & Arena
+              </div>
+
+              {/* Direct Messages */}
+              <button
+                onClick={() => {
+                  setCurrentView("direct-messages");
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                  currentView === "direct-messages"
+                    ? activeThemeObj.navActiveBg
+                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                    currentView === "direct-messages"
+                      ? "bg-white/20 text-white shadow-inner"
+                      : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
+                  }`}>
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <span className="font-bold">Direct Messages</span>
+                </div>
+                {directUnreadCount > 0 && (
+                  <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-bounce">
+                    {directUnreadCount}
+                  </span>
+                )}
+              </button>
+
               {/* Daily Skill Arena */}
               <button
                 onClick={() => {
@@ -1791,7 +1915,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* SECTION 3: SYSTEM & PREFERENCES */}
+            {/* SECTION 4: SYSTEM & PREFERENCES */}
             <div className="space-y-1 pt-1">
               <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
                 System & Support
@@ -2039,10 +2163,7 @@ export default function App() {
             onImportBackup={handleImportBackup}
             onUpdateUser={handleUpdateUser}
             currentTheme={currentTheme}
-            onThemeChange={(themeId) => {
-              setCurrentTheme(themeId);
-              localStorage.setItem("cvcraft_theme", themeId);
-            }}
+            onThemeChange={handleThemeChange}
             appFont={appFont}
             onFontChange={handleFontChange}
           />
@@ -2056,7 +2177,18 @@ export default function App() {
         )}
 
         {currentView === "support" && (
-          <SupportFeedback user={user} />
+          <SupportFeedback 
+            user={user} 
+            onOpenDirectMessages={() => setCurrentView("direct-messages")} 
+          />
+        )}
+
+        {currentView === "direct-messages" && user && (
+          <DirectMessages
+            user={user}
+            theme={activeThemeObj}
+            onBackToDashboard={() => setCurrentView("dashboard")}
+          />
         )}
 
         {currentView === "ai-chat" && user && (

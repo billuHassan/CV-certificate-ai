@@ -3,7 +3,7 @@ import {
   Plus, FileText, Sparkles, Award, Trash2, Edit2, Copy, BarChart2, Check,
   ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle,
   FileSearch, Building2, Upload, Brain, ChevronLeft, ChevronRight, TrendingUp, Zap,
-  Target, ShieldCheck, ArrowUpRight, CheckCircle2, RefreshCw, Filter, Compass, Briefcase, UserCheck, X
+  Target, ShieldCheck, ArrowUpRight, CheckCircle2, RefreshCw, Filter, Compass, Briefcase, UserCheck, X, Users
 } from "lucide-react";
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { ThemeDefinition } from "./Settings";
@@ -474,6 +474,28 @@ export default function Dashboard({
           </h3>
           <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
             Play Sudoku Pro, Word Matrix & Math Crunch. Daily increasing levels, timer, live rankings & streaks.
+          </p>
+        </button>
+
+        {/* Creator 9: Direct Messages (Peer-to-Peer Chat) */}
+        <button
+          onClick={() => onSelectView("direct-messages")}
+          className={`p-5 ${cardBg} hover:border-indigo-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
+        >
+          <div className="flex justify-between items-start">
+            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
+              <Users className="h-5.5 w-5.5 text-indigo-400" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded uppercase font-bold flex items-center gap-1">
+              💬 DIRECT CHAT
+            </span>
+          </div>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition font-display flex items-center gap-1.5`}>
+            Direct Messages
+            <span className="text-[9px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 px-1.5 py-0.2 rounded font-mono">Live</span>
+          </h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
+            Private encrypted 1-on-1 direct messaging between members with photos & video sharing.
           </p>
         </button>
       </div>

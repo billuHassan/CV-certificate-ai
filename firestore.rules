@@ -118,7 +118,8 @@ service cloud.firestore {
              (!('isPremium' in data) || data.isPremium is bool) &&
              (!('creationsCount' in data) || data.creationsCount is number) &&
              (!('adViews' in data) || data.adViews is number) &&
-             (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 1000000));
+             (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 1000000)) &&
+             (!('settings' in data) || data.settings is map);
     }
 
     function isValidReview(data) {

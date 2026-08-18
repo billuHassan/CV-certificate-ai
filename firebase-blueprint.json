@@ -29,6 +29,10 @@
         "profilePhoto": {
           "type": "string",
           "description": "The image url of the profile picture to avoid storage size costs"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Personalized user settings including theme, font, language, region, and notification preferences"
         }
       },
       "required": ["email", "displayName", "isPremium"]
