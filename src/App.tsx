@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles, FileText, Activity, Settings as SettingsIcon, LogOut, LayoutDashboard,
   Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X, Compass, MessageSquare,
-  Brain, FileSearch, Building2, Users
+  Brain, FileSearch, Building2, Users, HelpCircle
 } from "lucide-react";
 import { UserSession, ResumeData, CoverLetterData, ScoreReport } from "./types";
 import Onboarding from "./components/Onboarding";
@@ -1451,9 +1451,9 @@ export default function App() {
                           ? "bg-white/20 text-white shadow-inner"
                           : "bg-blue-500/15 border border-blue-500/30 text-blue-400"
                       }`}>
-                        <MessageSquare className="h-4 w-4" />
+                        <HelpCircle className="h-4 w-4" />
                       </div>
-                      <span className="font-bold">Support & Feedback</span>
+                      <span className="font-bold">Help, FAQ & Support</span>
                     </div>
                     {userUnreadCount > 0 && (
                       <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px]">
@@ -1959,9 +1959,9 @@ export default function App() {
                       ? "bg-white/20 text-white shadow-inner"
                       : "bg-blue-500/15 border border-blue-500/30 text-blue-400"
                   }`}>
-                    <MessageSquare className="h-4 w-4" />
+                    <HelpCircle className="h-4 w-4" />
                   </div>
-                  <span className="font-bold">Support & Feedback</span>
+                  <span className="font-bold">Help, FAQ & Support</span>
                 </div>
                 {userUnreadCount > 0 && (
                   <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-bounce shadow-md">
@@ -2180,6 +2180,7 @@ export default function App() {
           <SupportFeedback 
             user={user} 
             onOpenDirectMessages={() => setCurrentView("direct-messages")} 
+            onNavigateToView={(view) => setCurrentView(view as any)}
           />
         )}
 
