@@ -28,6 +28,8 @@ export default function ResumeBuilder({
 }: ResumeBuilderProps) {
   const [resume, setResume] = useState<ResumeData>(initialResume);
   const [activeTab, setActiveTab] = useState<"edit" | "design" | "ai">("edit");
+  const [mobileMode, setMobileMode] = useState<"edit" | "preview">("edit");
+  const [previewZoom, setPreviewZoom] = useState<number>(100);
   const [openSection, setOpenSection] = useState<string>("personal");
   const [newSkill, setNewSkill] = useState("");
   const [aiLoading, setAiLoading] = useState<string | null>(null);
@@ -665,38 +667,61 @@ export default function ResumeBuilder({
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
       {/* Top action header */}
-      <div className="bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between z-10 no-print">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBackToDashboard}
-            className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
-          >
-            Dashboard
-          </button>
-          <div className="h-4 w-[1px] bg-slate-800" />
-          <h2 className="text-sm font-bold text-white font-display">
-            Editing: <span className="text-indigo-400">{resume.title || "Untitled Resume"}</span>
-          </h2>
+      <div className="bg-slate-900 border-b border-slate-800 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">
+        <div className="flex items-center justify-between sm:justify-start gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBackToDashboard}
+              className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition shrink-0"
+            >
+              Dashboard
+            </button>
+            <div className="h-4 w-[1px] bg-slate-800 hidden sm:block" />
+            <h2 className="text-xs sm:text-sm font-bold text-white font-display truncate max-w-[160px] sm:max-w-xs">
+              <span className="hidden sm:inline">Editing: </span>
+              <span className="text-indigo-400">{resume.title || "Untitled Resume"}</span>
+            </h2>
+          </div>
+
+          {/* Mobile View Segmented Switch (< lg) */}
+          <div className="flex lg:hidden bg-slate-950 p-0.5 rounded-lg border border-slate-800 shrink-0">
+            <button
+              onClick={() => setMobileMode("edit")}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                mobileMode === "edit" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Editor
+            </button>
+            <button
+              onClick={() => setMobileMode("preview")}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                mobileMode === "preview" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Preview
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleDownloadDOCX}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/10"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/10"
             title="Download editable Microsoft Word DOCX file"
           >
-            <Download className="h-3.5 w-3.5" /> Download DOCX
+            <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download </span>DOCX
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
             title="Open browser PDF print dialog"
           >
-            <Printer className="h-3.5 w-3.5" /> Download PDF
+            <Printer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download </span>PDF
           </button>
           <button
             onClick={handleDownloadHTML}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
+            className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
             title="Download fully styled offline HTML file"
           >
             HTML
@@ -707,7 +732,9 @@ export default function ResumeBuilder({
       {/* Main split dashboard layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         {/* Left Control Panel */}
-        <div className="w-full lg:w-[480px] shrink-0 border-r border-slate-800 flex flex-col bg-slate-950 no-print">
+        <div className={`w-full lg:w-[480px] shrink-0 border-r border-slate-800 flex flex-col bg-slate-950 no-print ${
+          mobileMode === "edit" ? "flex" : "hidden lg:flex"
+        }`}>
           {/* Sub Navigation tabs */}
           <div className="flex border-b border-slate-800 bg-slate-900/55 p-1 m-3 rounded-xl border">
             <button
@@ -1947,10 +1974,43 @@ export default function ResumeBuilder({
           </div>
         </div>
 
-        {/* Right Preview Pane (Desktop) */}
-        <div className="flex-1 overflow-y-auto bg-slate-900 p-8 flex justify-center items-start border-l border-slate-850 print:p-0 print:border-none">
-          <div id="resume-preview-container" className="w-full max-w-[210mm] shadow-2xl print:shadow-none shrink-0 border border-slate-800/40 rounded-sm overflow-hidden print:border-none bg-white text-slate-900">
-            <ResumeTemplates data={resume} />
+        {/* Right Preview Pane (Responsive) */}
+        <div className={`flex-1 overflow-y-auto bg-slate-900/90 p-3 sm:p-6 lg:p-8 flex flex-col items-center border-l border-slate-850 print:p-0 print:border-none ${
+          mobileMode === "preview" ? "flex" : "hidden lg:flex"
+        }`}>
+          {/* Zoom scale controller bar */}
+          <div className="mb-3 flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl shadow-lg no-print self-center sm:self-end">
+            <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider mr-1">Scale:</span>
+            {[
+              { label: "50%", val: 50 },
+              { label: "75%", val: 75 },
+              { label: "100%", val: 100 }
+            ].map(z => (
+              <button
+                key={z.val}
+                type="button"
+                onClick={() => setPreviewZoom(z.val)}
+                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition ${
+                  previewZoom === z.val ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {z.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-full overflow-x-auto flex justify-center pb-8">
+            <div
+              id="resume-preview-container"
+              style={{
+                transform: previewZoom !== 100 ? `scale(${previewZoom / 100})` : undefined,
+                transformOrigin: "top center",
+                transition: "transform 0.2s ease",
+              }}
+              className="w-full max-w-[210mm] shadow-2xl print:shadow-none shrink-0 border border-slate-800/40 rounded-sm overflow-hidden print:border-none bg-white text-slate-900"
+            >
+              <ResumeTemplates data={resume} />
+            </div>
           </div>
         </div>
       </div>

@@ -33,6 +33,8 @@ export default function CoverLetterBuilder({
   const [copied, setCopied] = useState(false);
   const [specifications, setSpecifications] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mobileMode, setMobileMode] = useState<"edit" | "preview">("edit");
+  const [previewZoom, setPreviewZoom] = useState<number>(100);
 
   // Live Grounding online analysis state
   const [groundingSources, setGroundingSources] = useState<GroundingSource[]>([]);
@@ -299,51 +301,74 @@ export default function CoverLetterBuilder({
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
       {/* Top action header */}
-      <div className="bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between z-10 no-print">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBackToDashboard}
-            className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition flex items-center gap-1"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" /> Dashboard
-          </button>
-          <div className="h-4 w-[1px] bg-slate-800" />
-          <h2 className="text-sm font-bold text-white font-display">
-            Cover Letter: <span className="text-indigo-400">{letter.title || "Untitled Cover Letter"}</span>
-          </h2>
+      <div className="bg-slate-900 border-b border-slate-800 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">
+        <div className="flex items-center justify-between sm:justify-start gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBackToDashboard}
+              className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition flex items-center gap-1 shrink-0"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Dashboard
+            </button>
+            <div className="h-4 w-[1px] bg-slate-800 hidden sm:block" />
+            <h2 className="text-xs sm:text-sm font-bold text-white font-display truncate max-w-[160px] sm:max-w-xs">
+              <span className="text-indigo-400">{letter.title || "Untitled Cover Letter"}</span>
+            </h2>
+          </div>
+
+          {/* Mobile View Segmented Switch (< lg) */}
+          <div className="flex lg:hidden bg-slate-950 p-0.5 rounded-lg border border-slate-800 shrink-0">
+            <button
+              onClick={() => setMobileMode("edit")}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                mobileMode === "edit" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Editor
+            </button>
+            <button
+              onClick={() => setMobileMode("preview")}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                mobileMode === "preview" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Preview
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {resumes.length > 0 && (
             <button
               onClick={() => handleAutoDraftFromResume()}
               disabled={autoDrafting}
-              className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
               title="Auto-analyze your filled resume and generate a tailored cover letter draft immediately!"
             >
               {autoDrafting ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-400" /> : <Wand2 className="h-3.5 w-3.5 text-emerald-400" />}
-              {autoDrafting ? "Analyzing Resume..." : "Auto-Draft from Resume"}
+              <span className="hidden sm:inline">{autoDrafting ? "Analyzing..." : "Auto-Draft from Resume"}</span>
+              <span className="sm:hidden">Auto-Draft</span>
             </button>
           )}
 
           <button
             onClick={handleCopy}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition flex items-center gap-1"
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition flex items-center gap-1"
           >
             {copied ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copied" : "Copy Content"}
+            <span className="hidden sm:inline">{copied ? "Copied" : "Copy Content"}</span>
           </button>
 
           <button
             onClick={handleDownloadHTML}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
             title="Download fully styled offline-ready HTML. Best format for printing or converting to PDF!"
           >
-            <Download className="h-3.5 w-3.5" /> Download HTML (Get PDF)
+            <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download </span>PDF / HTML
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition border border-slate-700"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition border border-slate-700"
             title="Open standard browser print dialog"
           >
             <Printer className="h-3.5 w-3.5" /> Print
@@ -386,7 +411,9 @@ export default function CoverLetterBuilder({
       {/* Split interface */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Control Panel */}
-        <div className="w-full lg:w-[480px] shrink-0 border-r border-slate-800 p-4 overflow-y-auto space-y-4 bg-slate-950 no-print">
+        <div className={`w-full lg:w-[480px] shrink-0 border-r border-slate-800 p-4 overflow-y-auto space-y-4 bg-slate-950 no-print ${
+          mobileMode === "edit" ? "block" : "hidden lg:block"
+        }`}>
           
           {/* Linked Resume & Auto Draft Card */}
           {resumes.length > 0 && (
@@ -633,33 +660,65 @@ export default function CoverLetterBuilder({
         </div>
 
         {/* Right Preview Pane */}
-        <div className="flex-1 bg-slate-900 p-8 flex justify-center items-start overflow-y-auto print:bg-white print:p-0">
-          <div id="letter-preview-container" className="w-[210mm] min-h-[297mm] bg-white text-slate-900 shadow-2xl p-16 space-y-6 print:shadow-none print:w-full print:p-0 font-sans">
-            
-            {/* Header info */}
-            <div className="border-b pb-6 flex justify-between items-start">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">{letter.senderInfo.name || "Your Name"}</h1>
-                <p className="text-xs text-slate-500 mt-0.5">{letter.jobTitle || "Professional Title"}</p>
-              </div>
-              <div className="text-right text-[10px] text-slate-500 space-y-0.5">
-                {letter.senderInfo.email && <div className="flex items-center gap-1 justify-end"><Mail className="h-3 w-3" /> {letter.senderInfo.email}</div>}
-                {letter.senderInfo.phone && <div className="flex items-center gap-1 justify-end"><Phone className="h-3 w-3" /> {letter.senderInfo.phone}</div>}
-                {letter.senderInfo.location && <div className="flex items-center gap-1 justify-end"><MapPin className="h-3 w-3" /> {letter.senderInfo.location}</div>}
-              </div>
-            </div>
+        <div className={`flex-1 bg-slate-900/90 p-3 sm:p-6 lg:p-8 flex flex-col items-center overflow-y-auto print:bg-white print:p-0 ${
+          mobileMode === "preview" ? "flex" : "hidden lg:flex"
+        }`}>
+          {/* Scale controls */}
+          <div className="mb-3 flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl shadow-lg no-print self-center sm:self-end">
+            <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider mr-1">Scale:</span>
+            {[
+              { label: "50%", val: 50 },
+              { label: "75%", val: 75 },
+              { label: "100%", val: 100 }
+            ].map(z => (
+              <button
+                key={z.val}
+                type="button"
+                onClick={() => setPreviewZoom(z.val)}
+                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition ${
+                  previewZoom === z.val ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {z.label}
+              </button>
+            ))}
+          </div>
 
-            {/* Recipient block */}
-            <div className="space-y-1 text-xs text-slate-700">
-              <span className="text-slate-400 text-[10px] block font-mono">{letter.date || "Date"}</span>
-              <div className="font-bold text-slate-900">{letter.recipientName || "Hiring Manager"}</div>
-              <div className="font-semibold text-indigo-600">{letter.recipientCompany || "Company Name"}</div>
-              {letter.recipientAddress && <div className="text-slate-500 text-[11px]">{letter.recipientAddress}</div>}
-            </div>
+          <div className="w-full overflow-x-auto flex justify-center pb-8">
+            <div
+              id="letter-preview-container"
+              style={{
+                transform: previewZoom !== 100 ? `scale(${previewZoom / 100})` : undefined,
+                transformOrigin: "top center",
+                transition: "transform 0.2s ease",
+              }}
+              className="w-[210mm] min-h-[297mm] bg-white text-slate-900 shadow-2xl p-10 sm:p-16 space-y-6 print:shadow-none print:w-full print:p-0 font-sans shrink-0 border border-slate-800/40 rounded-sm"
+            >
+              {/* Header info */}
+              <div className="border-b pb-6 flex justify-between items-start">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900">{letter.senderInfo.name || "Your Name"}</h1>
+                  <p className="text-xs text-slate-500 mt-0.5">{letter.jobTitle || "Professional Title"}</p>
+                </div>
+                <div className="text-right text-[10px] text-slate-500 space-y-0.5">
+                  {letter.senderInfo.email && <div className="flex items-center gap-1 justify-end"><Mail className="h-3 w-3" /> {letter.senderInfo.email}</div>}
+                  {letter.senderInfo.phone && <div className="flex items-center gap-1 justify-end"><Phone className="h-3 w-3" /> {letter.senderInfo.phone}</div>}
+                  {letter.senderInfo.location && <div className="flex items-center gap-1 justify-end"><MapPin className="h-3 w-3" /> {letter.senderInfo.location}</div>}
+                </div>
+              </div>
 
-            {/* Letter Content body */}
-            <div className="text-xs text-slate-700 leading-relaxed space-y-4 whitespace-pre-wrap pt-4 font-sans">
-              {letter.content || "Dear Hiring Manager,\n\n[Please select a resume or enter target specifications to auto-draft your customized cover letter.]"}
+              {/* Recipient block */}
+              <div className="space-y-1 text-xs text-slate-700">
+                <span className="text-slate-400 text-[10px] block font-mono">{letter.date || "Date"}</span>
+                <div className="font-bold text-slate-900">{letter.recipientName || "Hiring Manager"}</div>
+                <div className="font-semibold text-indigo-600">{letter.recipientCompany || "Company Name"}</div>
+                {letter.recipientAddress && <div className="text-slate-500 text-[11px]">{letter.recipientAddress}</div>}
+              </div>
+
+              {/* Letter Content body */}
+              <div className="text-xs text-slate-700 leading-relaxed space-y-4 whitespace-pre-wrap pt-4 font-sans">
+                {letter.content || "Dear Hiring Manager,\n\n[Please select a resume or enter target specifications to auto-draft your customized cover letter.]"}
+              </div>
             </div>
           </div>
         </div>
