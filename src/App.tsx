@@ -22,6 +22,7 @@ import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
 import AIChat from "./components/AIChat";
+import SkillArena from "./components/SkillArena";
 import UploadResumeModal from "./components/UploadResumeModal";
 import RahmoraLogo from "./components/RahmoraLogo";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
@@ -133,7 +134,7 @@ export default function App() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
   const [scoreReport, setScoreReport] = useState<ScoreReport | null>(null);
-  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach" | "job-intelligence" | "interview-intelligence" | "resume-analytics">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "resume-editor" | "letter-editor" | "score" | "settings" | "admin" | "career" | "support" | "ai-chat" | "resume-coach" | "job-intelligence" | "interview-intelligence" | "resume-analytics" | "skill-arena">("dashboard");
   const [userUnreadCount, setUserUnreadCount] = useState<number>(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
   const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" } | null>(null);
@@ -1288,6 +1289,32 @@ export default function App() {
                       <span className="font-bold">AI Career Chat</span>
                     </div>
                   </button>
+                  {/* Daily Skill Arena */}
+                  <button
+                    onClick={() => {
+                      setCurrentView("skill-arena");
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                      currentView === "skill-arena"
+                        ? activeThemeObj.navActiveBg
+                        : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                        currentView === "skill-arena"
+                          ? "bg-white/20 text-white shadow-inner"
+                          : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
+                      }`}>
+                        <Brain className="h-4 w-4" />
+                      </div>
+                      <span className="font-bold">Daily Skill Arena</span>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase bg-indigo-500/15 text-indigo-300 border-indigo-500/30">
+                      Games
+                    </span>
+                  </button>
                 </div>
 
                 {/* SECTION 3: SYSTEM & PREFERENCES */}
@@ -1735,6 +1762,33 @@ export default function App() {
                   Ask AI
                 </span>
               </button>
+              {/* Daily Skill Arena */}
+              <button
+                onClick={() => {
+                  setCurrentView("skill-arena");
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
+                  currentView === "skill-arena"
+                    ? activeThemeObj.navActiveBg
+                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                    currentView === "skill-arena"
+                      ? "bg-white/20 text-white shadow-inner"
+                      : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
+                  }`}>
+                    <Brain className="h-4 w-4" />
+                  </div>
+                  <span className="font-bold">Daily Skill Arena</span>
+                </div>
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
+                  currentView === "skill-arena" ? "bg-white/20 text-white border-white/30" : "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+                }`}>
+                  Games
+                </span>
+              </button>
             </div>
 
             {/* SECTION 3: SYSTEM & PREFERENCES */}
@@ -2011,6 +2065,15 @@ export default function App() {
             resumes={resumes}
             isDark={activeThemeObj.isDark}
             onImportScannedResume={handleImportScannedResume}
+          />
+        )}
+
+        {currentView === "skill-arena" && user && (
+          <SkillArena
+            user={user}
+            theme={activeThemeObj}
+            onBackToDashboard={() => setCurrentView("dashboard")}
+            onUpgrade={handleUpgradeElite}
           />
         )}
       </main>

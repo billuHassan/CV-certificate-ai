@@ -68,6 +68,22 @@ service cloud.firestore {
       allow update: if false; // Recommendations are read-only once generated
     }
 
+    // User Game Profile & Streaks Sub-collection Rules
+    match /users/{userId}/game_profile/{profileId} {
+      allow read, list: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidId(profileId) && isValidGameProfile(incoming());
+      allow update: if isOwner(userId) && isValidId(profileId) && isValidGameProfile(incoming());
+      allow delete: if isOwner(userId) && isValidId(profileId);
+    }
+
+    // Global Game Scores & Leaderboard Collection Rules
+    match /game_scores/{scoreId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(scoreId) && incoming().userId == request.auth.uid && isValidGameScore(incoming());
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
     // Reviews Global Collection Rules
     match /reviews/{reviewId} {
       allow read, write: if isAdmin();
@@ -158,6 +174,32 @@ service cloud.firestore {
              data.personalInfo is map &&
              data.updatedAt is string && data.updatedAt.size() <= 128 &&
              (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 128));
+    }
+
+    function isValidGameScore(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.gameType is string && (data.gameType == "sudoku" || data.gameType == "word_matrix" || data.gameType == "math_crunch") &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 150 &&
+             (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() <= 150)) &&
+             (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 1000000)) &&
+             data.timeSeconds is number && data.timeSeconds >= 0 && data.timeSeconds <= 86400 &&
+             data.score is number && data.score >= 0 && data.score <= 1000000 &&
+             data.level is number && data.level >= 1 && data.level <= 1000 &&
+             data.dayDate is string && data.dayDate.size() <= 32 &&
+             data.completedAt is string && data.completedAt.size() <= 128;
+    }
+
+    function isValidGameProfile(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.currentStreak is number && data.currentStreak >= 0 &&
+             data.longestStreak is number && data.longestStreak >= 0 &&
+             data.lastPlayedDate is string && data.lastPlayedDate.size() <= 32 &&
+             data.totalGamesSolved is number && data.totalGamesSolved >= 0 &&
+             (!('bestSudokuTime' in data) || data.bestSudokuTime is number) &&
+             (!('bestWordTime' in data) || data.bestWordTime is number) &&
+             (!('bestMathTime' in data) || data.bestMathTime is number) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 128));
     }
 
     function isValidCoverLetter(data) {

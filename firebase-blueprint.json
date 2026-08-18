@@ -143,12 +143,56 @@
         "read": { "type": "boolean" }
       },
       "required": ["chatId", "senderId", "senderEmail", "senderName", "recipientId", "recipientEmail", "recipientName", "message", "createdAt", "read"]
+    },
+    "GameScore": {
+      "title": "Game Leaderboard Score",
+      "description": "A verified game completion record for leaderboard rankings and timer records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gameType": { "type": "string", "enum": ["sudoku", "word_matrix", "math_crunch"] },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "profilePhoto": { "type": "string" },
+        "timeSeconds": { "type": "integer" },
+        "score": { "type": "integer" },
+        "level": { "type": "integer" },
+        "dayDate": { "type": "string" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["id", "gameType", "userId", "userName", "timeSeconds", "score", "level", "dayDate", "completedAt"]
+    },
+    "UserGameProfile": {
+      "title": "User Game Profile and Streaks",
+      "description": "Tracks player daily streaks, solved counts, and best times",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "currentStreak": { "type": "integer" },
+        "longestStreak": { "type": "integer" },
+        "lastPlayedDate": { "type": "string" },
+        "totalGamesSolved": { "type": "integer" },
+        "bestSudokuTime": { "type": "integer" },
+        "bestWordTime": { "type": "integer" },
+        "bestMathTime": { "type": "integer" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "currentStreak", "longestStreak", "lastPlayedDate", "totalGamesSolved"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "Top-level collection for user accounts keyed by their Firebase Auth UID"
+    },
+    "/users/{userId}/game_profile/{profileId}": {
+      "schema": "UserGameProfile",
+      "description": "Sub-collection for personal game streaks and solver stats"
+    },
+    "/game_scores/{scoreId}": {
+      "schema": "GameScore",
+      "description": "Global leaderboard collection for all solvers with time records and ranks"
     },
     "/users/{userId}/resumes/{resumeId}": {
       "schema": "Resume",

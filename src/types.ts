@@ -200,3 +200,32 @@ export interface DirectMessage {
   createdAt: string;
   read: boolean;
 }
+
+export type GameType = "sudoku" | "word_matrix" | "math_crunch";
+
+export interface GameScore {
+  id: string;
+  gameType: GameType;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  profilePhoto?: string;
+  timeSeconds: number;
+  score: number;
+  level: number;
+  dayDate: string; // "YYYY-MM-DD"
+  completedAt: string;
+}
+
+export interface UserGameProfile {
+  userId: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastPlayedDate: string; // "YYYY-MM-DD"
+  totalGamesSolved: number;
+  bestSudokuTime?: number;
+  bestWordTime?: number;
+  bestMathTime?: number;
+  updatedAt?: string;
+}
+

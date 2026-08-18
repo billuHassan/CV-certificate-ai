@@ -454,6 +454,28 @@ export default function Dashboard({
             Technical, HR & Behavioural questions, STAR framework guides & instant AI mock evaluation.
           </p>
         </button>
+
+        {/* Creator 8: Daily Cognitive Skill Arena (Games & Leaderboard) */}
+        <button
+          onClick={() => onSelectView("skill-arena")}
+          className={`p-5 ${cardBg} hover:border-amber-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
+        >
+          <div className="flex justify-between items-start">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 border border-amber-500/20">
+              <Zap className="h-5.5 w-5.5 text-amber-500" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 px-2 py-0.5 rounded uppercase font-bold flex items-center gap-1">
+              🔥 DAILY STREAK
+            </span>
+          </div>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-amber-600 dark:group-hover:text-amber-400 transition font-display flex items-center gap-1.5`}>
+            Daily Skill Arena
+            <span className="text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded font-mono">3 Games</span>
+          </h3>
+          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
+            Play Sudoku Pro, Word Matrix & Math Crunch. Daily increasing levels, timer, live rankings & streaks.
+          </p>
+        </button>
       </div>
 
       {/* ⭐ EMBEDDED 3D RESUME ANALYTICS METRICS DASHBOARD ⭐ */}
