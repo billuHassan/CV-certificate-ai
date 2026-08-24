@@ -673,11 +673,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/10 via-slate-950/80 to-slate-950 pointer-events-none" />
 
         {/* Top Header Navigation */}
-        <header className="relative z-10 w-full max-w-6xl mx-auto flex items-center justify-between py-4 border-b border-slate-800/80">
-          <div>
-            <RahmoraLogo size="md" />
-            <span className="text-[10px] text-slate-500 block font-mono mt-0.5">Career Intelligence Platform</span>
-          </div>
+        <header className="relative z-10 w-full max-w-6xl mx-auto flex items-center justify-between py-5 border-b border-slate-800/80 px-4">
+          <RahmoraLogo size="md" />
 
           <div className="flex items-center gap-3">
             <button
@@ -696,58 +693,32 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               }}
               className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/20"
             >
-              Get Started
-            </button>
-            <button
-              onClick={() => {
-                onAuthSuccess({
-                  email: "guest@cvcraft.ai",
-                  displayName: "Guest Explorer"
-                });
-              }}
-              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 px-3.5 py-2 rounded-xl transition"
-            >
-              Try Free as Guest
+              Get Started Free
             </button>
           </div>
         </header>
 
         {/* Main Hero Showcase */}
-        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-10 px-4 space-y-8">
-          
-          {/* Prominent Hero RAHMORA Logo Emblem */}
-          <div className="pt-2">
-            <RahmoraLogo size="hero" />
-          </div>
-
-          {/* Animated Tech Tag */}
-          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-teal-500/30 text-teal-300 text-xs font-mono font-semibold shadow-2xl backdrop-blur-md">
-            <Cpu className="h-4 w-4 text-teal-400 animate-pulse" />
-            <span>AI-POWERED CAREER & RESUME INTELLIGENCE</span>
-            <span className="bg-teal-500/20 text-teal-300 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-teal-500/30 uppercase">
-              Pro Executive Edition
-            </span>
-          </div>
-
+        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-12 px-4 space-y-8">
           {/* Hero Headline */}
           <div className="space-y-4 max-w-3xl mx-auto">
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-display tracking-tight leading-[1.15]">
-              Accelerate Your Career Trajectory with <span className="bg-gradient-to-r from-teal-300 via-indigo-200 to-emerald-400 bg-clip-text text-transparent">RAHMORA</span>
+              Build ATS-Optimized Resumes with <span className="bg-gradient-to-r from-teal-300 via-indigo-200 to-emerald-400 bg-clip-text text-transparent">RAHMORA</span>
             </h1>
-            <p className="text-slate-300 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
-              Craft ATS-optimized CVs, generate tailored cover letters, and discover matching local area hiring employers in seconds with executive AI intelligence.
+            <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+              Create professional resumes, generate tailored cover letters, and unlock personalized interview prep in minutes.
             </p>
           </div>
 
           {/* Feature Pillars Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-left">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-left">
             <div className="bg-slate-900/70 border border-slate-800/90 hover:border-indigo-500/50 rounded-2xl p-5 backdrop-blur-xl transition group shadow-xl">
               <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-3 group-hover:scale-110 transition">
                 <FileText className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-bold text-white mb-1">AI Resume Builder</h3>
+              <h3 className="text-sm font-bold text-white mb-1">Resume Builder</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Modern ATS templates with automated bullet point enhancement and real-time formatting export.
+                Clean formatting, custom palettes, and instant export options.
               </p>
             </div>
 
@@ -755,9 +726,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               <div className="h-10 w-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 mb-3 group-hover:scale-110 transition">
                 <Building2 className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-bold text-white mb-1">10 Regional Hiring Companies</h3>
+              <h3 className="text-sm font-bold text-white mb-1">Job Intelligence</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Extract position requirements or poster URLs to instantly discover 10 local area employers.
+                Discover matching employers and tailor applications to specific roles.
               </p>
             </div>
 
@@ -765,45 +736,49 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3 group-hover:scale-110 transition">
                 <Brain className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-bold text-white mb-1">ATS Score & Coach</h3>
+              <h3 className="text-sm font-bold text-white mb-1">ATS & Career AI</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Scan keyword gaps and receive actionable suggestions to boost interview callback rates.
+                Scan keyword gaps and optimize your bullet points for recruiter screening.
               </p>
             </div>
           </div>
 
-          {/* Call to Action Button */}
-          <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={() => {
-                setIsLogin(false);
-                setShowLanding(false);
-              }}
-              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-500 hover:from-indigo-500 hover:to-teal-400 text-white font-bold text-sm rounded-2xl transition shadow-2xl shadow-teal-500/20 flex items-center justify-center gap-2.5 group"
-            >
-              <span>Get Started Free</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition" />
-            </button>
-            <button
-              onClick={() => {
-                setIsLogin(true);
-                setShowLanding(false);
-              }}
-              className="w-full sm:w-auto px-6 py-4 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-semibold text-xs rounded-2xl transition flex items-center justify-center gap-2"
-            >
-              <span>Already a member? Sign In</span>
-            </button>
+          {/* Primary Action Row */}
+          <div className="pt-4 flex flex-col items-center justify-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
+              <button
+                onClick={() => {
+                  setIsLogin(false);
+                  setShowLanding(false);
+                }}
+                className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
+              >
+                <span>Get Started Free</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setIsLogin(true);
+                  setShowLanding(false);
+                }}
+                className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold text-xs rounded-xl transition flex items-center justify-center"
+              >
+                <span>Sign In to Your Account</span>
+              </button>
+            </div>
+
+            {/* Subtle Guest Link */}
             <button
               onClick={() => {
                 onAuthSuccess({
                   email: "guest@cvcraft.ai",
-                  displayName: "Guest Explorer"
+                  displayName: "Guest"
                 });
               }}
-              className="w-full sm:w-auto px-5 py-4 bg-slate-950/80 hover:bg-slate-900 border border-emerald-500/30 text-emerald-400 font-semibold text-xs rounded-2xl transition flex items-center justify-center gap-2"
+              className="text-xs text-slate-400 hover:text-emerald-400 transition font-medium pt-2 flex items-center gap-1.5"
             >
-              <Sparkles className="h-4 w-4 text-emerald-400" />
-              <span>Explore as Guest (No Login)</span>
+              <span>or explore basic editor as guest</span>
+              <ArrowRight className="h-3 w-3" />
             </button>
           </div>
         </main>

@@ -99,6 +99,13 @@ export default function ResumeBuilder({
   };
 
   const handleAiRewriteExperience = async (id: string, exp: WorkExperience) => {
+    if (user?.isGuest) {
+      if (confirm("✨ AI Bullet Optimization is available with a free account! Would you like to sign up or log in for 100% free access?")) {
+        onUpgrade();
+      }
+      return;
+    }
+
     if (!exp.description) {
       alert("Please write a draft description first before asking AI to optimize it.");
       return;
@@ -208,6 +215,13 @@ export default function ResumeBuilder({
   };
 
   const handleAiSuggestSkills = async () => {
+    if (user?.isGuest) {
+      if (confirm("✨ AI Skill Recommendations are available with a free account! Would you like to sign up or log in for 100% free access?")) {
+        onUpgrade();
+      }
+      return;
+    }
+
     if (!resume.personalInfo.jobTitle) {
       alert("Missing Job Title: Please enter your Target Job Title under Personal Information so AI knows which skills to suggest.");
       return;
@@ -345,6 +359,13 @@ export default function ResumeBuilder({
   const [isScanningPhoto, setIsScanningPhoto] = useState(false);
 
   const handleScanPaperResumePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (user?.isGuest) {
+      if (confirm("✨ AI Document & Photo OCR Scanning is available with a free account! Would you like to sign up or log in for 100% free access?")) {
+        onUpgrade();
+      }
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -394,6 +415,13 @@ export default function ResumeBuilder({
   };
 
   const handleAiGenerateSummary = async () => {
+    if (user?.isGuest) {
+      if (confirm("✨ AI Executive Summary Generation is available with a free account! Would you like to sign up or log in for 100% free access?")) {
+        onUpgrade();
+      }
+      return;
+    }
+
     if (!resume.personalInfo.jobTitle) {
       alert("Missing Job Title: Please enter your Target Job Title under Personal Information so AI can write a tailored executive summary.");
       return;

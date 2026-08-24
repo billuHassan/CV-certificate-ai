@@ -1104,11 +1104,6 @@ export default function App() {
       <header className={`md:hidden sticky top-0 z-30 w-full ${activeThemeObj.sidebarClass} border-b ${activeThemeObj.borderClass} px-4 py-3 flex items-center justify-between no-print backdrop-blur-md`}>
         <div className="flex items-center gap-2">
           <RahmoraLogo size="sm" lightTheme={!activeThemeObj.isDark} />
-          {isOfflineMode && (
-            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono text-[8px] font-bold">
-              Offline
-            </span>
-          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -1643,15 +1638,7 @@ export default function App() {
         {/* Top Brand & Mode Color Selector */}
         <div className="space-y-5">
           <div className="flex items-center justify-between">
-            <div>
-              <RahmoraLogo size="md" lightTheme={!activeThemeObj.isDark} />
-              {isOfflineMode && (
-                <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono text-[9px] font-semibold w-fit">
-                  <Activity className="h-2.5 w-2.5 animate-pulse text-amber-500" />
-                  Offline (Local Sync)
-                </div>
-              )}
-            </div>
+            <RahmoraLogo size="md" lightTheme={!activeThemeObj.isDark} />
           </div>
 
           {/* Theme Mode & Font Mode Quick Switcher Widget */}
