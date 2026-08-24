@@ -33,6 +33,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [googlePopupDismissed, setGooglePopupDismissed] = useState(false);
   const googleBtnContainerRef = useRef<HTMLDivElement | null>(null);
+  const handleGoogleCredentialResponseRef = useRef<((response: any) => Promise<void>) | null>(null);
+  const isGsiInitialized = useRef<boolean>(false);
 
   // Authenticate with genuine Google Credential Token (from Google Identity Services)
   const handleGoogleCredentialResponse = async (response: any) => {
@@ -94,19 +96,25 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     }
   };
 
-  // Initialize Google Identity Services for device Google account detection
+  handleGoogleCredentialResponseRef.current = handleGoogleCredentialResponse;
+
+  // Initialize Google Identity Services once & render button
   useEffect(() => {
-    const initGoogleIdentity = () => {
+    const setupGsi = () => {
       if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
         try {
-          (window as any).google.accounts.id.initialize({
-            client_id: "176655497920-vqsq9ont0jlal0man744lauonbknnr6u.apps.googleusercontent.com",
-            callback: handleGoogleCredentialResponse,
-            auto_select: false,
-            cancel_on_tap_outside: true
-          });
+          if (!isGsiInitialized.current) {
+            (window as any).google.accounts.id.initialize({
+              client_id: "176655497920-vqsq9ont0jlal0man744lauonbknnr6u.apps.googleusercontent.com",
+              callback: (res: any) => handleGoogleCredentialResponseRef.current?.(res),
+              auto_select: false,
+              cancel_on_tap_outside: true
+            });
+            isGsiInitialized.current = true;
+          }
 
           if (googleBtnContainerRef.current) {
+            googleBtnContainerRef.current.innerHTML = "";
             (window as any).google.accounts.id.renderButton(googleBtnContainerRef.current, {
               theme: "filled_blue",
               size: "large",
@@ -123,9 +131,15 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       }
     };
 
-    initGoogleIdentity();
-    const timer = setTimeout(initGoogleIdentity, 800);
-    return () => clearTimeout(timer);
+    setupGsi();
+    const interval = setInterval(() => {
+      if ((window as any).google?.accounts?.id) {
+        setupGsi();
+        clearInterval(interval);
+      }
+    }, 400);
+
+    return () => clearInterval(interval);
   }, [isLogin, showLanding]);
 
   // Email verification flow states
