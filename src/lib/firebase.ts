@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, GoogleAuthProvider } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
@@ -14,6 +14,26 @@ export const db = initializeFirestore(
   firebaseConfig.firestoreDatabaseId
 );
 export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope("profile");
+googleProvider.addScope("email");
+googleProvider.setCustomParameters({
+  prompt: "select_account"
+});
+
+// Standard exported Google Login handler function
+export async function handleGoogleLogin() {
+  try {
+    const { signInWithPopup } = await import("firebase/auth");
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    console.log("Successfully logged in:", user.displayName || user.email);
+    return user;
+  } catch (error: any) {
+    console.error("Google Sign-In failed:", error?.message || error);
+    throw error;
+  }
+}
 
 // Configure local persistence so authentication state survives page reloads and cross-origin iframe navigation
 try {
