@@ -309,13 +309,55 @@ export default function Dashboard({
           <div>
             <div className="flex items-center gap-2 justify-center md:justify-start">
               <h2 className={`text-xl font-bold ${textPrimary} font-display`}>Hello, {user.displayName}</h2>
+              {user.isGuest && (
+                <span className="text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase">
+                  Guest Free Mode
+                </span>
+              )}
             </div>
             <p className={`text-xs ${textSecondary} mt-1`}>
-              Access all professional templates, ATS career coaches & cover letter generators at any time.
+              {user.isGuest
+                ? "You are exploring in Free Guest Mode. Create an account or sign in to permanently save your CVs and access all AI features for free!"
+                : "Access all professional templates, ATS career coaches & cover letter generators at any time 100% free."}
             </p>
           </div>
         </div>
+
+        {user.isGuest && (
+          <button
+            onClick={() => onUpgrade()}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-500 hover:from-indigo-500 hover:to-teal-400 text-white font-bold text-xs transition shadow-lg flex items-center gap-2 shrink-0"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Create Free Account / Sign In</span>
+          </button>
+        )}
       </div>
+
+      {/* Guest Mode Informational Banner */}
+      {user.isGuest && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-slate-900 to-emerald-950/60 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 shrink-0">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white">
+                Free Guest Mode Active (100% Free Forever)
+              </p>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                You can create, edit, customize, and print your resume. To sync across your phone & PC, unlock cloud saves, direct messaging, and unlimited AI scans, please register your free account.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onUpgrade()}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shrink-0 shadow"
+          >
+            Sign Up Free
+          </button>
+        </div>
+      )}
 
       {/* Grid of Creators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">

@@ -629,22 +629,96 @@ export default function App() {
 
   const handleAuthSuccess = (u: { email: string; displayName: string }) => {
     // Session is handled automatically by onAuthStateChanged subscription for real Firebase users.
-    // If Firebase Auth is not signed in but we succeeded via fallback, let's configure local session.
-    if (!auth.currentUser) {
+    // If Firebase Auth is not signed in or guest mode was triggered, let's configure local session.
+    if (!auth.currentUser || u.email === "guest@cvcraft.ai") {
+      const isGuestUser = u.email === "guest@cvcraft.ai";
       setIsOfflineMode(true);
       localStorage.setItem("cvcraft_offline_mode", "true");
       
       const localUser: UserSession = {
-        uid: "local-user-session",
+        uid: isGuestUser ? "guest-explorer-session" : "local-user-session",
         email: u.email,
         displayName: u.displayName,
-        isPremium: true,
+        isPremium: !isGuestUser, // Guests have limited preview
+        isGuest: isGuestUser,
         creationsCount: 0,
         adViews: 0,
         profilePhoto: ""
       };
       setUser(localUser);
       localStorage.setItem("cvcraft_local_user", JSON.stringify(localUser));
+
+      // If guest user and no resumes exist locally, provide sample CV for instant exploration
+      if (isGuestUser && resumes.length === 0) {
+        const sampleGuestResume: ResumeData = {
+          id: "guest-sample-cv",
+          title: "Senior Product & Systems Architect",
+          templateId: "canva_modern_emerald",
+          colorTheme: "#0d9488",
+          fontFamily: "font-sans",
+          spacing: "comfortable",
+          updatedAt: new Date().toISOString(),
+          personalInfo: {
+            fullName: "Alex Jordan",
+            jobTitle: "Senior Product Architect & Lead Engineer",
+            email: "alex.jordan@example.com",
+            phone: "+1 (555) 234-5678",
+            location: "San Francisco, CA (or Remote)",
+            website: "alexjordan.dev",
+            linkedin: "linkedin.com/in/alexjordan",
+            github: "github.com/alexjordan",
+            profilePhoto: ""
+          },
+          summary: "Results-oriented Product Architect with 8+ years leading cross-functional teams in high-scale cloud platforms and enterprise distributed systems. Track record of driving 40% performance gains and managing $4M+ infrastructure budgets.",
+          experience: [
+            {
+              id: "exp_1",
+              company: "Nexus Technologies",
+              position: "Lead Cloud Architect",
+              startDate: "2021-03",
+              endDate: "Present",
+              current: true,
+              location: "San Francisco, CA",
+              description: "• Architected high-throughput microservices handling 25M daily requests with 99.99% availability.\n• Mentored 14 engineers and streamlined deployment cycle from 2 weeks to 18 minutes."
+            }
+          ],
+          education: [
+            {
+              id: "edu_1",
+              school: "Stanford University",
+              degree: "B.S. in Computer Science",
+              fieldOfStudy: "Software Systems & Distributed Computing",
+              startDate: "2015-09",
+              endDate: "2019-06",
+              current: false,
+              location: "Stanford, CA",
+              gpa: "3.92"
+            }
+          ],
+          projects: [
+            {
+              id: "proj_1",
+              name: "CloudScale Enterprise Orchestrator",
+              role: "Principal Creator",
+              startDate: "2023",
+              endDate: "Present",
+              url: "https://github.com/alexjordan/cloudscale",
+              description: "Open-source cluster auto-scaler adopted by 1,200+ engineering organizations worldwide."
+            }
+          ],
+          skills: ["TypeScript", "React", "Node.js", "Python", "Cloud Architecture", "System Design", "Distributed Computing", "PostgreSQL", "TailwindCSS", "DevOps & CI/CD"],
+          languages: [
+            { id: "lang_1", name: "English", proficiency: "Native / Bilingual" }
+          ],
+          certifications: [
+            { id: "cert_1", name: "AWS Certified Solutions Architect – Professional", issuer: "Amazon Web Services", date: "2023" }
+          ],
+          references: [],
+          sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references"]
+        };
+        setResumes([sampleGuestResume]);
+        localStorage.setItem(`cvcraft_local_resumes_${u.email}`, JSON.stringify([sampleGuestResume]));
+      }
     }
   };
 

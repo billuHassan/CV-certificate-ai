@@ -687,6 +687,17 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             >
               Get Started
             </button>
+            <button
+              onClick={() => {
+                onAuthSuccess({
+                  email: "guest@cvcraft.ai",
+                  displayName: "Guest Explorer"
+                });
+              }}
+              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 px-3.5 py-2 rounded-xl transition"
+            >
+              Try Free as Guest
+            </button>
           </div>
         </header>
 
@@ -759,7 +770,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               }}
               className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-500 hover:from-indigo-500 hover:to-teal-400 text-white font-bold text-sm rounded-2xl transition shadow-2xl shadow-teal-500/20 flex items-center justify-center gap-2.5 group"
             >
-              <span>Get Started with RAHMORA</span>
+              <span>Get Started Free</span>
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition" />
             </button>
             <button
@@ -770,6 +781,18 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               className="w-full sm:w-auto px-6 py-4 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-semibold text-xs rounded-2xl transition flex items-center justify-center gap-2"
             >
               <span>Already a member? Sign In</span>
+            </button>
+            <button
+              onClick={() => {
+                onAuthSuccess({
+                  email: "guest@cvcraft.ai",
+                  displayName: "Guest Explorer"
+                });
+              }}
+              className="w-full sm:w-auto px-5 py-4 bg-slate-950/80 hover:bg-slate-900 border border-emerald-500/30 text-emerald-400 font-semibold text-xs rounded-2xl transition flex items-center justify-center gap-2"
+            >
+              <Sparkles className="h-4 w-4 text-emerald-400" />
+              <span>Explore as Guest (No Login)</span>
             </button>
           </div>
         </main>
@@ -1350,6 +1373,23 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             {isLogin ? "Create one free" : "Sign in here"}
           </button>
         </p>
+
+        {/* Free Guest Mode Option */}
+        <div className="mt-6 pt-4 border-t border-slate-800/80 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              onAuthSuccess({
+                email: "guest@cvcraft.ai",
+                displayName: "Guest Explorer"
+              });
+            }}
+            className="text-xs text-slate-400 hover:text-emerald-400 transition font-semibold flex items-center justify-center gap-1.5 mx-auto py-1"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Try Basic Features Free (Guest Mode without Login)</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -162,6 +162,7 @@ export interface UserSession {
   email: string;
   displayName: string;
   isPremium: boolean;
+  isGuest?: boolean;
   creationsCount?: number;
   adViews?: number;
   profilePhoto?: string;
