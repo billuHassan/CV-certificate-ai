@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain, Zap } from "lucide-react";
 import RahmoraLogo, { RahmoraGlitterBadge } from "./RahmoraLogo";
 import { auth, db } from "../lib/firebase";
@@ -8,6 +8,7 @@ import {
   updateProfile,
   signInWithPopup,
   signInWithRedirect,
+  signInWithCredential,
   GoogleAuthProvider,
   signInAnonymously,
   setPersistence,
@@ -31,6 +32,101 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googlePopupDismissed, setGooglePopupDismissed] = useState(false);
+  const googleBtnContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Authenticate with genuine Google Credential Token (from Google Identity Services)
+  const handleGoogleCredentialResponse = async (response: any) => {
+    if (!response?.credential) return;
+    try {
+      setLoading(true);
+      setError("");
+
+      const idToken = response.credential;
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      const firebaseUser = result.user;
+
+      if (firebaseUser) {
+        let displayName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Google User";
+        const userEmail = firebaseUser.email || "";
+
+        // Cache real user metadata
+        const userSession = {
+          uid: firebaseUser.uid,
+          email: userEmail.toLowerCase(),
+          displayName: displayName,
+          isPremium: true,
+          creationsCount: 0,
+          adViews: 0,
+          profilePhoto: firebaseUser.photoURL || ""
+        };
+        localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+
+        try {
+          const uDocRef = doc(db, "users", firebaseUser.uid);
+          const uDoc = await getDoc(uDocRef);
+          if (!uDoc.exists()) {
+            await setDoc(uDocRef, {
+              email: userEmail.toLowerCase(),
+              displayName: displayName,
+              isPremium: true,
+              creationsCount: 0,
+              adViews: 0,
+              profilePhoto: firebaseUser.photoURL || ""
+            });
+          } else {
+            displayName = uDoc.data()?.displayName || displayName;
+          }
+        } catch (docErr) {
+          console.warn("Firestore sync for Google user:", docErr);
+        }
+
+        setLoading(false);
+        onAuthSuccess({
+          email: userEmail,
+          displayName: displayName
+        });
+      }
+    } catch (err: any) {
+      console.error("Google authentication error with credential:", err);
+      setLoading(false);
+      setError(err?.message || "Google sign-in failed. Please try again.");
+    }
+  };
+
+  // Initialize Google Identity Services for device Google account detection
+  useEffect(() => {
+    const initGoogleIdentity = () => {
+      if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
+        try {
+          (window as any).google.accounts.id.initialize({
+            client_id: "176655497920-vqsq9ont0jlal0man744lauonbknnr6u.apps.googleusercontent.com",
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+
+          if (googleBtnContainerRef.current) {
+            (window as any).google.accounts.id.renderButton(googleBtnContainerRef.current, {
+              theme: "filled_blue",
+              size: "large",
+              type: "standard",
+              shape: "rectangular",
+              text: isLogin ? "signin_with" : "signup_with",
+              logo_alignment: "left",
+              width: 320
+            });
+          }
+        } catch (initErr) {
+          console.warn("Google Identity Services setup:", initErr);
+        }
+      }
+    };
+
+    initGoogleIdentity();
+    const timer = setTimeout(initGoogleIdentity, 800);
+    return () => clearTimeout(timer);
+  }, [isLogin, showLanding]);
 
   // Email verification flow states
   const [showVerification, setShowVerification] = useState(false);
@@ -553,9 +649,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       setLoading(true);
       setError("");
 
-      // Detect mobile devices or embedded webviews where signInWithPopup frequently throws "invalid action" or popup blocks
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
       // Set persistence based on Remember Me option
       try {
         await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
@@ -568,6 +661,78 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         console.warn("Persistence set warning for Google sign-in:", pErr);
       }
 
+      // Try Google Identity Services One Tap Prompt (native device Google account detector)
+      if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
+        (window as any).google.accounts.id.prompt(async (notification: any) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            console.log("GIS One Tap not displayed, falling back to popup...");
+            // Fall back to popup if One Tap is skipped
+            try {
+              const provider = new GoogleAuthProvider();
+              provider.addScope("profile");
+              provider.addScope("email");
+              provider.setCustomParameters({ prompt: "select_account" });
+              const result = await signInWithPopup(auth, provider);
+              if (result.user) {
+                const firebaseUser = result.user;
+                const displayName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Google User";
+                const userEmail = firebaseUser.email || "";
+
+                const userSession = {
+                  uid: firebaseUser.uid,
+                  email: userEmail.toLowerCase(),
+                  displayName: displayName,
+                  isPremium: true,
+                  creationsCount: 0,
+                  adViews: 0,
+                  profilePhoto: firebaseUser.photoURL || ""
+                };
+                localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+
+                try {
+                  const uDocRef = doc(db, "users", firebaseUser.uid);
+                  const uDoc = await getDoc(uDocRef);
+                  if (!uDoc.exists()) {
+                    await setDoc(uDocRef, {
+                      email: userEmail.toLowerCase(),
+                      displayName: displayName,
+                      isPremium: true,
+                      creationsCount: 0,
+                      adViews: 0,
+                      profilePhoto: firebaseUser.photoURL || ""
+                    });
+                  }
+                } catch (docErr) {
+                  console.warn("Firestore sync error:", docErr);
+                }
+
+                setLoading(false);
+                onAuthSuccess({
+                  email: userEmail,
+                  displayName: displayName
+                });
+              }
+            } catch (pErr: any) {
+              console.warn("Popup error:", pErr);
+              setLoading(false);
+              if (pErr?.code === "auth/popup-closed-by-user") {
+                setError("Google Sign-In was closed. Please tap Continue with Google and select your account.");
+              } else if (pErr?.code === "auth/popup-blocked") {
+                // If popup blocked on mobile, trigger redirect
+                const provider = new GoogleAuthProvider();
+                provider.addScope("profile");
+                provider.addScope("email");
+                await signInWithRedirect(auth, provider);
+              } else {
+                setError(pErr?.message || "Google sign-in could not be completed. Please try again.");
+              }
+            }
+          }
+        });
+        return;
+      }
+
+      // Standard Google Auth Provider flow
       const provider = new GoogleAuthProvider();
       provider.addScope("profile");
       provider.addScope("email");
@@ -575,47 +740,17 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         prompt: "select_account"
       });
 
-      let firebaseUser = null;
-
-      try {
-        if (isMobile) {
-          // On mobile browsers, signInWithPopup often causes "The requested action is invalid" due to iframe/popup sandboxing
-          // Try signInWithPopup with immediate fallback
-          const result = await signInWithPopup(auth, provider);
-          firebaseUser = result.user;
-        } else {
-          const result = await signInWithPopup(auth, provider);
-          firebaseUser = result.user;
-        }
-      } catch (popupErr: any) {
-        console.warn("Popup sign-in encountered an issue, attempting safe fallback:", popupErr?.code, popupErr?.message);
-        
-        // If it's the mobile "requested action is invalid" or unauthorized domain / blocked popup
-        const errStr = (popupErr?.message || popupErr?.code || "").toLowerCase();
-        if (
-          errStr.includes("invalid") ||
-          errStr.includes("unauthorized-domain") ||
-          errStr.includes("popup-blocked") ||
-          errStr.includes("internal-error")
-        ) {
-          // Automatic resilient fallback session for phone
-          const promptEmail = email.trim() || "google.user@rahmora.ai";
-          const promptName = name.trim() || "Mobile User";
-          await signInFallback(promptEmail, promptName);
-          return;
-        }
-
-        throw popupErr;
-      }
+      const result = await signInWithPopup(auth, provider);
+      const firebaseUser = result.user;
       
       if (firebaseUser) {
         let displayName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Google User";
-        const email = firebaseUser.email || "";
+        const userEmail = firebaseUser.email || "";
 
         // Cache local user metadata
         const userSession = {
           uid: firebaseUser.uid,
-          email: email.toLowerCase(),
+          email: userEmail.toLowerCase(),
           displayName: displayName,
           isPremium: true,
           creationsCount: 0,
@@ -630,7 +765,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           
           if (!uDoc.exists()) {
             await setDoc(uDocRef, {
-              email: email.toLowerCase(),
+              email: userEmail.toLowerCase(),
               displayName: displayName,
               isPremium: true,
               creationsCount: 0,
@@ -646,7 +781,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
         setLoading(false);
         onAuthSuccess({
-          email: email,
+          email: userEmail,
           displayName: displayName
         });
       }
@@ -654,38 +789,25 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       console.warn("Google authentication error:", err?.code, err?.message);
       setLoading(false);
 
-      const errorMsg = (err?.message || "").toLowerCase();
-      const errorCode = (err?.code || "").toLowerCase();
-
-      if (errorCode.includes("popup-closed-by-user") || errorCode.includes("cancelled-popup-request")) {
-        setError("Google sign-in was dismissed. Click Continue with Google or use One-Tap Sign-In below.");
+      if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
+        setError("Google sign-in was dismissed. Tap Continue with Google to choose your account.");
         return;
       }
 
-      if (errorCode.includes("unauthorized-domain") || errorMsg.includes("invalid") || errorCode.includes("invalid-action")) {
-        console.warn("Domain or mobile action mismatch. Activating instant verified session.");
-        const fallbackEmail = email || "user@rahmora.ai";
-        const fallbackName = name || fallbackEmail.split("@")[0];
+      if (err?.code === "auth/popup-blocked") {
         try {
-          await signInFallback(fallbackEmail, fallbackName);
-        } catch (fbErr) {
-          onAuthSuccess({
-            email: fallbackEmail,
-            displayName: fallbackName
-          });
+          const provider = new GoogleAuthProvider();
+          provider.addScope("profile");
+          provider.addScope("email");
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirErr: any) {
+          setError("Please allow popups or use email login.");
+          return;
         }
-        return;
       }
 
-      if (err?.code === "auth/operation-not-allowed") {
-        setError("Google Sign-In is being initialized. You can use One-Tap Sign-In or email login below.");
-        return;
-      }
-
-      // If any other unexpected error occurs on mobile, trigger the one-tap bypass
-      const fallbackEmail = email || "user@rahmora.ai";
-      const fallbackName = name || fallbackEmail.split("@")[0];
-      await signInFallback(fallbackEmail, fallbackName);
+      setError(err?.message || "Google sign-in failed. Please try again.");
     }
   };
 
@@ -1205,19 +1327,20 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               <AlertCircle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
-            {(error.includes("popup") || error.includes("Google") || googlePopupDismissed) && (
+            {(error.includes("Google") || error.includes("popup") || error.includes("account")) && (
               <div className="pt-2 border-t border-rose-800/40">
                 <button
                   type="button"
-                  onClick={() => {
-                    const fallbackEmail = email.trim() || "user@cvcraft.ai";
-                    const fallbackName = name.trim() || fallbackEmail.split("@")[0];
-                    signInFallback(fallbackEmail, fallbackName);
-                  }}
-                  className="w-full py-2 px-3 btn-3d-emerald text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
+                  onClick={handleGoogleSignInClick}
+                  className="w-full py-2 px-3 btn-3d-slate text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
                 >
-                  <Zap className="h-3.5 w-3.5 text-amber-300" />
-                  <span>One-Tap Instant Sign-In ({email.trim() || "Direct"})</span>
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
+                    <path
+                      fill="#EA4335"
+                      d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114A5.53 5.53 0 0 1 8.4 13a5.53 5.53 0 0 1 5.59-5.514c2.273 0 4.187 1.258 5.178 3.097l3.712-2.885C20.627 4.17 17.51 2 13.99 2 7.92 2 3 6.92 3 13s4.92 11 10.99 11c6.23 0 11.01-4.383 11.01-11 0-.743-.06-1.458-.174-2.115H12.24Z"
+                    />
+                  </svg>
+                  <span>Retry Google Sign-In</span>
                 </button>
               </div>
             )}
@@ -1382,19 +1505,24 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           <div className="h-[1px] bg-slate-800 w-full" />
         </div>
 
-        {/* Google Sign In with 3D button */}
-        <button
-          onClick={handleGoogleSignInClick}
-          className="w-full py-3.5 rounded-xl btn-3d-slate text-slate-200 text-sm font-semibold transition flex items-center justify-center gap-2.5 mb-6"
-        >
-          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
-            <path
-              fill="#EA4335"
-              d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114A5.53 5.53 0 0 1 8.4 13a5.53 5.53 0 0 1 5.59-5.514c2.273 0 4.187 1.258 5.178 3.097l3.712-2.885C20.627 4.17 17.51 2 13.99 2 7.92 2 3 6.92 3 13s4.92 11 10.99 11c6.23 0 11.01-4.383 11.01-11 0-.743-.06-1.458-.174-2.115H12.24Z"
-            />
-          </svg>
-          Continue with Google
-        </button>
+        {/* Google Sign In Area */}
+        <div className="space-y-3 mb-6">
+          <div ref={googleBtnContainerRef} className="w-full flex items-center justify-center min-h-[42px] overflow-hidden rounded-xl" />
+          
+          <button
+            type="button"
+            onClick={handleGoogleSignInClick}
+            className="w-full py-3 rounded-xl btn-3d-slate text-slate-200 text-xs font-bold transition flex items-center justify-center gap-2"
+          >
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+              <path
+                fill="#EA4335"
+                d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114A5.53 5.53 0 0 1 8.4 13a5.53 5.53 0 0 1 5.59-5.514c2.273 0 4.187 1.258 5.178 3.097l3.712-2.885C20.627 4.17 17.51 2 13.99 2 7.92 2 3 6.92 3 13s4.92 11 10.99 11c6.23 0 11.01-4.383 11.01-11 0-.743-.06-1.458-.174-2.115H12.24Z"
+              />
+            </svg>
+            <span>Choose Google Account</span>
+          </button>
+        </div>
 
         {/* Auth Mode Toggle */}
         <p className="text-center text-xs text-slate-400">
