@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain } from "lucide-react";
-import RahmoraLogo from "./RahmoraLogo";
+import { Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain, Zap } from "lucide-react";
+import RahmoraLogo, { RahmoraGlitterBadge } from "./RahmoraLogo";
 import { auth, db } from "../lib/firebase";
 import {
   signInWithEmailAndPassword,
@@ -30,6 +30,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googlePopupDismissed, setGooglePopupDismissed] = useState(false);
 
   // Email verification flow states
   const [showVerification, setShowVerification] = useState(false);
@@ -620,7 +621,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       setLoading(false);
 
       if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
-        setError("Google sign-in popup was closed before completing. Click Continue with Google to try again.");
+        setError("Google sign-in popup was closed before completing. Click Continue with Google to try again, or use instant guest mode below.");
         return;
       }
 
@@ -633,7 +634,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           await signInWithRedirect(auth, provider);
           return;
         } catch (redirErr: any) {
-          setError("Browser popup blocker prevented Google Sign-In. Please allow popups for this site.");
+          setError("Browser popup blocker prevented Google Sign-In. Please allow popups for this site or use standard email login.");
           return;
         }
       }
@@ -669,8 +670,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-8 relative overflow-hidden font-sans">
         {/* Background Visual Effects */}
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/10 via-slate-950/80 to-slate-950 pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-teal-500/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/15 via-slate-950/80 to-slate-950 pointer-events-none" />
 
         {/* Top Header Navigation */}
         <header className="relative z-10 w-full max-w-6xl mx-auto flex items-center justify-between py-5 border-b border-slate-800/80 px-4">
@@ -682,7 +683,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 setIsLogin(true);
                 setShowLanding(false);
               }}
-              className="text-xs font-semibold text-slate-300 hover:text-white px-3.5 py-2 rounded-xl transition hover:bg-slate-900"
+              className="text-xs font-bold text-slate-200 hover:text-white px-4 py-2 rounded-xl transition hover:bg-slate-900 border border-slate-800"
             >
               Sign In
             </button>
@@ -691,15 +692,22 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 setIsLogin(false);
                 setShowLanding(false);
               }}
-              className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/20"
+              className="text-xs font-bold text-white btn-3d-indigo px-5 py-2.5 rounded-xl transition flex items-center gap-1.5"
             >
-              Get Started Free
+              <span>Get Started Free</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </header>
 
         {/* Main Hero Showcase */}
-        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-12 px-4 space-y-8">
+        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-10 px-4 space-y-8">
+          
+          {/* Standing Glittering Big Badge */}
+          <div className="pt-2">
+            <RahmoraGlitterBadge />
+          </div>
+
           {/* Hero Headline */}
           <div className="space-y-4 max-w-3xl mx-auto">
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-display tracking-tight leading-[1.15]">
@@ -710,48 +718,48 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </p>
           </div>
 
-          {/* Feature Pillars Grid */}
+          {/* Feature Pillars Grid with Natural 3D Coloured Icon Plates */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-left">
-            <div className="bg-slate-900/70 border border-slate-800/90 hover:border-indigo-500/50 rounded-2xl p-5 backdrop-blur-xl transition group shadow-xl">
-              <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-3 group-hover:scale-110 transition">
+            <div className="card-3d rounded-2xl p-5 transition group">
+              <div className="icon-plate-3d icon-plate-indigo h-11 w-11 mb-3.5">
                 <FileText className="h-5 w-5" />
               </div>
               <h3 className="text-sm font-bold text-white mb-1">Resume Builder</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Clean formatting, custom palettes, and instant export options.
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Clean formatting, custom palettes, and instant export options in PDF, Word & HTML.
               </p>
             </div>
 
-            <div className="bg-slate-900/70 border border-slate-800/90 hover:border-indigo-500/50 rounded-2xl p-5 backdrop-blur-xl transition group shadow-xl">
-              <div className="h-10 w-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 mb-3 group-hover:scale-110 transition">
+            <div className="card-3d rounded-2xl p-5 transition group">
+              <div className="icon-plate-3d icon-plate-sky h-11 w-11 mb-3.5">
                 <Building2 className="h-5 w-5" />
               </div>
               <h3 className="text-sm font-bold text-white mb-1">Job Intelligence</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Discover matching employers and tailor applications to specific roles.
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Discover matching employers and tailor applications to specific target roles.
               </p>
             </div>
 
-            <div className="bg-slate-900/70 border border-slate-800/90 hover:border-indigo-500/50 rounded-2xl p-5 backdrop-blur-xl transition group shadow-xl">
-              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3 group-hover:scale-110 transition">
+            <div className="card-3d rounded-2xl p-5 transition group">
+              <div className="icon-plate-3d icon-plate-emerald h-11 w-11 mb-3.5">
                 <Brain className="h-5 w-5" />
               </div>
               <h3 className="text-sm font-bold text-white mb-1">ATS & Career AI</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Scan keyword gaps and optimize your bullet points for recruiter screening.
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Scan keyword gaps and optimize your bullet points for top recruiter screening.
               </p>
             </div>
           </div>
 
-          {/* Primary Action Row */}
+          {/* Primary Action Row with 3D Tactile Buttons */}
           <div className="pt-4 flex flex-col items-center justify-center gap-3">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto">
               <button
                 onClick={() => {
                   setIsLogin(false);
                   setShowLanding(false);
                 }}
-                className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3.5 btn-3d-indigo text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2"
               >
                 <span>Get Started Free</span>
                 <ArrowRight className="h-4 w-4" />
@@ -761,7 +769,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                   setIsLogin(true);
                   setShowLanding(false);
                 }}
-                className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold text-xs rounded-xl transition flex items-center justify-center"
+                className="w-full sm:w-auto px-6 py-3.5 btn-3d-slate text-slate-200 font-bold text-xs rounded-xl transition flex items-center justify-center"
               >
                 <span>Sign In to Your Account</span>
               </button>
@@ -784,7 +792,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         </main>
 
         {/* Footer */}
-        <footer className="relative z-10 w-full max-w-6xl mx-auto text-center py-4 border-t border-slate-850 text-xs text-slate-500 font-mono">
+        <footer className="relative z-10 w-full max-w-6xl mx-auto text-center py-4 border-t border-slate-800 text-xs text-slate-400 font-mono">
           &copy; {new Date().getFullYear()} RAHMORA. All rights reserved. Empowering global careers.
         </footer>
       </div>
@@ -1167,9 +1175,27 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         )}
 
         {error && (
-          <div className="mb-5 p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
-            <AlertCircle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
-            <span>{error}</span>
+          <div className="mb-5 p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-xl space-y-2 text-xs text-rose-200">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+            {(error.includes("popup") || error.includes("Google") || googlePopupDismissed) && (
+              <div className="pt-2 border-t border-rose-800/40">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fallbackEmail = email.trim() || "user@cvcraft.ai";
+                    const fallbackName = name.trim() || fallbackEmail.split("@")[0];
+                    signInFallback(fallbackEmail, fallbackName);
+                  }}
+                  className="w-full py-2 px-3 btn-3d-emerald text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <Zap className="h-3.5 w-3.5 text-amber-300" />
+                  <span>One-Tap Instant Sign-In ({email.trim() || "Direct"})</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1317,7 +1343,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10 mt-6"
+            className="w-full py-3.5 rounded-xl btn-3d-indigo disabled:opacity-50 text-white font-bold text-sm transition flex items-center justify-center gap-2 mt-6"
           >
             {loading ? "Processing..." : isLogin ? "Sign In" : "Register with Email Verification"}
             {!loading && <ArrowRight className="h-4 w-4" />}
@@ -1331,10 +1357,10 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           <div className="h-[1px] bg-slate-800 w-full" />
         </div>
 
-        {/* Google Sign In */}
+        {/* Google Sign In with 3D button */}
         <button
           onClick={handleGoogleSignInClick}
-          className="w-full py-3 rounded-xl bg-slate-950 border border-slate-800 hover:bg-slate-900 text-slate-200 text-sm font-semibold transition flex items-center justify-center gap-2.5 mb-6"
+          className="w-full py-3.5 rounded-xl btn-3d-slate text-slate-200 text-sm font-semibold transition flex items-center justify-center gap-2.5 mb-6"
         >
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
             <path
