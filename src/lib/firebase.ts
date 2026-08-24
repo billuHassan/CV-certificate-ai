@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
@@ -14,6 +14,15 @@ export const db = initializeFirestore(
   firebaseConfig.firestoreDatabaseId
 );
 export const auth = getAuth(app);
+
+// Configure local persistence so authentication state survives page reloads and cross-origin iframe navigation
+try {
+  setPersistence(auth, browserLocalPersistence).catch((err) => {
+    console.warn("Auth persistence initialization note:", err?.message || err);
+  });
+} catch (e) {
+  // Ignore in environments where persistence is unavailable
+}
 
 // Error handling types and helper as specified by the Firebase Integration Skill
 export enum OperationType {

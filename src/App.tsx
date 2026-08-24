@@ -27,7 +27,7 @@ import SkillArena from "./components/SkillArena";
 import UploadResumeModal from "./components/UploadResumeModal";
 import RahmoraLogo from "./components/RahmoraLogo";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
-import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
+import { onAuthStateChanged, signOut as firebaseSignOut, getRedirectResult } from "firebase/auth";
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, query, where } from "firebase/firestore";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -305,6 +305,27 @@ export default function App() {
     let unsubResumes: (() => void) | null = null;
     let unsubLetters: (() => void) | null = null;
 
+    // Check for redirect result from Google OAuth if page was redirected
+    getRedirectResult(auth)
+      .then((redirectResult) => {
+        if (redirectResult?.user) {
+          const rUser = redirectResult.user;
+          const userSession = {
+            uid: rUser.uid,
+            email: (rUser.email || "").toLowerCase(),
+            displayName: rUser.displayName || rUser.email?.split("@")[0] || "Google User",
+            isPremium: true,
+            creationsCount: 0,
+            adViews: 0,
+            profilePhoto: rUser.photoURL || ""
+          };
+          localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+        }
+      })
+      .catch((err) => {
+        console.warn("OAuth redirect validation status:", err?.message || err);
+      });
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       // Clean up previous user doc listener if it exists
       if (unsubUserDoc) {
@@ -332,14 +353,29 @@ export default function App() {
           }
         }
 
+        // Recover cached email/name if Firebase Auth provider (e.g. anonymous fallback) returned blank email
+        let cachedEmail = "";
+        let cachedDisplayName = "";
+        try {
+          const savedUserStr = localStorage.getItem("cvcraft_local_user");
+          if (savedUserStr) {
+            const parsed = JSON.parse(savedUserStr);
+            cachedEmail = parsed.email || "";
+            cachedDisplayName = parsed.displayName || "";
+          }
+        } catch {}
+
+        const resolvedEmail = firebaseUser.email || cachedEmail || "";
+        const resolvedDisplayName = firebaseUser.displayName || cachedDisplayName || (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
+
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
           
           // Set up real-time listener for the user profile document itself
           unsubUserDoc = onSnapshot(userDocRef, (docSnap) => {
             let profileData: any = {
-              email: firebaseUser.email || "",
-              displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
+              email: resolvedEmail,
+              displayName: resolvedDisplayName,
               isPremium: true,
               creationsCount: 0,
               adViews: 0,
@@ -356,6 +392,14 @@ export default function App() {
                 ...profileData,
                 ...data
               };
+
+              // Ensure email and display name are never wiped by legacy empty documents
+              if (!profileData.email && resolvedEmail) {
+                profileData.email = resolvedEmail;
+              }
+              if ((!profileData.displayName || profileData.displayName === "User") && resolvedDisplayName) {
+                profileData.displayName = resolvedDisplayName;
+              }
 
               // Restore per-user theme and typography settings strictly for this user
               if (data?.settings?.theme && THEMES.some(t => t.id === data.settings.theme)) {

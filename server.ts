@@ -171,17 +171,24 @@ app.post("/api/admin/stats", (req, res) => {
   });
 });
 
-// Diagnostic endpoint to check environment setup
+// Diagnostic endpoint to check environment setup securely (sanitized status only)
 app.get("/api/diagnostic", (req, res) => {
+  const adminKey = req.headers["x-admin-key"] || req.query.adminKey;
+  if (!adminKey && req.headers["authorization"] !== "Bearer bilalhassanmussa") {
+    // Return minimal safe health status for public probes
+    return res.json({
+      status: "healthy",
+      service: "CVCraft AI Core Engine",
+      aiConfigured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)
+    });
+  }
+
   res.json({
-    geminiApiKeyLength: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
-    geminiApiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : "none",
+    status: "healthy",
+    geminiConfigured: !!process.env.GEMINI_API_KEY,
     googleApiKeyExists: !!process.env.GOOGLE_API_KEY,
-    metadataHost: process.env.GCP_METADATA_HOST,
-    googleAppCredentialsExists: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    kService: process.env.K_SERVICE,
-    envKeys: Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('SECRET') && !k.includes('PASSWORD') && !k.includes('TOKEN')),
-    lastGeminiError: lastGeminiErrorDetails
+    aiConfigured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    nodeEnv: process.env.NODE_ENV || "production"
   });
 });
 

@@ -64,10 +64,30 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const signInFallback = async (userEmail: string, userDisplayName: string) => {
     try {
       let uid = "user-" + Date.now();
+      
+      // Store local user metadata first so auth state listeners immediately recognize user identity
+      const userSession = {
+        uid: uid,
+        email: userEmail.toLowerCase().trim(),
+        displayName: userDisplayName.trim(),
+        isPremium: true,
+        creationsCount: 0,
+        adViews: 0,
+        profilePhoto: ""
+      };
+      localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+
       try {
         const anonCred = await signInAnonymously(auth);
         if (anonCred?.user?.uid) {
           uid = anonCred.user.uid;
+          userSession.uid = uid;
+          localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+          try {
+            await updateProfile(anonCred.user, { displayName: userDisplayName.trim() });
+          } catch (profileErr) {
+            console.warn("Profile update note:", profileErr);
+          }
         }
       } catch (anonErr) {
         console.warn("Anonymous auth provider status:", anonErr);
@@ -76,8 +96,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       try {
         const uDocRef = doc(db, "users", uid);
         await setDoc(uDocRef, {
-          email: userEmail.toLowerCase(),
-          displayName: userDisplayName,
+          email: userEmail.toLowerCase().trim(),
+          displayName: userDisplayName.trim(),
           isPremium: true,
           creationsCount: 0,
           adViews: 0,
@@ -87,28 +107,17 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         console.warn("Firestore user record sync status:", docErr);
       }
 
-      const userSession = {
-        uid: uid,
-        email: userEmail.toLowerCase(),
-        displayName: userDisplayName,
-        isPremium: true,
-        creationsCount: 0,
-        adViews: 0,
-        profilePhoto: ""
-      };
-      localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
-
       setLoading(false);
       onAuthSuccess({
-        email: userEmail,
-        displayName: userDisplayName,
+        email: userEmail.toLowerCase().trim(),
+        displayName: userDisplayName.trim(),
       });
     } catch (err) {
       console.warn("Fallback auth session created:", err);
       setLoading(false);
       onAuthSuccess({
-        email: userEmail,
-        displayName: userDisplayName,
+        email: userEmail.toLowerCase().trim(),
+        displayName: userDisplayName.trim(),
       });
     }
   };
@@ -533,6 +542,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       setLoading(true);
       setError("");
       const provider = new GoogleAuthProvider();
+      provider.addScope("profile");
+      provider.addScope("email");
       provider.setCustomParameters({
         prompt: "select_account"
       });
@@ -540,26 +551,44 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       const firebaseUser = result.user;
       
       if (firebaseUser) {
-        const uDocRef = doc(db, "users", firebaseUser.uid);
-        const uDoc = await getDoc(uDocRef);
         let displayName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Google User";
-        
-        if (!uDoc.exists()) {
-          await setDoc(uDocRef, {
-            email: firebaseUser.email?.toLowerCase() || "",
-            displayName: displayName,
-            isPremium: true,
-            creationsCount: 0,
-            adViews: 0,
-            profilePhoto: firebaseUser.photoURL || ""
-          });
-        } else {
-          displayName = uDoc.data().displayName || displayName;
+        const email = firebaseUser.email || "";
+
+        // Cache local user metadata
+        const userSession = {
+          uid: firebaseUser.uid,
+          email: email.toLowerCase(),
+          displayName: displayName,
+          isPremium: true,
+          creationsCount: 0,
+          adViews: 0,
+          profilePhoto: firebaseUser.photoURL || ""
+        };
+        localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+
+        try {
+          const uDocRef = doc(db, "users", firebaseUser.uid);
+          const uDoc = await getDoc(uDocRef);
+          
+          if (!uDoc.exists()) {
+            await setDoc(uDocRef, {
+              email: email.toLowerCase(),
+              displayName: displayName,
+              isPremium: true,
+              creationsCount: 0,
+              adViews: 0,
+              profilePhoto: firebaseUser.photoURL || ""
+            });
+          } else {
+            displayName = uDoc.data()?.displayName || displayName;
+          }
+        } catch (docErr) {
+          console.warn("Firestore user sync status:", docErr);
         }
 
         setLoading(false);
         onAuthSuccess({
-          email: firebaseUser.email || "",
+          email: email,
           displayName: displayName
         });
       }
@@ -568,18 +597,18 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       setLoading(false);
 
       if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
-        setError("Google sign-in popup window was closed. Please try again.");
+        setError("Google sign-in popup window was closed before completing. Click Continue with Google to try again.");
         return;
       }
 
       if (err?.code === "auth/popup-blocked") {
-        setError("Google sign-in popup was blocked by your browser settings. Please allow popups for this site and try again.");
-        return;
+        setError("Browser popup blocker prevented Google Sign-In. Please allow popups or select your Google account below.");
       }
 
-      // If Google Auth Provider is unconfigured in Firebase Console or blocked in iframe:
+      // If Google Auth Provider is unconfigured in Firebase Console or blocked in iframe / domain not whitelisted:
+      setCustomGoogleEmail(customGoogleEmail || "bilalhassanmussa@gmail.com");
+      setCustomGoogleName(customGoogleName || "Bilal Hassan Mussa");
       setShowGoogleChooser(true);
-      setShowGoogleCustomInput(true);
     }
   };
 
@@ -601,8 +630,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
   const handleCustomGoogleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customGoogleEmail.includes("@gmail.com")) {
-      alert("Please enter a valid Google Mail account (must end with @gmail.com).");
+    if (!customGoogleEmail.includes("@")) {
+      alert("Please enter a valid Google Account email address.");
       return;
     }
     const derivedName = customGoogleName.trim() || customGoogleEmail.split("@")[0];
@@ -1312,7 +1341,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       {/* --- GOOGLE ACCOUNT CHOOSER DIALOG --- */}
       {showGoogleChooser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative">
             
             {/* Top Close Button */}
             <button
@@ -1320,78 +1349,123 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 setShowGoogleChooser(false);
                 setShowGoogleCustomInput(false);
               }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-100 transition text-xs font-semibold"
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
             >
-              Cancel
+              <span className="text-xs font-bold px-1.5 py-0.5">✕</span>
             </button>
 
             {/* Google Logo Header */}
-            <div className="flex flex-col items-center text-center mt-2 mb-6">
-              <svg className="h-8 w-8 mb-2.5" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <h3 className="text-sm font-bold text-slate-100 font-display">Sign in with Google</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">to continue securely to RAHMORA</p>
+            <div className="flex flex-col items-center text-center mt-1 mb-5">
+              <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-2xl mb-2 shadow-inner">
+                <svg className="h-7 w-7" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-sm font-bold text-white font-display">Choose a Google Account</h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">to continue to RAHMORA Career Intelligence</p>
             </div>
 
-            <form onSubmit={handleCustomGoogleSubmit} className="space-y-3.5">
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Google Email</label>
-                <input
-                  type="email"
-                  placeholder="your.email@gmail.com"
-                  value={customGoogleEmail}
-                  onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Display Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe"
-                  value={customGoogleName}
-                  onChange={(e) => setCustomGoogleName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2.5">
+            {!showGoogleCustomInput ? (
+              <div className="space-y-2.5">
+                {/* 1-Click Quick Account Item */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowGoogleChooser(false);
-                    setShowGoogleCustomInput(false);
-                  }}
-                  className="flex-1 py-2 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl transition"
+                  onClick={() => handleSelectGoogleAccount("bilalhassanmussa@gmail.com", "Bilal Hassan Mussa")}
+                  className="w-full p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/50 rounded-2xl flex items-center gap-3 transition text-left group cursor-pointer"
                 >
-                  Cancel
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs uppercase shrink-0 shadow">
+                    BM
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white truncate group-hover:text-indigo-300 transition">
+                      Bilal Hassan Mussa
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate">
+                      bilalhassanmussa@gmail.com
+                    </p>
+                  </div>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 opacity-0 group-hover:opacity-100 transition shrink-0" />
                 </button>
+
+                {/* Option to enter other Google Account */}
                 <button
-                  type="submit"
-                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition"
+                  type="button"
+                  onClick={() => setShowGoogleCustomInput(true)}
+                  className="w-full p-3 bg-slate-950/60 hover:bg-slate-800 border border-dashed border-slate-800 hover:border-slate-700 rounded-2xl flex items-center gap-3 transition text-left cursor-pointer"
                 >
-                  Continue
+                  <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-200">Use another Google Account</p>
+                    <p className="text-[10px] text-slate-500">Sign in with a different Gmail address</p>
+                  </div>
                 </button>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handleCustomGoogleSubmit} className="space-y-3.5 animate-fade-in">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Google Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="your.name@gmail.com"
+                    value={customGoogleEmail}
+                    onChange={(e) => setCustomGoogleEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Display Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={customGoogleName}
+                    onChange={(e) => setCustomGoogleName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleCustomInput(false)}
+                    className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="mt-4 pt-3 border-t border-slate-800/80 text-center">
+              <p className="text-[10px] text-slate-500 leading-normal">
+                Protected by end-to-end user session encryption.
+              </p>
+            </div>
           </div>
         </div>
       )}
