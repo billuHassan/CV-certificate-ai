@@ -291,282 +291,147 @@ export default function Dashboard({
   ];
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-8 no-print">
+    <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-7 no-print">
       
-      {/* Top Welcome Panel */}
-      <div className={`${cardBg} rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden transition-colors`}>
-        {/* Decorative ambient gradient */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Top Welcome Panel in 3D Card Style */}
+      <div className="card-3d rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+        {/* Subtle Ambient Backlight */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="flex items-center gap-4 text-center md:text-left">
+        <div className="flex items-center gap-4 text-center md:text-left relative z-10">
           {user.profilePhoto ? (
-            <img src={user.profilePhoto} alt="Profile" className="h-14 w-14 rounded-2xl object-cover border border-slate-300 dark:border-slate-700 shrink-0 shadow-lg" />
+            <img src={user.profilePhoto} alt="Profile" className="h-14 w-14 rounded-2xl object-cover border-2 border-indigo-500/40 shrink-0 shadow-lg" />
           ) : (
-            <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-lg font-bold text-xl">
+            <div className="h-14 w-14 rounded-2xl icon-plate-3d icon-plate-indigo flex items-center justify-center shrink-0 shadow-lg font-bold text-xl">
               {user.displayName.charAt(0).toUpperCase()}
             </div>
           )}
           <div>
             <div className="flex items-center gap-2 justify-center md:justify-start">
-              <h2 className={`text-xl font-bold ${textPrimary} font-display`}>Hello, {user.displayName}</h2>
+              <h2 className={`text-xl font-bold ${textPrimary} font-display tracking-tight`}>Hello, {user.displayName}</h2>
               {user.isGuest && (
                 <span className="text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase">
                   Guest Free Mode
                 </span>
               )}
             </div>
-            <p className={`text-xs ${textSecondary} mt-1`}>
+            <p className={`text-xs ${textSecondary} mt-1 max-w-xl`}>
               {user.isGuest
-                ? "You are exploring in Free Guest Mode. Create an account or sign in to permanently save your CVs and access all AI features for free!"
-                : "Access all professional templates, ATS career coaches & cover letter generators at any time 100% free."}
+                ? "You are exploring in Free Guest Mode. Create an account to permanently sync all documents to cloud storage."
+                : "Manage your executive ATS resumes, customized cover letters, and live 3D score metrics from one workspace."}
             </p>
           </div>
         </div>
 
-        {user.isGuest && (
-          <button
-            onClick={() => onUpgrade()}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-500 hover:from-indigo-500 hover:to-teal-400 text-white font-bold text-xs transition shadow-lg flex items-center gap-2 shrink-0"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>Create Free Account / Sign In</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3 relative z-10">
+          {user.isGuest ? (
+            <button
+              onClick={() => onUpgrade()}
+              className="px-5 py-2.5 rounded-xl btn-3d-emerald text-white font-bold text-xs flex items-center gap-2 shrink-0"
+            >
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              <span>Create Free Account</span>
+            </button>
+          ) : (
+            <div className="hidden sm:flex items-center gap-2 bg-slate-900/60 border border-slate-700/60 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span>All AI Systems Active</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Guest Mode Informational Banner */}
-      {user.isGuest && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-slate-900 to-emerald-950/60 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 shrink-0">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white">
-                Free Guest Mode Active (100% Free Forever)
-              </p>
-              <p className="text-[11px] text-slate-300 mt-0.5">
-                You can create, edit, customize, and print your resume. To sync across your phone & PC, unlock cloud saves, direct messaging, and unlimited AI scans, please register your free account.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => onUpgrade()}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shrink-0 shadow"
-          >
-            Sign Up Free
-          </button>
-        </div>
-      )}
-
-      {/* Grid of Creators */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {/* Creator 1: Upload Existing Resume */}
+      {/* Streamlined 3D Quick Action Row (No duplication of sidebar items) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Action 1: Upload & Scan Existing Resume */}
         <button
           onClick={() => onOpenUploadModal?.()}
-          className={`p-5 ${cardBg} hover:border-teal-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01] border border-teal-500/30 relative`}
+          className="card-3d p-5 rounded-2xl text-left transition group relative overflow-hidden"
         >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-3 border border-teal-500/20">
-              <Upload className="h-5.5 w-5.5 text-teal-500" />
+          <div className="flex justify-between items-start mb-3">
+            <div className="h-11 w-11 rounded-xl icon-plate-3d icon-plate-emerald flex items-center justify-center">
+              <Upload className="h-5 w-5" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950 border border-teal-300 dark:border-teal-800 px-2 py-0.5 rounded uppercase font-bold">
+            <span className="text-[10px] font-mono tracking-widest text-emerald-300 bg-emerald-950 border border-emerald-700/60 px-2 py-0.5 rounded uppercase font-bold">
               AI SCANNER
             </span>
           </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-teal-600 dark:group-hover:text-teal-400 transition font-display flex items-center gap-1.5`}>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-emerald-400 transition font-display flex items-center gap-1.5`}>
             Upload & Scan Resume
-            <span className="text-[9px] bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 px-1.5 py-0.2 rounded font-mono">Active</span>
           </h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Upload PDF/DOCX to extract full content, analyze ATS performance, and edit dynamically.
+          <p className={`text-xs ${textSecondary} mt-1 leading-relaxed`}>
+            Extract text from PDF/DOCX, analyze ATS keywords & import straight to builder.
           </p>
         </button>
 
-        {/* Creator 2: Resume */}
+        {/* Action 2: Create Brand New Resume */}
         <button
           onClick={() => setShowCreateResumeModal(true)}
-          className={`p-5 ${cardBg} hover:border-indigo-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
+          className="card-3d p-5 rounded-2xl text-left transition group relative overflow-hidden"
         >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
-              <FileText className="h-5.5 w-5.5" />
+          <div className="flex justify-between items-start mb-3">
+            <div className="h-11 w-11 rounded-xl icon-plate-3d icon-plate-indigo flex items-center justify-center">
+              <Plus className="h-5 w-5" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded uppercase font-bold">
-              ATS Ready
+            <span className="text-[10px] font-mono tracking-widest text-indigo-300 bg-indigo-950 border border-indigo-700/60 px-2 py-0.5 rounded uppercase font-bold">
+              NEW RESUME
             </span>
           </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition font-display`}>New Resume</h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Draft dynamic chronologically-optimized resumes engineered to pass recruitment algorithms.
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-indigo-400 transition font-display`}>
+            Build New Resume
+          </h3>
+          <p className={`text-xs ${textSecondary} mt-1 leading-relaxed`}>
+            Draft formatted executive CVs with 12+ pro layouts engineered for recruiters.
           </p>
         </button>
 
-        {/* Creator 3: Cover Letter */}
+        {/* Action 3: Create Tailored Cover Letter */}
         <button
           onClick={() => setShowCreateLetterModal(true)}
-          className={`p-5 ${cardBg} hover:border-emerald-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
+          className="card-3d p-5 rounded-2xl text-left transition group relative overflow-hidden"
         >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 border border-emerald-500/20">
-              <Sparkles className="h-5.5 w-5.5" />
+          <div className="flex justify-between items-start mb-3">
+            <div className="h-11 w-11 rounded-xl icon-plate-3d icon-plate-amber flex items-center justify-center">
+              <Sparkles className="h-5 w-5" />
             </div>
-            <span className="text-[10px] font-mono tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900 px-2 py-0.5 rounded uppercase font-bold">
-              Search Grounded
+            <span className="text-[10px] font-mono tracking-widest text-amber-300 bg-amber-950 border border-amber-700/60 px-2 py-0.5 rounded uppercase font-bold">
+              AI GROUNDED
             </span>
           </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition font-display`}>New Cover Letter</h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Researches real online company data & job postings to draft tailored cover letters.
-          </p>
-        </button>
-
-        {/* Creator 4: AI Resume Coach */}
-        <button
-          onClick={() => onSelectView("resume-coach")}
-          className={`p-5 ${cardBg} hover:border-purple-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
-        >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 border border-purple-500/20">
-              <Sparkles className="h-5.5 w-5.5 animate-pulse" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-900 px-2 py-0.5 rounded uppercase font-bold">
-              AI Coach
-            </span>
-          </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-purple-600 dark:group-hover:text-purple-400 transition font-display`}>AI Resume Coach</h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Analyzes market trends to perfect your resume line-by-line with 1-click updates.
-          </p>
-        </button>
-
-        {/* Creator 5: Job Poster & Company Intelligence */}
-        <button
-          onClick={() => onSelectView("job-intelligence")}
-          className={`p-5 ${cardBg} hover:border-sky-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
-        >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-3 border border-sky-500/20">
-              <FileSearch className="h-5.5 w-5.5" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-900 px-2 py-0.5 rounded uppercase font-bold">
-              10 Alts
-            </span>
-          </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-sky-600 dark:group-hover:text-sky-400 transition font-display`}>Job Poster & Intelligence</h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Upload posters, research companies, evaluate role suitability & find 10 local hiring alternatives.
-          </p>
-        </button>
-
-        {/* Creator 6: 3D Resume Analytics */}
-        <button
-          onClick={() => onSelectView("resume-analytics")}
-          className={`p-5 ${cardBg} hover:border-pink-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
-        >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center mb-3 border border-pink-500/20">
-              <BarChart2 className="h-5.5 w-5.5" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-pink-600 dark:text-pink-300 bg-pink-50 dark:bg-pink-950 border border-pink-200 dark:border-pink-900 px-2 py-0.5 rounded uppercase font-bold">
-              ⭐ 3D Dashboard
-            </span>
-          </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-pink-600 dark:group-hover:text-pink-400 transition font-display`}>3D Resume Analytics</h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            8-metric dimensional audit with ATS, keyword, readability & recruiter readiness scores.
-          </p>
-        </button>
-
-        {/* Creator 7: Interview Intelligence */}
-        <button
-          onClick={() => onSelectView("interview-intelligence")}
-          className={`p-5 ${cardBg} hover:border-purple-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
-        >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 border border-purple-500/20">
-              <Brain className="h-5.5 w-5.5" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-900 px-2 py-0.5 rounded uppercase font-bold">
-              AI Mock Suite
-            </span>
-          </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-purple-600 dark:group-hover:text-purple-400 transition font-display`}>Interview Intelligence</h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Technical, HR & Behavioural questions, STAR framework guides & instant AI mock evaluation.
-          </p>
-        </button>
-
-        {/* Creator 8: Daily Cognitive Skill Arena (Games & Leaderboard) */}
-        <button
-          onClick={() => onSelectView("skill-arena")}
-          className={`p-5 ${cardBg} hover:border-amber-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
-        >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 border border-amber-500/20">
-              <Zap className="h-5.5 w-5.5 text-amber-500" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 px-2 py-0.5 rounded uppercase font-bold flex items-center gap-1">
-              🔥 DAILY STREAK
-            </span>
-          </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-amber-600 dark:group-hover:text-amber-400 transition font-display flex items-center gap-1.5`}>
-            Daily Skill Arena
-            <span className="text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded font-mono">3 Games</span>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-amber-400 transition font-display`}>
+            New Cover Letter
           </h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Play Sudoku Pro, Word Matrix & Math Crunch. Daily increasing levels, timer, live rankings & streaks.
-          </p>
-        </button>
-
-        {/* Creator 9: Direct Messages (Peer-to-Peer Chat) */}
-        <button
-          onClick={() => onSelectView("direct-messages")}
-          className={`p-5 ${cardBg} hover:border-indigo-500 rounded-2xl text-left transition group shadow-md hover:scale-[1.01]`}
-        >
-          <div className="flex justify-between items-start">
-            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
-              <Users className="h-5.5 w-5.5 text-indigo-400" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 rounded uppercase font-bold flex items-center gap-1">
-              💬 DIRECT CHAT
-            </span>
-          </div>
-          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition font-display flex items-center gap-1.5`}>
-            Direct Messages
-            <span className="text-[9px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 px-1.5 py-0.2 rounded font-mono">Live</span>
-          </h3>
-          <p className={`text-xs ${textSecondary} mt-1.5 leading-relaxed`}>
-            Private encrypted 1-on-1 direct messaging between members with photos & video sharing.
+          <p className={`text-xs ${textSecondary} mt-1 leading-relaxed`}>
+            Auto-generate tailored letters referencing company facts & target job titles.
           </p>
         </button>
       </div>
 
-      {/* ⭐ EMBEDDED 3D RESUME ANALYTICS METRICS DASHBOARD ⭐ */}
-      <div className={`${cardBg} rounded-2xl p-6 space-y-5 shadow-2xl relative overflow-hidden border border-indigo-500/20`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-4">
+      {/* ⭐ 3D RESUME ANALYTICS METRICS OVERVIEW CARD ⭐ */}
+      <div className="card-3d rounded-2xl p-6 space-y-5 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 shrink-0">
-              <BarChart2 className="h-6 w-6" />
+            <div className="h-11 w-11 rounded-2xl icon-plate-3d icon-plate-purple flex items-center justify-center shrink-0">
+              <BarChart2 className="h-5.5 w-5.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className={`text-base font-bold ${textPrimary} font-display tracking-tight`}>⭐ 3D Resume Analytics & Employability Scores</h3>
-                <span className="text-[10px] font-mono tracking-widest font-bold px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20">
-                  LIVE DATA
+                <h3 className={`text-base font-bold ${textPrimary} font-display tracking-tight`}>3D Resume Health & Employability</h3>
+                <span className="text-[10px] font-mono tracking-widest font-bold px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-300 border border-pink-500/30">
+                  LIVE AUDIT
                 </span>
               </div>
               <p className={`text-xs ${textSecondary} mt-0.5`}>
-                8 dimensional analytics evaluating <span className="font-semibold text-indigo-600 dark:text-indigo-400">{activeResume?.title || "Active Resume"}</span>
+                8-metric dimensional overview evaluating <span className="font-semibold text-indigo-400">{activeResume?.title || "Active Resume"}</span>
               </p>
             </div>
           </div>
 
           <button
             onClick={() => onSelectView("resume-analytics")}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold transition shadow-lg flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+            className="px-4 py-2.5 btn-3d-indigo text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 self-start sm:self-center"
           >
-            <span>Open Interactive 3D Suite</span>
+            <span>Open 3D Analytics Suite</span>
             <ArrowUpRight className="h-4 w-4" />
           </button>
         </div>
@@ -577,10 +442,10 @@ export default function Dashboard({
             <div
               key={idx}
               onClick={() => onSelectView("resume-analytics")}
-              className={`p-3.5 ${subCardBg} hover:border-indigo-500/50 rounded-xl transition cursor-pointer group shadow-sm flex flex-col justify-between border relative overflow-hidden`}
+              className="subcard-3d p-3.5 rounded-xl transition cursor-pointer group flex flex-col justify-between hover:border-indigo-500/60"
             >
               <div className="space-y-1">
-                <span className={`text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate group-hover:text-indigo-400 transition`}>
+                <span className="text-[10px] font-semibold text-slate-400 block truncate group-hover:text-indigo-300 transition">
                   {m.label}
                 </span>
                 <div className="flex items-baseline gap-1">
@@ -592,13 +457,13 @@ export default function Dashboard({
 
               {/* Progress mini bar */}
               <div className="mt-2.5 space-y-1">
-                <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full bg-gradient-to-r ${m.color} rounded-full transition-all duration-1000`}
                     style={{ width: `${m.score}%` }}
                   />
                 </div>
-                <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate block">
+                <span className="text-[9px] text-slate-400 truncate block">
                   {m.desc}
                 </span>
               </div>
@@ -607,42 +472,42 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Dynamic Horizontally Scrollable Job Hunting & AI Career Tips Carousel */}
-      <div className={`${cardBg} rounded-2xl p-6 space-y-4 shadow-xl border border-indigo-500/10`}>
+      {/* Dynamic Horizontally Scrollable Job Hunting & AI Career Tips in 3D Style */}
+      <div className="card-3d rounded-2xl p-6 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold shrink-0 shadow-md">
+            <div className="h-10 w-10 rounded-xl icon-plate-3d icon-plate-sky flex items-center justify-center font-bold shrink-0">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className={`text-base font-bold ${textPrimary} font-display`}>Dynamic Job Hunting & Career Tips</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 uppercase tracking-wider">
-                  AI Powered
+                <h3 className={`text-base font-bold ${textPrimary} font-display`}>Career Strategies & Hiring Intelligence</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 uppercase tracking-wider">
+                  AI Grounded
                 </span>
               </div>
               <p className={`text-xs ${textSecondary}`}>
-                Dynamic general & AI-personalized career advice referring directly to {activeResume?.personalInfo?.fullName ? `${activeResume.personalInfo.fullName}'s (${activeResume.personalInfo.jobTitle || 'Profile'})` : 'your resume background'}
+                Dynamic best practices & tailored advice referencing {activeResume?.personalInfo?.fullName ? `${activeResume.personalInfo.fullName}'s profile` : 'your background'}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Target Industry Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-1.5 subcard-3d px-2.5 py-1.5 rounded-xl">
               <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <select
                 value={targetIndustry}
                 onChange={(e) => setTargetIndustry(e.target.value)}
-                className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-medium text-slate-200 focus:outline-none cursor-pointer"
               >
-                <option value="Software & Technology" className="dark:bg-slate-900">Software & Tech</option>
-                <option value="Finance & Banking" className="dark:bg-slate-900">Finance & Banking</option>
-                <option value="Healthcare & Biotech" className="dark:bg-slate-900">Healthcare & Biotech</option>
-                <option value="Executive Management" className="dark:bg-slate-900">Executive Management</option>
-                <option value="Marketing & Creative" className="dark:bg-slate-900">Marketing & Creative</option>
-                <option value="Sales & Business Dev" className="dark:bg-slate-900">Sales & Business Dev</option>
-                <option value="General Professional" className="dark:bg-slate-900">General Professional</option>
+                <option value="Software & Technology" className="bg-slate-900">Software & Tech</option>
+                <option value="Finance & Banking" className="bg-slate-900">Finance & Banking</option>
+                <option value="Healthcare & Biotech" className="bg-slate-900">Healthcare & Biotech</option>
+                <option value="Executive Management" className="bg-slate-900">Executive Management</option>
+                <option value="Marketing & Creative" className="bg-slate-900">Marketing & Creative</option>
+                <option value="Sales & Business Dev" className="bg-slate-900">Sales & Business Dev</option>
+                <option value="General Professional" className="bg-slate-900">General Professional</option>
               </select>
             </div>
 
@@ -650,17 +515,17 @@ export default function Dashboard({
             <button
               onClick={handleGenerateAiTips}
               disabled={isGeneratingTips}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/20 transition flex items-center gap-2 disabled:opacity-50"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold btn-3d-indigo text-white flex items-center gap-2 disabled:opacity-50"
             >
               {isGeneratingTips ? (
                 <>
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  Generating AI Tips...
+                  Generating...
                 </>
               ) : (
                 <>
                   <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                  Generate Fresh AI Tips
+                  Regenerate Tips
                 </>
               )}
             </button>
@@ -669,14 +534,14 @@ export default function Dashboard({
             <div className="flex items-center gap-1">
               <button
                 onClick={() => scrollTips("left")}
-                className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
+                className="p-2 btn-3d-slate text-slate-300 rounded-xl transition"
                 title="Scroll left"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button
                 onClick={() => scrollTips("right")}
-                className="p-2 text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 rounded-xl transition shadow-sm"
+                className="p-2 btn-3d-slate text-slate-300 rounded-xl transition"
                 title="Scroll right"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -686,7 +551,7 @@ export default function Dashboard({
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-800/80">
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-700/60">
           <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
             <Filter className="w-3 h-3" /> Filter:
           </span>
@@ -695,7 +560,7 @@ export default function Dashboard({
             className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
               tipFilter === "all"
                 ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                : "bg-slate-800/80 text-slate-400 hover:text-white"
             }`}
           >
             All Tips ({tipsList.length})
@@ -705,7 +570,7 @@ export default function Dashboard({
             className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
               tipFilter === "personalized"
                 ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                : "bg-slate-800/80 text-slate-400 hover:text-white"
             }`}
           >
             <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
@@ -716,10 +581,10 @@ export default function Dashboard({
             className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
               tipFilter === "general"
                 ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                : "bg-slate-800/80 text-slate-400 hover:text-white"
             }`}
           >
-            General Strategies ({tipsList.filter(t => !t.isPersonalized).length})
+            General ({tipsList.filter(t => !t.isPersonalized).length})
           </button>
         </div>
 
@@ -731,15 +596,15 @@ export default function Dashboard({
           {filteredTips.map((tip, idx) => (
             <div
               key={tip.id || idx}
-              className={`min-w-[290px] sm:min-w-[330px] max-w-[350px] p-4.5 ${subCardBg} rounded-xl space-y-3 snap-start shrink-0 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 transition shadow-sm relative group flex flex-col justify-between`}
+              className="min-w-[290px] sm:min-w-[330px] max-w-[350px] p-4.5 subcard-3d rounded-xl space-y-3 snap-start shrink-0 hover:border-indigo-500/60 transition shadow-sm relative group flex flex-col justify-between"
             >
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded border border-indigo-500/30">
                     {tip.category}
                   </span>
                   {tip.isPersonalized ? (
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <Zap className="w-2.5 h-2.5 fill-emerald-400" /> Tailored
                     </span>
                   ) : (
@@ -755,13 +620,13 @@ export default function Dashboard({
                 </p>
               </div>
 
-              <div className="pt-2.5 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
-                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium line-clamp-2">
+              <div className="pt-2.5 border-t border-slate-700/50 space-y-2">
+                <div className="text-[11px] text-emerald-400 font-medium line-clamp-2">
                   ⚡ {tip.action}
                 </div>
                 <button
                   onClick={() => setSelectedTipDetail(tip)}
-                  className="w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/10 transition flex items-center justify-center gap-1 border border-indigo-500/20"
+                  className="w-full py-1.5 px-3 rounded-lg text-[11px] font-bold btn-3d-slate text-indigo-300 transition flex items-center justify-center gap-1"
                 >
                   <BookOpen className="w-3 h-3" /> View Action Plan
                 </button>
@@ -771,124 +636,135 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Core Split Dashboard content */}
-      <div className="grid grid-cols-1 gap-8">
+      {/* Core Documents: Resumes & Cover Letters */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Main Column: Recent Resumes & Cover Letters */}
-        <div className="space-y-6">
-          
-          {/* Recent Resumes */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display">Recent Resumes</h3>
-              <button
-                onClick={() => onOpenUploadModal?.()}
-                className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-semibold"
-              >
-                <Upload className="h-3.5 w-3.5" /> Upload & Scan Resume
-              </button>
+        {/* Resumes Column */}
+        <div className="card-3d rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-indigo-400" />
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest font-display">My Resumes ({resumes.length})</h3>
             </div>
-            
-            <div className="space-y-3">
-              {resumes.map((res) => (
-                <div
-                  key={res.id}
-                  className={`p-4 ${cardBg} rounded-xl flex items-center justify-between gap-4 transition shadow-md`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 ${subCardBg} rounded-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0`}>
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className={`text-xs font-bold ${textPrimary}`}>{res.title}</h4>
-                      <p className={`text-[10px] ${textSecondary} mt-0.5`}>
-                        Template: <span className="capitalize text-indigo-600 dark:text-indigo-400 font-semibold">{res.templateId}</span> | Updated: {new Date(res.updatedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onSelectResume(res.id)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"
-                      title="Edit Resume"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => onDuplicateResume(res)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"
-                      title="Duplicate"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setItemToDelete({ id: res.id, type: "resume", title: res.title })}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded transition"
-                      title="Delete Resume"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {resumes.length === 0 && (
-                <div className={`text-center py-10 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl ${subCardBg}`}>
-                  <p className={`text-xs ${textSecondary}`}>No resumes created yet. Click 'New Resume' above to start.</p>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => setShowCreateResumeModal(true)}
+              className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold"
+            >
+              <Plus className="h-3.5 w-3.5" /> New Resume
+            </button>
           </div>
-
-          {/* Recent Cover Letters */}
-          <div className="space-y-4 pt-4">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display">Recent Cover Letters</h3>
-            
-            <div className="space-y-3">
-              {letters.map((letItem) => (
-                <div
-                  key={letItem.id}
-                  className={`p-4 ${cardBg} rounded-xl flex items-center justify-between gap-4 transition shadow-md`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 ${subCardBg} rounded-lg flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold shrink-0`}>
-                      <Sparkles className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className={`text-xs font-bold ${textPrimary}`}>{letItem.title}</h4>
-                      <p className={`text-[10px] ${textSecondary} mt-0.5`}>
-                        Target: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{letItem.recipientCompany}</span> | Date: {letItem.date}
-                      </p>
-                    </div>
+          
+          <div className="space-y-3">
+            {resumes.map((res) => (
+              <div
+                key={res.id}
+                className="subcard-3d p-4 rounded-xl flex items-center justify-between gap-4 transition hover:border-indigo-500/50"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-10 w-10 icon-plate-3d icon-plate-indigo flex items-center justify-center font-bold shrink-0">
+                    <FileText className="h-5 w-5" />
                   </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => onSelectLetter(letItem.id)}
-                      className="p-1.5 text-slate-500 hover:text-emerald-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setItemToDelete({ id: letItem.id, type: "letter", title: letItem.title })}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded transition"
-                      title="Delete Cover Letter"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  <div className="truncate">
+                    <h4 className={`text-xs font-bold ${textPrimary} truncate`}>{res.title}</h4>
+                    <p className={`text-[10px] ${textSecondary} mt-0.5`}>
+                      Template: <span className="capitalize text-indigo-400 font-semibold">{res.templateId}</span> | {new Date(res.updatedAt).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
-              ))}
 
-              {letters.length === 0 && (
-                <div className={`text-center py-10 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl ${subCardBg}`}>
-                  <p className={`text-xs ${textSecondary}`}>No cover letters generated yet. Click 'New Cover Letter' to compose.</p>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => onSelectResume(res.id)}
+                    className="p-1.5 btn-3d-slate text-slate-300 hover:text-white rounded-lg transition"
+                    title="Edit Resume"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDuplicateResume(res)}
+                    className="p-1.5 btn-3d-slate text-slate-300 hover:text-white rounded-lg transition"
+                    title="Duplicate"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setItemToDelete({ id: res.id, type: "resume", title: res.title })}
+                    className="p-1.5 btn-3d-slate text-rose-400 hover:text-rose-300 rounded-lg transition"
+                    title="Delete Resume"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-              )}
+              </div>
+            ))}
+
+            {resumes.length === 0 && (
+              <div className="text-center py-8 subcard-3d rounded-xl border border-dashed border-slate-700/60">
+                <p className={`text-xs ${textSecondary}`}>No resumes created yet. Click 'Build New Resume' to start.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Cover Letters Column */}
+        <div className="card-3d rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-emerald-400" />
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest font-display">My Cover Letters ({letters.length})</h3>
             </div>
+            <button
+              onClick={() => setShowCreateLetterModal(true)}
+              className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold"
+            >
+              <Plus className="h-3.5 w-3.5" /> New Letter
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            {letters.map((letItem) => (
+              <div
+                key={letItem.id}
+                className="subcard-3d p-4 rounded-xl flex items-center justify-between gap-4 transition hover:border-emerald-500/50"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-10 w-10 icon-plate-3d icon-plate-emerald flex items-center justify-center font-bold shrink-0">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="truncate">
+                    <h4 className={`text-xs font-bold ${textPrimary} truncate`}>{letItem.title}</h4>
+                    <p className={`text-[10px] ${textSecondary} mt-0.5 truncate`}>
+                      Target: <span className="font-semibold text-emerald-400">{letItem.recipientCompany}</span> | {letItem.date}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => onSelectLetter(letItem.id)}
+                    className="p-1.5 btn-3d-slate text-slate-300 hover:text-white rounded-lg transition"
+                    title="Edit Cover Letter"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setItemToDelete({ id: letItem.id, type: "letter", title: letItem.title })}
+                    className="p-1.5 btn-3d-slate text-rose-400 hover:text-rose-300 rounded-lg transition"
+                    title="Delete Cover Letter"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {letters.length === 0 && (
+              <div className="text-center py-8 subcard-3d rounded-xl border border-dashed border-slate-700/60">
+                <p className={`text-xs ${textSecondary}`}>No cover letters generated yet. Click 'New Cover Letter' to compose.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
