@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersistence, GoogleAuthProvider } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
@@ -35,9 +35,12 @@ export async function handleGoogleLogin() {
   }
 }
 
-// Configure local persistence so authentication state survives page reloads and cross-origin iframe navigation
+// Configure persistence based on user preference:
+// If remember me was explicitly opted in, persist across browser restarts (browserLocalPersistence).
+// Otherwise use in-memory/session persistence (browserSessionPersistence) so fresh tabs/windows start on the intro/login page.
+const isRememberMeOptedIn = localStorage.getItem("cvcraft_remember_me") === "true";
 try {
-  setPersistence(auth, browserLocalPersistence).catch((err) => {
+  setPersistence(auth, isRememberMeOptedIn ? browserLocalPersistence : browserSessionPersistence).catch((err) => {
     console.warn("Auth persistence initialization note:", err?.message || err);
   });
 } catch (e) {

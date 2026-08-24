@@ -653,6 +653,7 @@ export default function App() {
       sessionStorage.clear();
       localStorage.removeItem("cvcraft_offline_mode");
       localStorage.removeItem("cvcraft_local_user");
+      localStorage.removeItem("cvcraft_remember_me");
       setIsOfflineMode(false);
       setSelectedResumeId(null);
       setSelectedLetterId(null);
