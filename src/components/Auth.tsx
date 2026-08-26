@@ -643,31 +643,31 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           };
           localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
 
-          try {
-            const uDocRef = doc(db, "users", firebaseUser.uid);
-            const uDoc = await getDoc(uDocRef);
-            
-            if (!uDoc.exists()) {
-              await setDoc(uDocRef, {
-                email: userEmail.toLowerCase(),
-                displayName: displayName,
-                isPremium: true,
-                creationsCount: 0,
-                adViews: 0,
-                profilePhoto: firebaseUser.photoURL || ""
-              });
-            } else {
-              displayName = uDoc.data()?.displayName || displayName;
-            }
-          } catch (docErr) {
-            console.warn("Firestore user sync status:", docErr);
-          }
-
+          // Trigger auth success immediately so user transitions to Dashboard without blocking on Firestore
           setLoading(false);
           onAuthSuccess({
             email: userEmail,
             displayName: displayName
           });
+
+          // Non-blocking Firestore user profile initialization
+          const uDocRef = doc(db, "users", firebaseUser.uid);
+          getDoc(uDocRef)
+            .then((uDoc) => {
+              if (!uDoc.exists()) {
+                return setDoc(uDocRef, {
+                  email: userEmail.toLowerCase(),
+                  displayName: displayName,
+                  isPremium: true,
+                  creationsCount: 0,
+                  adViews: 0,
+                  profilePhoto: firebaseUser.photoURL || ""
+                });
+              }
+            })
+            .catch((docErr) => {
+              console.warn("Firestore user background sync status:", docErr);
+            });
         }
       } catch (popupErr: any) {
         if (popupErr?.code === "auth/popup-closed-by-user" || popupErr?.code === "auth/cancelled-popup-request") {

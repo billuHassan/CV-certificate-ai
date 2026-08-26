@@ -368,6 +368,18 @@ export default function App() {
         const resolvedEmail = firebaseUser.email || cachedEmail || "";
         const resolvedDisplayName = firebaseUser.displayName || cachedDisplayName || (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
 
+        // Immediately set the user state to transition the screen without waiting for Firestore
+        setUser({
+          uid: firebaseUser.uid,
+          email: resolvedEmail,
+          displayName: resolvedDisplayName,
+          isPremium: true,
+          creationsCount: 0,
+          adViews: 0,
+          profilePhoto: firebaseUser.photoURL || "",
+          settings: {}
+        });
+
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
           
@@ -385,7 +397,7 @@ export default function App() {
 
             if (!docSnap.exists()) {
               // Write the initial document asynchronously
-              setDoc(userDocRef, profileData).catch(console.error);
+              setDoc(userDocRef, profileData).catch(console.warn);
             } else {
               const data = docSnap.data();
               profileData = {
