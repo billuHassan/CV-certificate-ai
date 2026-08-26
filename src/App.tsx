@@ -251,56 +251,6 @@ export default function App() {
     const savedOnboard = localStorage.getItem("cvcraft_onboarded");
     if (savedOnboard) setIsOnboarded(true);
 
-    if (isOfflineMode) {
-      const savedUser = localStorage.getItem("cvcraft_local_user");
-      let localUser: UserSession | null = null;
-      if (savedUser) {
-        try {
-          localUser = JSON.parse(savedUser);
-        } catch {
-          // ignore
-        }
-      }
-      if (!localUser) {
-        localUser = {
-          uid: "local-user-session",
-          email: "demo@cvcraft.ai",
-          displayName: "Guest User",
-          isPremium: true,
-          creationsCount: 0,
-          adViews: 0,
-          profilePhoto: ""
-        };
-      }
-      setUser(localUser);
-      setIsAuthLoading(false);
-      
-      // Load local resumes
-      const localResumes = localStorage.getItem(`cvcraft_local_resumes_${localUser.email}`);
-      if (localResumes) {
-        try {
-          setResumes(JSON.parse(localResumes));
-        } catch {
-          setResumes([]);
-        }
-      } else {
-        setResumes([]);
-      }
-      
-      // Load local letters
-      const localLetters = localStorage.getItem(`cvcraft_local_letters_${localUser.email}`);
-      if (localLetters) {
-        try {
-          setLetters(JSON.parse(localLetters));
-        } catch {
-          setLetters([]);
-        }
-      } else {
-        setLetters([]);
-      }
-      return;
-    }
-
     let unsubUserDoc: (() => void) | null = null;
     let unsubResumes: (() => void) | null = null;
     let unsubLetters: (() => void) | null = null;
@@ -320,6 +270,8 @@ export default function App() {
             profilePhoto: rUser.photoURL || ""
           };
           localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+          localStorage.removeItem("cvcraft_offline_mode");
+          setIsOfflineMode(false);
         }
       })
       .catch((err) => {
@@ -353,7 +305,7 @@ export default function App() {
           }
         }
 
-        // Recover cached email/name if Firebase Auth provider (e.g. anonymous fallback) returned blank email
+        // Recover cached email/name if Firebase Auth provider returned blank email
         let cachedEmail = "";
         let cachedDisplayName = "";
         try {
@@ -365,7 +317,7 @@ export default function App() {
           }
         } catch {}
 
-        const resolvedEmail = firebaseUser.email || cachedEmail || "";
+        const resolvedEmail = (firebaseUser.email || cachedEmail || "").toLowerCase();
         const resolvedDisplayName = firebaseUser.displayName || cachedDisplayName || (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
 
         // Immediately set the user state to transition the screen without waiting for Firestore
@@ -379,6 +331,7 @@ export default function App() {
           profilePhoto: firebaseUser.photoURL || "",
           settings: {}
         });
+        setIsAuthLoading(false);
 
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
@@ -499,16 +452,41 @@ export default function App() {
       } else {
         if (unsubResumes) { unsubResumes(); unsubResumes = null; }
         if (unsubLetters) { unsubLetters(); unsubLetters = null; }
-        setUser(null);
-        setResumes([]);
-        setLetters([]);
-        setSelectedResumeId(null);
-        setSelectedLetterId(null);
-        setScoreReport(null);
-        setCurrentView("dashboard");
         
-        // Reset translation cookies back to English on signout so next login starts fresh
-        clearLanguageCookie();
+        // If guest mode was explicitly enabled
+        const savedOffline = localStorage.getItem("cvcraft_offline_mode");
+        if (savedOffline === "true") {
+          const savedUser = localStorage.getItem("cvcraft_local_user");
+          let localUser: UserSession | null = null;
+          if (savedUser) {
+            try {
+              localUser = JSON.parse(savedUser);
+            } catch {}
+          }
+          if (!localUser) {
+            localUser = {
+              uid: "guest-explorer-session",
+              email: "guest@cvcraft.ai",
+              displayName: "Guest Explorer",
+              isPremium: false,
+              isGuest: true,
+              creationsCount: 0,
+              adViews: 0,
+              profilePhoto: ""
+            };
+          }
+          setUser(localUser);
+          setIsOfflineMode(true);
+        } else {
+          setUser(null);
+          setResumes([]);
+          setLetters([]);
+          setSelectedResumeId(null);
+          setSelectedLetterId(null);
+          setScoreReport(null);
+          setCurrentView("dashboard");
+          clearLanguageCookie();
+        }
         setIsAuthLoading(false);
       }
     });
@@ -640,28 +618,42 @@ export default function App() {
   }, [activeThemeObj.isDark]);
 
   const handleAuthSuccess = (u: { email: string; displayName: string }) => {
-    // Session is handled automatically by onAuthStateChanged subscription for real Firebase users.
-    // If Firebase Auth is not signed in or guest mode was triggered, let's configure local session.
-    if (!auth.currentUser || u.email === "guest@cvcraft.ai") {
-      const isGuestUser = u.email === "guest@cvcraft.ai";
+    const isGuestUser = u.email === "guest@cvcraft.ai";
+    const fUser = auth.currentUser;
+    const resolvedEmail = (fUser?.email || u.email).toLowerCase();
+    const resolvedDisplayName = fUser?.displayName || u.displayName || (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
+
+    if (isGuestUser) {
       setIsOfflineMode(true);
       localStorage.setItem("cvcraft_offline_mode", "true");
-      
-      const localUser: UserSession = {
-        uid: isGuestUser ? "guest-explorer-session" : "local-user-session",
-        email: u.email,
-        displayName: u.displayName,
-        isPremium: !isGuestUser, // Guests have limited preview
-        isGuest: isGuestUser,
-        creationsCount: 0,
-        adViews: 0,
-        profilePhoto: ""
-      };
-      setUser(localUser);
-      localStorage.setItem("cvcraft_local_user", JSON.stringify(localUser));
+    } else {
+      setIsOfflineMode(false);
+      localStorage.removeItem("cvcraft_offline_mode");
+    }
 
-      // If guest user and no resumes exist locally, provide sample CV for instant exploration
-      if (isGuestUser && resumes.length === 0) {
+    const localUser: UserSession = {
+      uid: fUser ? fUser.uid : (isGuestUser ? "guest-explorer-session" : "local-user-session"),
+      email: resolvedEmail,
+      displayName: resolvedDisplayName,
+      isPremium: !isGuestUser,
+      isGuest: isGuestUser,
+      creationsCount: 0,
+      adViews: 0,
+      profilePhoto: fUser?.photoURL || "",
+      settings: {}
+    };
+
+    setUser(localUser);
+    localStorage.setItem("cvcraft_local_user", JSON.stringify(localUser));
+    setIsOnboarded(true);
+    setIsAuthLoading(false);
+    setSelectedResumeId(null);
+    setSelectedLetterId(null);
+    setScoreReport(null);
+    setCurrentView("dashboard");
+
+    // If guest user and no resumes exist locally, provide sample CV for instant exploration
+    if (isGuestUser && resumes.length === 0) {
         const sampleGuestResume: ResumeData = {
           id: "guest-sample-cv",
           title: "Senior Product & Systems Architect",
@@ -731,7 +723,6 @@ export default function App() {
         setResumes([sampleGuestResume]);
         localStorage.setItem(`cvcraft_local_resumes_${u.email}`, JSON.stringify([sampleGuestResume]));
       }
-    }
   };
 
   const handleSignOut = async () => {

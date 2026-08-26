@@ -11,6 +11,7 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   signInAnonymously,
+  onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence
@@ -32,18 +33,40 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Check redirect result on mount (for mobile/redirect flows)
+  // Check redirect result on mount (for mobile/redirect flows) & listen to live auth state changes
   useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const displayName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User";
+        const userEmail = (firebaseUser.email || "").toLowerCase();
+        const userSession = {
+          uid: firebaseUser.uid,
+          email: userEmail,
+          displayName: displayName,
+          isPremium: true,
+          creationsCount: 0,
+          adViews: 0,
+          profilePhoto: firebaseUser.photoURL || ""
+        };
+        localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
+        localStorage.removeItem("cvcraft_offline_mode");
+        onAuthSuccess({
+          email: userEmail,
+          displayName: displayName
+        });
+      }
+    });
+
     getRedirectResult(auth)
       .then(async (result) => {
         if (result?.user) {
           const firebaseUser = result.user;
           let displayName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Google User";
-          const userEmail = firebaseUser.email || "";
+          const userEmail = (firebaseUser.email || "").toLowerCase();
 
           const userSession = {
             uid: firebaseUser.uid,
-            email: userEmail.toLowerCase(),
+            email: userEmail,
             displayName: displayName,
             isPremium: true,
             creationsCount: 0,
@@ -51,25 +74,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             profilePhoto: firebaseUser.photoURL || ""
           };
           localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
-
-          try {
-            const uDocRef = doc(db, "users", firebaseUser.uid);
-            const uDoc = await getDoc(uDocRef);
-            if (!uDoc.exists()) {
-              await setDoc(uDocRef, {
-                email: userEmail.toLowerCase(),
-                displayName: displayName,
-                isPremium: true,
-                creationsCount: 0,
-                adViews: 0,
-                profilePhoto: firebaseUser.photoURL || ""
-              });
-            } else {
-              displayName = uDoc.data()?.displayName || displayName;
-            }
-          } catch (docErr) {
-            console.warn("Firestore sync error:", docErr);
-          }
+          localStorage.removeItem("cvcraft_offline_mode");
 
           onAuthSuccess({
             email: userEmail,
@@ -80,6 +85,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       .catch((rErr) => {
         console.warn("Redirect auth check:", rErr);
       });
+
+    return () => unsub();
   }, [onAuthSuccess]);
 
   // Email verification flow states
@@ -109,67 +116,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const isUpper = /[A-Z]/.test(password);
   const isNumber = /[0-9]/.test(password);
   const isSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-  const signInFallback = async (userEmail: string, userDisplayName: string) => {
-    try {
-      let uid = "user-" + Date.now();
-      
-      // Store local user metadata first so auth state listeners immediately recognize user identity
-      const userSession = {
-        uid: uid,
-        email: userEmail.toLowerCase().trim(),
-        displayName: userDisplayName.trim(),
-        isPremium: true,
-        creationsCount: 0,
-        adViews: 0,
-        profilePhoto: ""
-      };
-      localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
-
-      try {
-        const anonCred = await signInAnonymously(auth);
-        if (anonCred?.user?.uid) {
-          uid = anonCred.user.uid;
-          userSession.uid = uid;
-          localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
-          try {
-            await updateProfile(anonCred.user, { displayName: userDisplayName.trim() });
-          } catch (profileErr) {
-            console.warn("Profile update note:", profileErr);
-          }
-        }
-      } catch (anonErr) {
-        console.warn("Anonymous auth provider status:", anonErr);
-      }
-      
-      try {
-        const uDocRef = doc(db, "users", uid);
-        await setDoc(uDocRef, {
-          email: userEmail.toLowerCase().trim(),
-          displayName: userDisplayName.trim(),
-          isPremium: true,
-          creationsCount: 0,
-          adViews: 0,
-          profilePhoto: ""
-        });
-      } catch (docErr) {
-        console.warn("Firestore user record sync status:", docErr);
-      }
-
-      setLoading(false);
-      onAuthSuccess({
-        email: userEmail.toLowerCase().trim(),
-        displayName: userDisplayName.trim(),
-      });
-    } catch (err) {
-      console.warn("Fallback auth session created:", err);
-      setLoading(false);
-      onAuthSuccess({
-        email: userEmail.toLowerCase().trim(),
-        displayName: userDisplayName.trim(),
-      });
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,7 +209,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           setError(sendResult.error || "Failed to trigger secure verification code. Please try again.");
         }
       } else {
-        // 3. LOGIN MODE: Authenticate with Firebase Auth Email/Password
+        // 3. LOGIN MODE: Authenticate with Firebase Auth Email/Password strictly
         try {
           // Set persistence depending on whether Remember Me was checked
           try {
@@ -277,47 +223,75 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             console.warn("Persistence set warning:", pErr);
           }
 
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          localStorage.removeItem("cvcraft_offline_mode");
+          const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
           const fUser = userCredential.user;
           
-          // Verify user doc exists in Firestore
-          const uDocRef = doc(db, "users", fUser.uid);
-          const uDoc = await getDoc(uDocRef);
           let displayName = fUser.displayName || email.split("@")[0];
-          if (!uDoc.exists()) {
-            await setDoc(uDocRef, {
-              email: email.toLowerCase(),
-              displayName: displayName,
-              isPremium: true,
-              creationsCount: 0,
-              adViews: 0,
-              profilePhoto: ""
-            });
-          } else {
-            displayName = uDoc.data().displayName || displayName;
+          try {
+            const uDocRef = doc(db, "users", fUser.uid);
+            const uDoc = await getDoc(uDocRef);
+            if (!uDoc.exists()) {
+              await setDoc(uDocRef, {
+                email: email.toLowerCase().trim(),
+                displayName: displayName,
+                isPremium: true,
+                creationsCount: 0,
+                adViews: 0,
+                profilePhoto: ""
+              });
+            } else {
+              displayName = uDoc.data().displayName || displayName;
+            }
+          } catch (docErr) {
+            console.warn("Firestore profile sync warning:", docErr);
           }
+
+          const userSession = {
+            uid: fUser.uid,
+            email: email.toLowerCase().trim(),
+            displayName: displayName,
+            isPremium: true,
+            creationsCount: 0,
+            adViews: 0,
+            profilePhoto: ""
+          };
+          localStorage.setItem("cvcraft_local_user", JSON.stringify(userSession));
 
           setLoading(false);
           onAuthSuccess({
-            email: email,
+            email: email.trim(),
             displayName: displayName
           });
         } catch (authErr: any) {
-          const isOpNotAllowed = authErr?.code === "auth/operation-not-allowed" ||
-                                 authErr?.message?.includes("operation-not-allowed") ||
-                                 authErr?.message?.includes("operation_not_allowed");
-          if (isOpNotAllowed) {
-            console.warn("Email/Password provider disabled in Firebase Console. Logging in via fallback session.");
-            await signInFallback(email, email.split("@")[0]);
+          console.warn("Email password login attempt status:", authErr?.code, authErr?.message);
+          setLoading(false);
+
+          if (authErr?.code === "auth/operation-not-allowed") {
+            setError("Email & Password sign-in is not enabled in Firebase Console. Please enable Email/Password under Authentication -> Sign-in method.");
             return;
           }
-          console.warn("Email password login attempt:", authErr?.message || authErr);
-          let errMsg = "Invalid email or password.";
-          if (authErr?.code === "auth/too-many-requests") {
-            errMsg = "Access to this account has been temporarily disabled due to too many failed login attempts. Please try again later or recover your password.";
+
+          if (
+            authErr?.code === "auth/invalid-credential" ||
+            authErr?.code === "auth/user-not-found" ||
+            authErr?.code === "auth/wrong-password"
+          ) {
+            setError("Incorrect email or password. Please verify your credentials or click 'Sign Up' if you don't have an account yet.");
+            return;
           }
-          setError(errMsg);
-          setLoading(false);
+
+          if (authErr?.code === "auth/invalid-email") {
+            setError("The email address format is invalid.");
+            return;
+          }
+
+          if (authErr?.code === "auth/too-many-requests") {
+            setError("Access to this account has been temporarily disabled due to too many failed login attempts. Please try again later or recover your password.");
+            return;
+          }
+
+          setError(authErr?.message || "Invalid email or password. Please check your credentials.");
         }
       }
     } catch (err: any) {
@@ -385,13 +359,13 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       if (data.success) {
         // Authenticate user via Firebase Auth
         try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
           const fUser = userCredential.user;
           await updateProfile(fUser, { displayName: name });
           
           // Store email and user data in Firestore
           await setDoc(doc(db, "users", fUser.uid), {
-            email: email.toLowerCase(),
+            email: email.toLowerCase().trim(),
             displayName: name || email.split("@")[0],
             isPremium: true,
             creationsCount: 0,
@@ -403,17 +377,16 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           setIsLogin(true);
           setShowVerification(false);
           setPassword(""); // Reset password field so they type it
-          setSuccessMessage("Your email has been successfully verified and registered! Please sign in with your password to continue.");
+          setSuccessMessage("Your account has been created and verified! Please sign in with your email and password.");
         } catch (regErr: any) {
-          const isOpNotAllowed = regErr?.code === "auth/operation-not-allowed" ||
-                                 regErr?.message?.includes("operation-not-allowed") ||
-                                 regErr?.message?.includes("operation_not_allowed");
-          if (isOpNotAllowed) {
-            console.warn("Email/Password provider disabled in Firebase Console. Logging in via fallback session.");
-            await signInFallback(email, name || email.split("@")[0]);
+          console.warn("Firebase email registration status:", regErr?.code, regErr?.message);
+          setLoading(false);
+
+          if (regErr?.code === "auth/operation-not-allowed") {
+            setVerificationError("Email & Password registration is not enabled in Firebase Console. Please enable Email/Password under Authentication -> Sign-in method.");
             return;
           }
-          console.warn("Firebase email registration status:", regErr?.message || regErr);
+
           let errMsg = "Registration failed. Please make sure your email is not already registered.";
           if (regErr?.code === "auth/email-already-in-use") {
             errMsg = "This email address is already registered in our system. Try signing in or recovering your password.";
@@ -421,7 +394,6 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             errMsg = "The chosen password is too weak. Please use a stronger password format.";
           }
           setVerificationError(errMsg);
-          setLoading(false);
         }
       } else {
         setLoading(false);
