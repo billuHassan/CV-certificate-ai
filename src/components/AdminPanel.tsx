@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
   Shield, Users, MessageSquare, Star, RefreshCw, Check, 
-  X, AlertTriangle, Cpu, Terminal, Radio, Ban, Send, UserCheck, Inbox,
+  X, AlertTriangle, FileText, Ban, Send, UserCheck, Inbox,
   Paperclip, Image, Video, Download
 } from "lucide-react";
 import { UserSession } from "../types";
@@ -457,7 +457,7 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
         <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5 shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">ATS Scans Run</span>
-            <Terminal className="h-4 w-4 text-purple-400" />
+            <FileText className="h-4 w-4 text-purple-400" />
           </div>
           <div className="text-xl font-bold text-white font-mono leading-none py-1">
             {realUsers.reduce((sum, u) => sum + (u.creationsCount || 0), 0)} Scans
@@ -508,11 +508,8 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
         </button>
       </div>
 
-      {/* Content Columns split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Main interactive directory tab */}
-        <div className="lg:col-span-8 space-y-6">
+      {/* Content Area */}
+      <div className="w-full space-y-6">
           {activeTab === "users" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-xl">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -861,43 +858,6 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
               )}
             </div>
           )}
-        </div>
-
-        {/* Right Column: Diagnostic Information & Logs */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Security Guard Terminal */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-rose-500 animate-pulse" />
-                <h3 className="font-bold text-white text-sm">System Operations Terminal</h3>
-              </div>
-              <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 border border-emerald-900/60 rounded">
-                SECURE
-              </span>
-            </div>
-
-            <div className="bg-slate-950 rounded-xl p-3 h-48 overflow-y-auto font-mono text-[10px] space-y-2 text-slate-400 scrollbar-thin">
-              {adminLog.map((log, index) => (
-                <div key={index} className="leading-relaxed border-b border-slate-900/45 pb-1">
-                  <span className="text-rose-500 font-semibold">{`>> `}</span>
-                  <span>{log}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Help Tip */}
-          <div className="border border-rose-500/10 bg-rose-500/5 rounded-2xl p-5 flex items-start gap-3 shadow-md">
-            <AlertTriangle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
-            <div className="space-y-1 text-[11px] text-slate-300">
-              <span className="font-bold text-white">Administrative Authority Rules</span>
-              <p className="leading-relaxed text-slate-400">
-                You are authenticated as the primary administrator. You have authoritative control to downgrade or upgrade premium accounts and chat with all site users directly. All payments/PayPal configurations have been removed from the platform.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
