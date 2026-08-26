@@ -5,13 +5,15 @@ import firebaseConfig from "../../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 
-// CRITICAL: Initialize Firestore with custom databaseId and resilient long-polling transport to eliminate WebChannel connection reset warnings
+// CRITICAL: Initialize Firestore with resilient long-polling transport to eliminate WebChannel connection reset warnings
 export const db = initializeFirestore(
   app,
   {
     experimentalAutoDetectLongPolling: true,
   },
-  firebaseConfig.firestoreDatabaseId
+  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)"
+    ? firebaseConfig.firestoreDatabaseId
+    : undefined
 );
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();

@@ -1,11 +1,10 @@
 {
-  "projectId": "eco-compass-fcf5x",
-  "appId": "1:176655497920:web:e22ca4db67134f7a650b25",
-  "apiKey": "AIzaSyDhbUotVr6na5WTWr_1ejvDzp-z0c5T67w",
-  "authDomain": "eco-compass-fcf5x.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-cvcraftai-33c3221e-6e83-481e-9467-41345cf0da28",
-  "storageBucket": "eco-compass-fcf5x.firebasestorage.app",
-  "messagingSenderId": "176655497920",
-  "measurementId": "",
-  "oAuthClientId": "176655497920-vqsq9ont0jlal0man744lauonbknnr6u.apps.googleusercontent.com"
+  "projectId": "rahmora-37199",
+  "appId": "1:872198892833:web:a3da6d56a9a9f65406e260",
+  "apiKey": "AIzaSyD6U8LVVeYZpLkXDFi1IWf-kJktYWGVd9Y",
+  "authDomain": "rahmora-37199.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "rahmora-37199.firebasestorage.app",
+  "messagingSenderId": "872198892833",
+  "measurementId": "G-CWQ0WQP5TM"
 }
