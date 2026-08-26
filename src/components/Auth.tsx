@@ -672,7 +672,14 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       } catch (popupErr: any) {
         if (popupErr?.code === "auth/popup-closed-by-user" || popupErr?.code === "auth/cancelled-popup-request") {
           setLoading(false);
-          setError("Google sign-in was dismissed. Tap Continue with Google to choose your account.");
+          setError("Google sign-in was closed before completion. Tap 'Continue with Google' to try again.");
+          return;
+        }
+
+        if (popupErr?.code === "auth/unauthorized-domain") {
+          setLoading(false);
+          const currentDomain = window.location.hostname;
+          setError(`Firebase Unauthorized Domain: "${currentDomain}" is not in the Authorized Domains list in Firebase Console. Go to Firebase Console -> Authentication -> Settings -> Authorized domains and add "${currentDomain}".`);
           return;
         }
 
@@ -687,7 +694,14 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     } catch (err: any) {
       console.warn("Google authentication error:", err?.code, err?.message);
       setLoading(false);
-      setError(err?.message || "Google sign-in failed. Please try again.");
+      if (err?.code === "auth/unauthorized-domain") {
+        const currentDomain = window.location.hostname;
+        setError(`Firebase Unauthorized Domain: "${currentDomain}" must be added in Firebase Console -> Authentication -> Settings -> Authorized Domains.`);
+      } else if (err?.code === "auth/operation-not-allowed") {
+        setError("Google Sign-In is not enabled in Firebase Console. Enable 'Google' under Authentication -> Sign-in method.");
+      } else {
+        setError(err?.message || "Google sign-in failed. Please try again or use Guest mode.");
+      }
     }
   };
 
@@ -739,7 +753,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           {/* Hero Headline */}
           <div className="space-y-3 max-w-3xl mx-auto">
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-display tracking-tight leading-[1.15]">
-              Build ATS-Optimized Resumes with <span className="bg-gradient-to-r from-teal-300 via-indigo-200 to-emerald-400 bg-clip-text text-transparent">Rahmora</span>
+              Build ATS-Optimized Resumes with <span className="brand-fancy-title bg-gradient-to-r from-teal-300 via-indigo-200 to-emerald-400 bg-clip-text text-transparent drop-shadow-[0_2px_12px_rgba(45,212,191,0.35)]">Rahmora</span>
             </h1>
             <p className="text-slate-200 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-normal">
               Create executive resumes, generate tailored cover letters, and unlock personalized interview prep in minutes.

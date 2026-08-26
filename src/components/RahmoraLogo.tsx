@@ -7,29 +7,32 @@ interface RahmoraLogoProps {
   showSubtitle?: boolean;
 }
 
+/**
+ * 3D Physical Crest Icon with High-End Gradients & Drop Shadows
+ */
 export function RahmoraLogoIcon({ className = "h-8 w-8" }: { className?: string }) {
   return (
-    <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
-      {/* Outer ambient glow ring */}
-      <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-indigo-500 via-teal-400 to-emerald-400 opacity-70 blur-[2px] transition group-hover:opacity-100" />
+    <div className={`relative flex items-center justify-center shrink-0 group ${className}`}>
+      {/* Dynamic ambient aura ring */}
+      <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-indigo-500 via-teal-400 to-emerald-400 opacity-70 blur-[2px] transition duration-300 group-hover:opacity-100 group-hover:blur-[3px]" />
       
       {/* Inner crest container */}
-      <div className="relative w-full h-full rounded-xl bg-slate-950 border border-teal-500/30 p-2 flex items-center justify-center text-teal-400 shadow-xl shadow-teal-500/10">
+      <div className="relative w-full h-full rounded-xl bg-slate-950 border border-teal-500/40 p-2 flex items-center justify-center text-teal-400 shadow-xl shadow-teal-500/10">
         <svg
           viewBox="0 0 32 32"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full drop-shadow-[0_2px_8px_rgba(20,184,166,0.4)]"
+          className="w-full h-full drop-shadow-[0_2px_8px_rgba(20,184,166,0.5)]"
         >
-          {/* Executive Career Shield & Rising Trajectory */}
+          {/* Executive Career Shield */}
           <path
             d="M16 3L27 7V15C27 21.5 22 26.5 16 29C10 26.5 5 21.5 5 15V7L16 3Z"
             fill="url(#crest-grad)"
-            fillOpacity="0.15"
+            fillOpacity="0.2"
             stroke="url(#crest-border)"
             strokeWidth="1.8"
           />
-          {/* Executive 'R' and Ascending Career Arrow */}
+          {/* Executive Stylized R & Trajectory */}
           <path
             d="M11 9H16.5C18.4 9 20 10.3 20 12.2C20 14.1 18.4 15.5 16.5 15.5H11V9Z"
             stroke="#38bdf8"
@@ -72,6 +75,63 @@ export function RahmoraLogoIcon({ className = "h-8 w-8" }: { className?: string 
   );
 }
 
+/**
+ * Fancy Signature Logotype with Multi-stop Gradient, Letterforms & Optical Balance
+ */
+export function RahmoraFancyTitle({
+  size = "md",
+  lightTheme = false,
+  className = ""
+}: {
+  size?: "sm" | "md" | "lg" | "xl" | "hero";
+  lightTheme?: boolean;
+  className?: string;
+}) {
+  const sizeStyles = {
+    sm: "text-base tracking-tight",
+    md: "text-lg tracking-tight",
+    lg: "text-2xl tracking-tight",
+    xl: "text-3xl tracking-tight",
+    hero: "text-5xl sm:text-7xl tracking-tighter"
+  }[size];
+
+  if (size === "hero") {
+    return (
+      <div className={`relative inline-block select-none ${className}`}>
+        {/* Glow halo behind luxury brand title */}
+        <div className="absolute -inset-x-8 -inset-y-4 bg-gradient-to-r from-indigo-500/20 via-teal-400/25 to-emerald-400/20 blur-3xl pointer-events-none" />
+        
+        <div className="relative flex items-center justify-center">
+          <span
+            className={`brand-fancy-title ${sizeStyles} font-extrabold bg-gradient-to-r from-white via-teal-100 to-emerald-300 bg-clip-text text-transparent drop-shadow-[0_4px_24px_rgba(45,212,191,0.35)]`}
+          >
+            Rahmora
+          </span>
+          <span className="ml-1.5 inline-block h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 rounded-full bg-gradient-to-tr from-amber-400 to-teal-300 shadow-[0_0_12px_rgba(251,191,36,0.9)] animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`inline-flex items-center select-none ${className}`}>
+      <span
+        className={`brand-fancy-title ${sizeStyles} font-extrabold ${
+          lightTheme
+            ? "bg-gradient-to-r from-slate-950 via-indigo-950 to-teal-900 bg-clip-text text-transparent"
+            : "bg-gradient-to-r from-white via-slate-100 to-teal-200 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(45,212,191,0.25)]"
+        }`}
+      >
+        Rahmora
+      </span>
+      <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.8)]" />
+    </div>
+  );
+}
+
+/**
+ * Official 3D Faceted Badge with Shimmer & Twinkle Effects
+ */
 export function RahmoraGlitterBadge({ className = "" }: { className?: string }) {
   return (
     <div className={`relative flex flex-col items-center justify-center select-none ${className}`}>
@@ -120,8 +180,8 @@ export function RahmoraGlitterBadge({ className = "" }: { className?: string }) 
             {/* Badge Title Typography */}
             <div className="text-left">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-black font-display tracking-wider bg-gradient-to-r from-white via-teal-100 to-emerald-200 bg-clip-text text-transparent">
-                  RAHMORA PRO
+                <span className="brand-fancy-title text-sm font-extrabold tracking-wide bg-gradient-to-r from-white via-teal-100 to-emerald-200 bg-clip-text text-transparent">
+                  Rahmora Pro
                 </span>
                 <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-[0_2px_0_0_#9a3412]">
                   OFFICIAL
@@ -138,6 +198,9 @@ export function RahmoraGlitterBadge({ className = "" }: { className?: string }) 
   );
 }
 
+/**
+ * Primary Rahmora Logo Component Supporting Standard Sizes & Hero Mode
+ */
 export default function RahmoraLogo({
   className = "",
   size = "md",
@@ -202,12 +265,12 @@ export default function RahmoraLogo({
           </div>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-black tracking-tight font-display text-white">
-          Rahmora
-        </h1>
-        <div className="flex items-center justify-center gap-3 mt-2.5">
+        {/* Fancy Hero Title with Dynamic Aura */}
+        <RahmoraFancyTitle size="hero" lightTheme={lightTheme} />
+
+        <div className="flex items-center justify-center gap-3 mt-3">
           <span className="h-px w-8 bg-gradient-to-r from-transparent to-teal-500/60" />
-          <span className="text-xs sm:text-sm font-bold tracking-[0.2em] text-teal-300 uppercase font-mono">
+          <span className="text-xs sm:text-sm font-bold tracking-[0.22em] text-teal-300 uppercase font-mono">
             Career Intelligence Platform
           </span>
           <span className="h-px w-8 bg-gradient-to-l from-transparent to-teal-500/60" />
@@ -216,22 +279,20 @@ export default function RahmoraLogo({
     );
   }
 
-  const sizeClasses = {
-    sm: { icon: "h-6 w-6", text: "text-base" },
-    md: { icon: "h-8 w-8", text: "text-lg" },
-    lg: { icon: "h-10 w-10", text: "text-xl" },
-    xl: { icon: "h-12 w-12", text: "text-2xl" }
+  const iconSizes = {
+    sm: "h-6 w-6",
+    md: "h-8 w-8",
+    lg: "h-10 w-10",
+    xl: "h-12 w-12"
   }[size];
 
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      <RahmoraLogoIcon className={sizeClasses.icon} />
-      <div>
-        <span className={`font-extrabold tracking-tight font-display ${sizeClasses.text} ${lightTheme ? "text-slate-900" : "text-white"}`}>
-          Rahmora
-        </span>
+      <RahmoraLogoIcon className={iconSizes} />
+      <div className="flex flex-col">
+        <RahmoraFancyTitle size={size} lightTheme={lightTheme} />
         {showSubtitle && (
-          <span className="text-[10px] text-teal-400/90 block font-mono font-medium -mt-1 tracking-wider uppercase">
+          <span className="text-[10px] text-teal-400/90 block font-mono font-medium -mt-0.5 tracking-wider uppercase">
             Career Suite
           </span>
         )}

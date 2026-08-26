@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { motion } from "motion/react";
 import {
   Plus, FileText, Sparkles, Award, Trash2, Edit2, Copy, BarChart2, Check,
   ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle,
@@ -291,10 +292,20 @@ export default function Dashboard({
   ];
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-7 no-print">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className="max-w-6xl mx-auto p-4 sm:p-8 space-y-7 no-print"
+    >
       
       {/* Top Welcome Panel in 3D Card Style */}
-      <div className="card-3d rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="card-3d rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden"
+      >
         {/* Subtle Ambient Backlight */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
         
@@ -339,7 +350,7 @@ export default function Dashboard({
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Streamlined 3D Quick Action Row (No duplication of sidebar items) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1017,6 +1028,6 @@ export default function Dashboard({
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
