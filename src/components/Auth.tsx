@@ -98,19 +98,19 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
   handleGoogleCredentialResponseRef.current = handleGoogleCredentialResponse;
 
-  // Initialize Google Identity Services once & render button
+  // Initialize Google Identity Services once globally & render button
   useEffect(() => {
     const setupGsi = () => {
       if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
         try {
-          if (!isGsiInitialized.current) {
+          if (!(window as any).__cvcraft_gsi_initialized) {
             (window as any).google.accounts.id.initialize({
               client_id: "176655497920-vqsq9ont0jlal0man744lauonbknnr6u.apps.googleusercontent.com",
               callback: (res: any) => handleGoogleCredentialResponseRef.current?.(res),
               auto_select: false,
               cancel_on_tap_outside: true
             });
-            isGsiInitialized.current = true;
+            (window as any).__cvcraft_gsi_initialized = true;
           }
 
           if (googleBtnContainerRef.current) {
@@ -131,15 +131,17 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       }
     };
 
-    setupGsi();
-    const interval = setInterval(() => {
-      if ((window as any).google?.accounts?.id) {
-        setupGsi();
-        clearInterval(interval);
-      }
-    }, 400);
-
-    return () => clearInterval(interval);
+    if ((window as any).google?.accounts?.id) {
+      setupGsi();
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).google?.accounts?.id) {
+          setupGsi();
+          clearInterval(interval);
+        }
+      }, 300);
+      return () => clearInterval(interval);
+    }
   }, [isLogin, showLanding]);
 
   // Email verification flow states
