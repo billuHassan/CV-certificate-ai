@@ -1,6 +1,6 @@
 {
-  "name": "RAHMORA",
-  "description": "RAHMORA - Intelligent Career, Resume & Cover Letter Platform with AI Optimization",
+  "name": "Rahmora",
+  "description": "Rahmora - Intelligent Career, Resume & Cover Letter Platform with AI Optimization",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

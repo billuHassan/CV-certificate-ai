@@ -203,7 +203,7 @@ export default function RahmoraLogo({
         </div>
 
         <h1 className="text-4xl sm:text-6xl font-black tracking-tight font-display text-white">
-          RAHMORA
+          Rahmora
         </h1>
         <div className="flex items-center justify-center gap-3 mt-2.5">
           <span className="h-px w-8 bg-gradient-to-r from-transparent to-teal-500/60" />
@@ -228,7 +228,7 @@ export default function RahmoraLogo({
       <RahmoraLogoIcon className={sizeClasses.icon} />
       <div>
         <span className={`font-extrabold tracking-tight font-display ${sizeClasses.text} ${lightTheme ? "text-slate-900" : "text-white"}`}>
-          RAHMORA
+          Rahmora
         </span>
         {showSubtitle && (
           <span className="text-[10px] text-teal-400/90 block font-mono font-medium -mt-1 tracking-wider uppercase">

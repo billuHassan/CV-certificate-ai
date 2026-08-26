@@ -728,65 +728,66 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         </header>
 
         {/* Main Hero Showcase */}
-        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-10 px-4 space-y-8">
+        <main className="relative z-10 w-full max-w-4xl mx-auto my-auto text-center py-8 px-4 space-y-7">
           
-          {/* Standing Glittering Big Badge */}
-          <div className="pt-2">
-            <RahmoraGlitterBadge />
+          {/* Big Standout Rahmora Hero Emblem & Badge */}
+          <div className="flex flex-col items-center justify-center gap-4 pt-1">
+            <RahmoraLogo size="hero" />
+            <RahmoraGlitterBadge className="mt-1" />
           </div>
 
           {/* Hero Headline */}
-          <div className="space-y-4 max-w-3xl mx-auto">
+          <div className="space-y-3 max-w-3xl mx-auto">
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-display tracking-tight leading-[1.15]">
-              Build ATS-Optimized Resumes with <span className="bg-gradient-to-r from-teal-300 via-indigo-200 to-emerald-400 bg-clip-text text-transparent">RAHMORA</span>
+              Build ATS-Optimized Resumes with <span className="bg-gradient-to-r from-teal-300 via-indigo-200 to-emerald-400 bg-clip-text text-transparent">Rahmora</span>
             </h1>
-            <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
-              Create professional resumes, generate tailored cover letters, and unlock personalized interview prep in minutes.
+            <p className="text-slate-200 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-normal">
+              Create executive resumes, generate tailored cover letters, and unlock personalized interview prep in minutes.
             </p>
           </div>
 
           {/* Feature Pillars Grid with Natural 3D Coloured Icon Plates */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-left">
-            <div className="card-3d rounded-2xl p-5 transition group">
+            <div className="card-3d rounded-2xl p-5 transition group border border-slate-700/80 bg-slate-900/90 shadow-xl">
               <div className="icon-plate-3d icon-plate-indigo h-11 w-11 mb-3.5">
                 <FileText className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-bold text-white mb-1">Resume Builder</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <h3 className="text-sm font-bold text-white mb-1 font-display tracking-wide">Resume Builder</h3>
+              <p className="text-xs text-slate-200 leading-relaxed font-normal">
                 Clean formatting, custom palettes, and instant export options in PDF, Word & HTML.
               </p>
             </div>
 
-            <div className="card-3d rounded-2xl p-5 transition group">
+            <div className="card-3d rounded-2xl p-5 transition group border border-slate-700/80 bg-slate-900/90 shadow-xl">
               <div className="icon-plate-3d icon-plate-sky h-11 w-11 mb-3.5">
                 <Building2 className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-bold text-white mb-1">Job Intelligence</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <h3 className="text-sm font-bold text-white mb-1 font-display tracking-wide">Job Intelligence</h3>
+              <p className="text-xs text-slate-200 leading-relaxed font-normal">
                 Discover matching employers and tailor applications to specific target roles.
               </p>
             </div>
 
-            <div className="card-3d rounded-2xl p-5 transition group">
+            <div className="card-3d rounded-2xl p-5 transition group border border-slate-700/80 bg-slate-900/90 shadow-xl">
               <div className="icon-plate-3d icon-plate-emerald h-11 w-11 mb-3.5">
                 <Brain className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-bold text-white mb-1">ATS & Career AI</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <h3 className="text-sm font-bold text-white mb-1 font-display tracking-wide">ATS & Career AI</h3>
+              <p className="text-xs text-slate-200 leading-relaxed font-normal">
                 Scan keyword gaps and optimize your bullet points for top recruiter screening.
               </p>
             </div>
           </div>
 
           {/* Primary Action Row with 3D Tactile Buttons */}
-          <div className="pt-4 flex flex-col items-center justify-center gap-3">
+          <div className="pt-3 flex flex-col items-center justify-center gap-3">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto">
               <button
                 onClick={() => {
                   setIsLogin(false);
                   setShowLanding(false);
                 }}
-                className="w-full sm:w-auto px-8 py-3.5 btn-3d-indigo text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3.5 btn-3d-indigo text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-lg"
               >
                 <span>Get Started Free</span>
                 <ArrowRight className="h-4 w-4" />
@@ -796,25 +797,28 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                   setIsLogin(true);
                   setShowLanding(false);
                 }}
-                className="w-full sm:w-auto px-6 py-3.5 btn-3d-slate text-slate-200 font-bold text-xs rounded-xl transition flex items-center justify-center"
+                className="w-full sm:w-auto px-7 py-3.5 btn-3d-slate text-slate-100 font-bold text-xs rounded-xl transition flex items-center justify-center shadow-lg border border-slate-700 hover:border-slate-500"
               >
                 <span>Sign In to Your Account</span>
               </button>
             </div>
 
-            {/* Subtle Guest Link */}
-            <button
-              onClick={() => {
-                onAuthSuccess({
-                  email: "guest@cvcraft.ai",
-                  displayName: "Guest"
-                });
-              }}
-              className="text-xs text-slate-400 hover:text-emerald-400 transition font-medium pt-2 flex items-center gap-1.5"
-            >
-              <span>or explore basic editor as guest</span>
-              <ArrowRight className="h-3 w-3" />
-            </button>
+            {/* High Contrast Prominent Guest Access Button */}
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  onAuthSuccess({
+                    email: "guest@cvcraft.ai",
+                    displayName: "Guest Explorer"
+                  });
+                }}
+                className="px-5 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-850 border border-emerald-500/40 hover:border-emerald-400 text-xs font-bold text-emerald-300 hover:text-emerald-200 transition-all flex items-center gap-2 shadow-md hover:shadow-emerald-950/40"
+              >
+                <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>Explore Free Editor as Guest (No Sign In Required)</span>
+                <ArrowRight className="h-3.5 w-3.5 text-emerald-400" />
+              </button>
+            </div>
           </div>
         </main>
 
@@ -1176,18 +1180,18 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         {/* Top Back to Landing button */}
         <button
           onClick={() => setShowLanding(true)}
-          className="mb-4 text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-semibold"
+          className="mb-4 text-xs text-slate-300 hover:text-white transition flex items-center gap-1 font-semibold"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to RAHMORA Intro
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Rahmora Intro
         </button>
 
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
           <RahmoraLogo size="lg" className="mb-2" />
           <h2 className="text-xl font-bold text-white font-display mt-1">
-            {isLogin ? "Welcome to RAHMORA" : "Create RAHMORA Account"}
+            {isLogin ? "Welcome to Rahmora" : "Create Rahmora Account"}
           </h2>
-          <p className="text-slate-400 text-xs mt-1 text-center">
+          <p className="text-slate-300 text-xs mt-1 text-center font-normal">
             {isLogin
               ? "Sign in to access your career intelligence suite & resume builder"
               : "Register to unlock executive CV crafting and regional career insights"}
@@ -1416,7 +1420,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         </div>
 
         {/* Auth Mode Toggle */}
-        <p className="text-center text-xs text-slate-400">
+        <p className="text-center text-xs text-slate-300 font-medium">
           {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
             onClick={() => {
@@ -1424,14 +1428,14 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               setError("");
               setSuccessMessage("");
             }}
-            className="text-indigo-400 hover:text-indigo-300 transition font-bold"
+            className="text-indigo-400 hover:text-indigo-300 transition font-bold underline underline-offset-2 ml-1"
           >
             {isLogin ? "Create one free" : "Sign in here"}
           </button>
         </p>
 
-        {/* Free Guest Mode Option */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 text-center">
+        {/* Free Guest Mode Option with High Contrast & Clear Tactile Finish */}
+        <div className="mt-6 pt-5 border-t border-slate-800 text-center">
           <button
             type="button"
             onClick={() => {
@@ -1440,11 +1444,15 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 displayName: "Guest Explorer"
               });
             }}
-            className="text-xs text-slate-400 hover:text-emerald-400 transition font-semibold flex items-center justify-center gap-1.5 mx-auto py-1"
+            className="w-full py-3 px-4 rounded-xl bg-slate-950/80 hover:bg-slate-850 border border-emerald-500/50 hover:border-emerald-400 text-xs font-bold text-emerald-300 hover:text-emerald-200 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-emerald-950/50 active:scale-[0.99]"
           >
-            <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Try Basic Features Free (Guest Mode without Login)</span>
+            <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>Continue as Guest (No Account Required)</span>
+            <ArrowRight className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
           </button>
+          <p className="text-[11px] text-slate-300 mt-2 font-normal">
+            Instant access to create and export resumes without signing up.
+          </p>
         </div>
       </div>
     </div>
