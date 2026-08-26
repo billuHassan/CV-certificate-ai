@@ -40,7 +40,7 @@ service cloud.firestore {
     }
 
     // Health/Connection Check Rules
-    match /test/connection {
+    match /test/{docId} {
       allow read: if true;
     }
 
