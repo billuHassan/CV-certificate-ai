@@ -16,11 +16,17 @@ async function parsePdfBuffer(buf: Buffer): Promise<string> {
     if (typeof PDFParseClass === "function") {
       try {
         const parser = new PDFParseClass({ data: buf });
-        const text = await parser.getText();
-        if (typeof parser.destroy === "function") {
-          try { parser.destroy(); } catch (_) {}
+        if (typeof parser.load === "function") {
+          await parser.load();
         }
-        if (text && text.trim().length > 0) return text;
+        if (typeof parser.getText === "function") {
+          const textResult = await parser.getText();
+          if (typeof parser.destroy === "function") {
+            try { parser.destroy(); } catch (_) {}
+          }
+          const text = typeof textResult === "string" ? textResult : (textResult?.text || "");
+          if (text && text.trim().length > 0) return text;
+        }
       } catch (classErr) {
         console.warn("PDFParseClass instance error:", classErr);
       }
@@ -39,7 +45,7 @@ async function parsePdfBuffer(buf: Buffer): Promise<string> {
     console.warn("parsePdfBuffer overall error:", err);
   }
 
-  // Lightweight stream text extraction fallback for PDF buffers
+  // Robust stream text extraction fallback for PDF buffers
   try {
     const str = buf.toString("latin1");
     const streamRegex = /BT[\s\S]*?ET/g;
@@ -55,9 +61,15 @@ async function parsePdfBuffer(buf: Buffer): Promise<string> {
         })
         .filter(Boolean)
         .join("\n");
-      if (extracted.trim().length > 20) {
+      if (extracted.trim().length > 10) {
         return extracted;
       }
+    }
+
+    // Direct string extraction for text tokens
+    const textTokens = str.match(/[A-Za-z0-9@._+-]{2,}/g);
+    if (textTokens && textTokens.length > 20) {
+      return textTokens.join(" ");
     }
   } catch (_) {}
 
@@ -99,7 +111,8 @@ function getAdminAuth() {
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Global Server-Side Statistics for Admin Dashboard
 const serverStats = {
@@ -898,99 +911,104 @@ let lastGeminiErrorDetails: any = null;
 let geminiIsBlocked = false;
 let geminiBlockedUntil = 0;
 
-console.log("DIAGNOSTIC: geminiApiKey length =", geminiApiKey ? geminiApiKey.length : 0);
-console.log("DIAGNOSTIC: geminiApiKey prefix =", geminiApiKey ? geminiApiKey.substring(0, 5) : "none");
-
-if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") {
-  ai = new GoogleGenAI({
-    apiKey: geminiApiKey,
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
-  console.log("[GEMINI SDK] Initialized GoogleGenAI server client successfully.");
-} else {
-  console.warn("WARNING: GEMINI_API_KEY environment variable is not set. AI features will use dynamic local intelligent generators.");
+function getGenAIClient(): GoogleGenAI | null {
+  if (ai) return ai;
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (key && key !== "undefined" && key.trim() !== "") {
+    try {
+      ai = new GoogleGenAI({
+        apiKey: key.trim(),
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+      console.log("[GEMINI SDK] Initialized GoogleGenAI server client.");
+    } catch (e) {
+      console.error("[GEMINI SDK] Initialization error:", e);
+    }
+  }
+  return ai;
 }
+
+getGenAIClient();
 
 const PRIMARY_GEMINI_MODEL = "gemini-2.5-flash";
 
 /**
- * Executes a Gemini request using recommended active models with fallback (gemini-2.5-flash, gemini-flash-latest).
- * If quota or high demand (503) errors occur, it tries candidate models, then seamlessly falls back to the dynamic generator.
+ * Executes a Gemini request using recommended active models with fast fallback.
+ * Uses a strict timeout per request and instant fallback on quota exhaustion (429).
  */
 async function callGeminiWithFallback<T>(
   fn: (modelName: string) => Promise<T>,
   fallbackGenerator: () => T,
   preferredModels?: string[]
 ): Promise<T> {
-  if (geminiIsBlocked || !ai || Date.now() < geminiBlockedUntil) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  const client = getGenAIClient();
+  if (geminiIsBlocked || !client || Date.now() < geminiBlockedUntil) {
     return fallbackGenerator();
   }
 
-  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-flash-latest"];
-  const sanitizedPreferred = (preferredModels || []).map(m => (m === "gemini-3.6-flash" || m === "gemini-3.1-pro-preview") ? PRIMARY_GEMINI_MODEL : m);
+  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-2.5-flash-lite"];
+  const sanitizedPreferred = (preferredModels || []).map(m => 
+    (m === "gemini-3.6-flash" || m === "gemini-3.1-pro-preview" || m === "gemini-2.0-flash" || m === "gemini-1.5-flash") 
+      ? PRIMARY_GEMINI_MODEL 
+      : m
+  );
   const modelsToTry = sanitizedPreferred.length > 0
     ? Array.from(new Set([...sanitizedPreferred, ...defaultModels]))
     : defaultModels;
 
   for (const modelName of modelsToTry) {
-    let attempts = 2; // Up to 2 attempts per model for transient spikes
-    while (attempts > 0) {
-      try {
-        return await fn(modelName);
-      } catch (err: any) {
-        attempts--;
-        const errMsg = err?.message || String(err || "");
-        const status = err?.status || err?.statusCode || 0;
+    try {
+      // Impose a strict 6.5s timeout on API calls to prevent UI hang
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("GEMINI_TIMEOUT")), 6500)
+      );
 
-        lastGeminiErrorDetails = {
-          message: errMsg,
-          status: status,
-          name: err?.name,
-          model: modelName
-        };
+      const result = await Promise.race([fn(modelName), timeoutPromise]);
+      return result;
+    } catch (err: any) {
+      const errMsg = err?.message || String(err || "");
+      const status = err?.status || err?.statusCode || 0;
 
-        // Check authentication or service block vs quota
-        if (
-          status === 401 ||
-          status === 403 ||
-          errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
-          errMsg.includes("SERVICE_DISABLED")
-        ) {
-          geminiBlockedUntil = Date.now() + 30000; // 30s retry window
-          return fallbackGenerator();
-        }
+      lastGeminiErrorDetails = {
+        message: errMsg,
+        status: status,
+        name: err?.name,
+        model: modelName
+      };
 
-        if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-          // Try next candidate model before applying block cooldown
-          break;
-        }
-
-        // If it's a transient server issue (503 / 502 / high demand / overloaded / 404 / UNAVAILABLE) and we have attempts left, wait briefly and retry
-        const isTransient =
-          status === 503 ||
-          status === 502 ||
-          status === 504 ||
-          status === 404 ||
-          errMsg.includes("503") ||
-          errMsg.includes("UNAVAILABLE") ||
-          errMsg.includes("high demand") ||
-          errMsg.includes("overloaded") ||
-          errMsg.includes("not found");
-
-        if (isTransient && attempts > 0) {
-          console.warn(`[Gemini API] Transient issue (${errMsg}) on ${modelName}. Retrying in 250ms...`);
-          await new Promise((resolve) => setTimeout(resolve, 250));
-          continue;
-        }
-
-        console.warn(`[Gemini API] ${modelName} failed (${errMsg}). Trying next candidate or fallback.`);
-        break; // Move to next model in loop
+      // Check authentication or service block
+      if (
+        status === 401 ||
+        status === 403 ||
+        errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
+        errMsg.includes("SERVICE_DISABLED")
+      ) {
+        geminiBlockedUntil = Date.now() + 15000;
+        return fallbackGenerator();
       }
+
+      // Check quota exhaustion (429) -> apply brief 5s cooldown and instantly return fallback
+      if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+        geminiBlockedUntil = Date.now() + 5000;
+        return fallbackGenerator();
+      }
+
+      if (errMsg.includes("GEMINI_TIMEOUT")) {
+        console.warn(`[Gemini API] Request timed out on ${modelName}. Falling back immediately.`);
+        return fallbackGenerator();
+      }
+
+      // If model not found (404), try next model in list
+      if (status === 404 || errMsg.includes("not found")) {
+        continue;
+      }
+
+      console.warn(`[Gemini API] Call error on ${modelName} (${errMsg}). Falling back to dynamic generator.`);
+      break;
     }
   }
 
@@ -3689,211 +3707,6 @@ Return JSON matching this schema:
   } catch (error: any) {
     console.error("AI Interview Evaluator Error:", error);
     res.status(500).json({ error: error?.message || "Failed to evaluate answer" });
-  }
-});
-
-// 6.95 Comprehensive AI Interview Suite (Questions Generation & Spoken/Typed Answer Evaluation)
-app.post("/api/ai/interview-suite", async (req, res) => {
-  try {
-    const { mode, resumeData, targetJobTitle, targetCompany, jobDescription, question, category, userAnswer } = req.body;
-
-    if (mode === "generate_questions") {
-      const jobTitle = targetJobTitle || resumeData?.personalInfo?.jobTitle || "Software Engineer";
-      const company = targetCompany || "Target Employer";
-      const skills = (resumeData?.skills || []).join(", ");
-      const exp = JSON.stringify((resumeData?.experience || []).map((e: any) => `${e.position} at ${e.company}: ${e.description}`));
-
-      const result = await callGeminiWithFallback(
-        async (modelName) => {
-          if (!ai) throw new Error("AI client is offline.");
-
-          const prompt = `You are an expert Technical Recruiter and Executive Hiring Manager at ${company}.
-Generate a comprehensive list of 6 highly realistic, domain-specific interview questions for a candidate applying for "${jobTitle}".
-
-Candidate Context:
-- Target Role: ${jobTitle}
-- Target Company: ${company}
-- Job Description: ${jobDescription || "Standard domain expectations"}
-- Candidate Skills: ${skills || "General Skills"}
-- Candidate Experience: ${exp || "General Experience"}
-
-Provide 6 questions balanced across categories: 2 Technical, 2 Behavioural, 2 HR/Culture fit.
-For each question, provide a detailed STAR methodology guide (Situation, Task, Action, Result), a world-class Sample Answer, difficulty level (Junior, Mid-Level, Senior, Executive), and 4 key evaluation points.
-
-Return JSON matching schema.`;
-
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  questions: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        id: { type: Type.STRING },
-                        question: { type: Type.STRING },
-                        category: { type: Type.STRING, description: "technical, hr, or behavioural" },
-                        difficulty: { type: Type.STRING, description: "Junior, Mid-Level, Senior, or Executive" },
-                        starGuide: {
-                          type: Type.OBJECT,
-                          properties: {
-                            situation: { type: Type.STRING },
-                            task: { type: Type.STRING },
-                            action: { type: Type.STRING },
-                            result: { type: Type.STRING }
-                          },
-                          required: ["situation", "task", "action", "result"]
-                        },
-                        sampleAnswer: { type: Type.STRING },
-                        keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } }
-                      },
-                      required: ["id", "question", "category", "difficulty", "starGuide", "sampleAnswer", "keyPoints"]
-                    }
-                  }
-                },
-                required: ["questions"]
-              }
-            }
-          });
-
-          return JSON.parse(response.text || "{}");
-        },
-        () => {
-          const jobTitle = targetJobTitle || resumeData?.personalInfo?.jobTitle || "Engineer";
-          return {
-            questions: [
-              {
-                id: "q1",
-                question: `Can you walk me through a complex technical challenge you solved as a ${jobTitle}?`,
-                category: "technical",
-                difficulty: "Senior",
-                starGuide: {
-                  situation: "Faced severe system latency spikes during peak load periods.",
-                  task: "Identify performance bottlenecks and optimize core infrastructure without downtime.",
-                  action: "Implemented query optimization, distributed caching with Redis, and async processing.",
-                  result: "Reduced average response latency by 45% and improved system reliability under peak load."
-                },
-                sampleAnswer: `In my role as ${jobTitle}, our core backend system began experiencing latency spikes. I led the technical audit, implemented distributed caching, and refactored database indexes, which improved throughput by 45%.`,
-                keyPoints: ["System Architecture", "Performance Benchmarking", "Data-driven Optimization", "Quantifiable Impact"]
-              },
-              {
-                id: "q2",
-                question: "Describe a situation where you had a major disagreement with a cross-functional teammate. How did you resolve it?",
-                category: "behavioural",
-                difficulty: "Mid-Level",
-                starGuide: {
-                  situation: "Disagreement regarding technical trade-offs between speed-to-market vs long-term scalability.",
-                  task: "Align team priorities to deliver on schedule without compromising core quality standards.",
-                  action: "Facilitated a data-driven evaluation spike comparing development effort, security, and maintenance overhead.",
-                  result: "Reached unanimous agreement on an iterative rollout that met deadline requirements safely."
-                },
-                sampleAnswer: "When balancing speed and architectural scalability, I initiated a quantitative decision matrix with key stakeholders. By evaluating trade-offs transparently, we reached consensus on an phased deployment.",
-                keyPoints: ["Active Listening", "Stakeholder Alignment", "Conflict Resolution", "Data-driven Consensus"]
-              },
-              {
-                id: "q3",
-                question: `Why are you interested in joining ${targetCompany || "our company"} as a ${jobTitle}?`,
-                category: "hr",
-                difficulty: "Mid-Level",
-                starGuide: {
-                  situation: "Preparing for initial HR alignment screening.",
-                  task: "Demonstrate strong cultural alignment and passion for company vision.",
-                  action: "Researched company products, tech blog posts, and mapped past achievements directly to company goals.",
-                  result: "Established clear mutual fit and value proposition during initial screening."
-                },
-                sampleAnswer: `I have followed ${targetCompany || "your company"}'s recent innovations closely. My background in building scalable solutions directly aligns with your current growth initiatives, making this role an exciting opportunity.`,
-                keyPoints: ["Company Alignment", "Role Readiness", "Enthusiasm", "Mutual Value Creation"]
-              }
-            ]
-          };
-        }
-      );
-
-      return res.json(result);
-    } else if (mode === "evaluate_answer") {
-      const result = await callGeminiWithFallback(
-        async (modelName) => {
-          if (!ai) throw new Error("AI client is offline.");
-
-          const prompt = `You are a Senior Interviewer evaluating a candidate's answer for the role of "${targetJobTitle || "Professional"}".
-Question Asked: "${question}"
-Category: ${category || "general"}
-Candidate Spoken/Typed Answer: "${userAnswer}"
-
-Evaluate confidence, communication, technical depth, and STAR alignment.
-
-Return JSON matching schema.`;
-
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  evaluation: {
-                    type: Type.OBJECT,
-                    properties: {
-                      confidenceScore: { type: Type.INTEGER },
-                      communicationScore: { type: Type.INTEGER },
-                      technicalScore: { type: Type.INTEGER },
-                      overallScore: { type: Type.INTEGER },
-                      verdict: { type: Type.STRING },
-                      answerAnalysis: { type: Type.STRING },
-                      strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      improvementSuggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      suggestedRightAnswer: { type: Type.STRING },
-                      exemplarAnswer: { type: Type.STRING },
-                      fillerWordsDetected: { type: Type.ARRAY, items: { type: Type.STRING } }
-                    },
-                    required: ["confidenceScore", "communicationScore", "technicalScore", "overallScore", "verdict", "strengths", "improvementSuggestions"]
-                  }
-                },
-                required: ["evaluation"]
-              }
-            }
-          });
-
-          return JSON.parse(response.text || "{}");
-        },
-        () => {
-          return {
-            evaluation: {
-              confidenceScore: 88,
-              communicationScore: 85,
-              technicalScore: 90,
-              overallScore: 87,
-              verdict: "Strong candidate answer with clear structure and good problem-solving ownership.",
-              answerAnalysis: "Your answer effectively addresses the core prompt and demonstrates clear domain ownership.",
-              strengths: [
-                "Directly addresses the situation with active ownership verbs.",
-                "Maintains a clear logical progression from problem to solution.",
-                "Demonstrates relevant technical awareness."
-              ],
-              improvementSuggestions: [
-                "Quantify the final result with specific percentage improvements or metrics.",
-                "Detail cross-functional collaboration and stakeholder alignment."
-              ],
-              exemplarAnswer: `In my previous role, I tackled this challenge by first analyzing root causes, implementing targeted optimizations using modern industry standard practices, and measuring a 35% improvement in overall team efficiency.`,
-              fillerWordsDetected: ["like", "basically", "you know"]
-            }
-          };
-        }
-      );
-
-      return res.json(result);
-    } else {
-      return res.status(400).json({ error: "Invalid mode specified." });
-    }
-  } catch (error: any) {
-    console.error("AI Interview Suite Error:", error);
-    res.status(500).json({ error: error?.message || "Failed to process interview suite request" });
   }
 });
 

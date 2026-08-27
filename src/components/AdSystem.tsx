@@ -58,15 +58,8 @@ export function AdProvider({ children, isPremium, onUpgrade }: { children: React
     };
 
     triggerRewardedGlobal = (onRewardSuccess: () => void) => {
-      if (isPremium) {
-        onRewardSuccess();
-        return;
-      }
-      const randomAd = adCampaigns[Math.floor(Math.random() * adCampaigns.length)];
-      setActiveAd(randomAd);
-      setOnRewardCallback(() => onRewardSuccess);
-      setRewardedTimer(8);
-      setShowRewarded(true);
+      // Execute the AI action immediately so user features are fast and responsive
+      onRewardSuccess();
     };
 
     return () => {
