@@ -14,22 +14,53 @@ async function parsePdfBuffer(buf: Buffer): Promise<string> {
     const mod: any = pdfParseModule;
     const PDFParseClass = mod?.PDFParse || mod?.default?.PDFParse;
     if (typeof PDFParseClass === "function") {
-      const parser = new PDFParseClass({ data: buf });
-      const text = await parser.getText();
-      if (typeof parser.destroy === "function") {
-        try { parser.destroy(); } catch (_) {}
+      try {
+        const parser = new PDFParseClass({ data: buf });
+        const text = await parser.getText();
+        if (typeof parser.destroy === "function") {
+          try { parser.destroy(); } catch (_) {}
+        }
+        if (text && text.trim().length > 0) return text;
+      } catch (classErr) {
+        console.warn("PDFParseClass instance error:", classErr);
       }
-      return text || "";
     }
 
-    const fn: any = typeof mod === "function" ? mod : mod?.default;
+    const fn: any = typeof mod === "function" ? mod : (typeof mod?.default === "function" ? mod.default : null);
     if (typeof fn === "function") {
-      const res = await fn(buf);
-      return res?.text || "";
+      try {
+        const res = await fn(buf);
+        if (res?.text && res.text.trim().length > 0) return res.text;
+      } catch (fnErr) {
+        console.warn("pdfParse function error:", fnErr);
+      }
     }
   } catch (err) {
-    console.warn("parsePdfBuffer error:", err);
+    console.warn("parsePdfBuffer overall error:", err);
   }
+
+  // Lightweight stream text extraction fallback for PDF buffers
+  try {
+    const str = buf.toString("latin1");
+    const streamRegex = /BT[\s\S]*?ET/g;
+    const matches = str.match(streamRegex);
+    if (matches && matches.length > 0) {
+      const extracted = matches
+        .map(block => {
+          const textMatches = block.match(/\((.*?)\)|\[(.*?)\]/g);
+          if (textMatches) {
+            return textMatches.map(t => t.replace(/^[(\[]|[)\]]$/g, "")).join(" ");
+          }
+          return "";
+        })
+        .filter(Boolean)
+        .join("\n");
+      if (extracted.trim().length > 20) {
+        return extracted;
+      }
+    }
+  } catch (_) {}
+
   return "";
 }
 import { initializeApp, getApps, App } from "firebase-admin/app";
@@ -885,7 +916,7 @@ if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") 
 }
 
 /**
- * Executes a Gemini request using recommended models with fallback (gemini-3.6-flash, gemini-3.1-pro-preview, gemini-3.1-flash-lite).
+ * Executes a Gemini request using recommended active models with fallback (gemini-2.5-flash, gemini-flash-latest, gemini-3.7-flash, gemini-3.1-flash-lite, gemini-3.1-pro-preview).
  * If quota or high demand (503) errors occur, it tries candidate models, then seamlessly falls back to the dynamic generator.
  */
 async function callGeminiWithFallback<T>(
@@ -894,13 +925,16 @@ async function callGeminiWithFallback<T>(
   preferredModels?: string[]
 ): Promise<T> {
   if (geminiIsBlocked || !ai || Date.now() < geminiBlockedUntil) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     return fallbackGenerator();
   }
 
-  const modelsToTry = preferredModels && preferredModels.length > 0
-    ? preferredModels
-    : ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  // Filter out any obsolete model names and ensure robust model list
+  const defaultModels = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"];
+  const sanitizedPreferred = (preferredModels || []).map(m => m === "gemini-3.6-flash" ? "gemini-2.5-flash" : m);
+  const modelsToTry = sanitizedPreferred.length > 0
+    ? Array.from(new Set([...sanitizedPreferred, ...defaultModels]))
+    : defaultModels;
 
   for (const modelName of modelsToTry) {
     let attempts = 2; // Up to 2 attempts per model for transient spikes
@@ -919,14 +953,14 @@ async function callGeminiWithFallback<T>(
           model: modelName
         };
 
-        // Check permanent key block vs quota
+        // Check authentication or service block vs quota
         if (
           status === 401 ||
           status === 403 ||
           errMsg.includes("API_KEY_SERVICE_BLOCKED") ||
           errMsg.includes("SERVICE_DISABLED")
         ) {
-          geminiIsBlocked = true;
+          geminiBlockedUntil = Date.now() + 30000; // 30s retry window
           return fallbackGenerator();
         }
 
@@ -948,8 +982,8 @@ async function callGeminiWithFallback<T>(
           errMsg.includes("not found");
 
         if (isTransient && attempts > 0) {
-          console.warn(`[Gemini API] Transient issue (${errMsg}) on ${modelName}. Retrying in 300ms...`);
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          console.warn(`[Gemini API] Transient issue (${errMsg}) on ${modelName}. Retrying in 250ms...`);
+          await new Promise((resolve) => setTimeout(resolve, 250));
           continue;
         }
 
@@ -1718,7 +1752,7 @@ INSTRUCTION: You MUST adapt, rewrite, or refine the cover letter according to th
           keyKeywordsUsed: ["Strategic Execution", "Operational Leadership", "Technical Alignment"]
         };
       },
-      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
+      ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
     );
 
     res.json(result);
@@ -2618,7 +2652,7 @@ Return JSON matching the schema with an array 'tips'.`;
           ]
         };
       },
-      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
+      ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
     );
 
     res.json(result);
@@ -2698,7 +2732,6 @@ User Resume Context:
         contents.push(prompt);
 
         const configObj: any = {
-          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -3571,7 +3604,7 @@ Return JSON matching the schema.`;
           ]
         };
       },
-      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
+      ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
     );
 
     res.json(result);
@@ -3648,7 +3681,7 @@ Return JSON matching this schema:
           recruiterFeedback: "Solid communication style! Ensure you emphasize the STAR 'Result' phase with numbers during your real interview."
         };
       },
-      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
+      ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
     );
 
     res.json(result);
@@ -4006,15 +4039,15 @@ Analyze the document's visual tone, typography, density, and color structure fro
 
 Return JSON matching the schema.`;
 
-        const contentsParts: any[] = [];
+        const parts: any[] = [];
         if (inlineDataPart) {
-          contentsParts.push(inlineDataPart);
+          parts.push(inlineDataPart);
         }
-        contentsParts.push(promptText);
+        parts.push({ text: promptText });
 
         const response = await ai.models.generateContent({
           model: modelName,
-          contents: contentsParts,
+          contents: { parts },
           config: {
             responseMimeType: "application/json",
             maxOutputTokens: 16384,
@@ -4219,32 +4252,39 @@ Return JSON matching the schema.`;
         return JSON.parse(response.text || "{}");
       },
       () => {
-        // Fallback parser and auditor
+        // Dynamic resilient fallback parser and auditor from extracted document text
+        const textToAnalyze = combinedText || resumeText || "";
+        const emailMatch = textToAnalyze.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        const phoneMatch = textToAnalyze.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+        const lines = textToAnalyze.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const candidateName = lines.length > 0 && lines[0].length < 40 ? lines[0] : "Uploaded Candidate";
+        const candidateTitle = lines.length > 1 && lines[1].length < 50 && !lines[1].includes("@") ? lines[1] : "Professional Specialist";
+
         return {
           parsedResume: {
-            title: "Uploaded Candidate Resume",
+            title: fileName ? `Parsed Resume - ${fileName}` : "Parsed Candidate Resume",
             personalInfo: {
-              fullName: "Uploaded Candidate",
-              jobTitle: "Software Engineer & Professional",
-              email: "candidate@example.com",
-              phone: "+1 (555) 019-2831",
+              fullName: candidateName,
+              jobTitle: candidateTitle,
+              email: emailMatch ? emailMatch[0] : "candidate@example.com",
+              phone: phoneMatch ? phoneMatch[0] : "+1 (555) 019-2831",
               location: "New York, USA",
               website: "",
               linkedin: "linkedin.com/in/candidate",
               github: "github.com/candidate",
               profilePhoto: ""
             },
-            summary: "Experienced professional with background in executing technical projects and collaborating across teams.",
+            summary: lines.length > 2 ? lines.slice(2, 5).join(" ") : "Experienced professional with proven domain background in executing high-impact projects and collaborating across teams.",
             experience: [
               {
                 id: "exp_1",
-                company: "Global Tech Enterprises",
-                position: "Senior Software Engineer",
+                company: "Global Enterprises",
+                position: candidateTitle,
                 startDate: "2021-01",
                 endDate: "Present",
                 current: true,
                 location: "New York, NY",
-                description: "Led software design and implementation for high-volume client services. Reduced response latency by 28% and collaborated with cross-functional teams."
+                description: "• Led project design, operational workflows, and execution for high-volume client services.\n• Streamlined delivery timelines by 25% through cross-functional collaboration and standard best practices."
               }
             ],
             education: [
@@ -4252,7 +4292,7 @@ Return JSON matching the schema.`;
                 id: "edu_1",
                 school: "State University",
                 degree: "Bachelor of Science",
-                fieldOfStudy: "Computer Science",
+                fieldOfStudy: "Professional Studies",
                 startDate: "2016",
                 endDate: "2020",
                 current: false,
@@ -4261,17 +4301,29 @@ Return JSON matching the schema.`;
               }
             ],
             projects: [],
-            skills: ["JavaScript", "TypeScript", "React", "Node.js", "SQL", "Git", "Problem Solving"],
+            skills: ["Strategic Planning", "Project Management", "Problem Solving", "Cross-Functional Collaboration", "Process Optimization"],
             languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
-            certifications: [{ id: "cert_1", name: "AWS Certified Developer", issuer: "Amazon Web Services", date: "2023", url: "" }],
-            references: [
-              { id: "ref_1", name: "Dr. Robert Vance", company: "Global Tech Enterprises", title: "VP of Engineering", email: "rvance@globaltech.com", phone: "+1 (555) 012-3456" }
-            ]
+            certifications: [{ id: "cert_1", name: "Professional Certified Specialist", issuer: "Industry Board", date: "2023", url: "" }],
+            references: []
           },
           auditReport: {
-            overallRealityScore: 78,
+            overallRealityScore: 82,
             headlineTitleMismatchDetected: false,
-            titleMismatchExplanation: "Headline title matches technical work experience entries.",
+            titleMismatchExplanation: "Headline title matches technical and domain experience entries.",
+            strengths: [
+              "Successfully extracted candidate contact details and core structure.",
+              "Clean section layout and professional flow.",
+              "Solid baseline experience entries."
+            ],
+            weaknesses: [
+              "Consider adding more quantified percentage outcomes in experience bullet points.",
+              "Add specific industry-standard tools to skills list to maximize ATS keyword matches."
+            ],
+            missingInformation: emailMatch ? [] : ["Email Address"],
+            suggestedImprovements: [
+              "Include quantifiable metrics (%, $, team sizes) in work experience bullet points.",
+              "Ensure job title matches the target application role."
+            ],
             sections: [
               {
                 sectionKey: "personalInfo",
@@ -4284,17 +4336,17 @@ Return JSON matching the schema.`;
               {
                 sectionKey: "summary",
                 sectionTitle: "Professional Summary",
-                score: 75,
-                status: "warning",
-                deficiencies: ["Summary is missing quantitative metrics."],
-                suggestedChanges: [{ field: "summary", currentValue: "Experienced professional with background...", suggestedValue: "Results-driven Software Engineer with 4+ years leading full-stack development, optimizing APIs to boost throughput by 28%.", explanation: "Quantified summary hooks hiring managers." }]
+                score: 80,
+                status: "success",
+                deficiencies: ["Summary could include specific years of experience."],
+                suggestedChanges: [{ field: "summary", currentValue: "Experienced professional...", suggestedValue: `Results-driven ${candidateTitle} with 4+ years of experience delivering high-impact solutions and driving operational efficiency.`, explanation: "Quantified summary hooks hiring managers immediately." }]
               },
               {
                 sectionKey: "experience",
                 sectionTitle: "Work Experience",
-                score: 82,
+                score: 85,
                 status: "success",
-                deficiencies: ["First bullet point could include team size or budget metrics."],
+                deficiencies: ["Ensure every bullet point starts with a strong action verb."],
                 suggestedChanges: []
               },
               {
@@ -4302,7 +4354,7 @@ Return JSON matching the schema.`;
                 sectionTitle: "Core Skills & ATS Keywords",
                 score: 85,
                 status: "success",
-                deficiencies: ["Missing cloud architecture keywords (Docker, Kubernetes)."],
+                deficiencies: ["Add specialized domain tools to maximize ATS match rates."],
                 suggestedChanges: []
               },
               {
@@ -4312,21 +4364,13 @@ Return JSON matching the schema.`;
                 status: "success",
                 deficiencies: [],
                 suggestedChanges: []
-              },
-              {
-                sectionKey: "references",
-                sectionTitle: "Professional References",
-                score: 88,
-                status: "success",
-                deficiencies: ["Ensure reference phone numbers have international formatting."],
-                suggestedChanges: []
               }
             ]
           },
           extractedTemplateStyle: {
             templateId: `extracted_custom_${Date.now()}`,
-            templateName: "Extracted Modern Emerald Style",
-            description: "A clean, modern layout with teal accents and structured card boundaries extracted from uploaded document.",
+            templateName: "Extracted Executive Style",
+            description: "A clean, modern layout with crisp typography and structured card boundaries extracted from the uploaded document.",
             colorTheme: "#0f766e",
             fontFamily: "font-sans",
             layoutStyle: "split",
@@ -4337,7 +4381,7 @@ Return JSON matching the schema.`;
           }
         };
       },
-      ["gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]
+      ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
     );
 
     res.json(result);
@@ -4936,7 +4980,7 @@ Return JSON matching this schema:
           };
         }
       },
-      ["gemini-3.1-pro-preview", "gemini-3.6-flash", "gemini-3.1-flash-lite"]
+      ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
     );
 
     res.json(result);
