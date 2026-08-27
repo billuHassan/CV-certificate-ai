@@ -318,7 +318,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         try {
           const fileDataUri = reader.result as string;
 
-          setLoadingStep("AI Multimodal Scanning document & parsing Content + Template layers...");
+          setLoadingStep("AI Scanning document & parsing Content + Template layers...");
 
           const response = await fetch("/api/ai/parse-and-audit-resume", {
             method: "POST",
