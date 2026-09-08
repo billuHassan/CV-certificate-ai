@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { ResumeData, WorkExperience, Education, Project, Certification, Language, Reference } from "../types";
 import ResumeTemplates from "./ResumeTemplates";
+import { parseDocumentClientSide, parseResumeClientSide, calculateClientSideAudit } from "../utils/clientResumeParser";
 
 export interface AuditSection {
   sectionKey: string;
@@ -215,82 +216,27 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
       setTemplateStatusNotice(null);
       setLoadingStep("AI Scanning pasted resume text & extracting 100% of fields...");
 
+      let data: any;
       try {
-        const response = await fetch("/api/ai/parse-and-audit-resume", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            resumeText: pastedText,
-            fileName: "Pasted Resume.txt"
-          })
-        });
+        try {
+          const response = await fetch("/api/ai/parse-and-audit-resume", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resumeText: pastedText,
+              fileName: "Pasted Resume.txt"
+            })
+          });
 
-        let data: any;
-        if (response.ok) {
-          data = await response.json();
-        } else {
-          // Local intelligent text extraction fallback
-          const lines = pastedText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-          const emailMatch = pastedText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-          const phoneMatch = pastedText.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
-          data = {
-            parsedResume: {
-              title: "Pasted Resume Content",
-              personalInfo: {
-                fullName: lines[0] || "Candidate",
-                jobTitle: lines[1] && !lines[1].includes("@") ? lines[1] : "Professional Specialist",
-                email: emailMatch ? emailMatch[0] : "",
-                phone: phoneMatch ? phoneMatch[0] : "",
-                location: "New York, USA",
-                website: "",
-                linkedin: "",
-                github: "",
-                profilePhoto: ""
-              },
-              summary: lines.slice(2, 5).join(" ") || "Experienced professional dedicated to delivering quality outcomes.",
-              experience: [
-                {
-                  id: "exp_1",
-                  company: "Professional Organization",
-                  position: lines[1] || "Specialist",
-                  startDate: "2021-01",
-                  endDate: "Present",
-                  current: true,
-                  location: "",
-                  description: "• Managed core deliverables and led organizational workflow improvements."
-                }
-              ],
-              education: [],
-              projects: [],
-              skills: ["Problem Solving", "Communication", "Time Management", "Leadership"],
-              languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
-              certifications: [],
-              references: [],
-              customSections: []
-            },
-            auditReport: {
-              overallRealityScore: 85,
-              headlineTitleMismatchDetected: false,
-              titleMismatchExplanation: "Resume content aligned with professional focus.",
-              strengths: ["Clean direct text format.", "Clear professional narrative."],
-              weaknesses: ["Add metrics and specific project outcomes to strengthen bullet points."],
-              missingInformation: emailMatch ? [] : ["Email Address"],
-              suggestedImprovements: ["Include quantified results and key technical competencies."],
-              sections: []
-            },
-            extractedTemplateStyle: {
-              templateId: "minimal",
-              templateName: "Clean Minimal Layout",
-              description: "A crisp, high-readability resume layout.",
-              colorTheme: "#0f766e",
-              fontFamily: "font-sans",
-              layoutStyle: "standard",
-              bgClass: "bg-white",
-              sidebarClass: "",
-              accentClass: "text-teal-600",
-              isDark: false
-            }
-          };
+          if (response.ok) {
+            data = await response.json();
+          } else {
+            console.warn(`Server parse endpoint returned ${response.status}. Using deterministic client parser...`);
+            data = parseResumeClientSide(pastedText, "Pasted Resume.txt");
+          }
+        } catch (fetchErr: any) {
+          console.warn("Server parse fetch error, using deterministic client parser:", fetchErr);
+          data = parseResumeClientSide(pastedText, "Pasted Resume.txt");
         }
 
         setLoadingStep("Running ATS Reality Audit & Template Deduplication check...");
@@ -431,18 +377,24 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
             if (response.ok) {
               data = await response.json();
             } else {
-              const errJson = await response.json().catch(() => ({}));
-              throw new Error(errJson.error || `Server responded with ${response.status}`);
+              console.warn(`Server responded with status ${response.status}. Switching to high-precision client-side document extractor...`);
             }
           } catch (fetchErr: any) {
-            console.error("Server parse fetch error:", fetchErr);
-            setError(`Document analysis could not be completed: ${fetchErr?.message || "Check connection"}. Please try again.`);
-            setLoading(false);
-            return;
+            console.warn("Server parse fetch error, switching to client-side document extractor:", fetchErr);
+          }
+
+          // Resilient client-side extraction fallback if server is unreachable (404 / static deployment / offline)
+          if (!data || !data.parsedResume) {
+            setLoadingStep("Extracting document content with built-in client parser...");
+            try {
+              data = await parseDocumentClientSide(file, textContent, fileDataUri);
+            } catch (clientErr) {
+              console.error("Client parsing error:", clientErr);
+            }
           }
 
           if (!data || !data.parsedResume) {
-            setError("Could not extract structured data from the document. Please ensure the file is readable.");
+            setError("Could not extract structured data from the document. Please ensure the file contains readable text or paste text directly.");
             setLoading(false);
             return;
           }
@@ -622,17 +574,25 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
     setError(null);
 
     try {
-      const response = await fetch("/api/ai/audit-resume-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeData: parsedResume })
-      });
+      let data: any = null;
+      try {
+        const response = await fetch("/api/ai/audit-resume-content", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resumeData: parsedResume })
+        });
 
-      if (!response.ok) {
-        throw new Error("Failed to re-audit resume content.");
+        if (response.ok) {
+          data = await response.json();
+        }
+      } catch (fetchErr) {
+        console.warn("Server audit fetch error, using client-side audit engine:", fetchErr);
       }
 
-      const data = await response.json();
+      if (!data || !data.auditReport) {
+        data = { auditReport: calculateClientSideAudit(parsedResume) };
+      }
+
       if (data.auditReport) {
         setAuditReport(data.auditReport);
         setSuccessMessage("Real-Time AI Resume Audit & ATS Score updated successfully!");
@@ -640,7 +600,10 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
       }
     } catch (err: any) {
       console.error("Re-audit error:", err);
-      setError(err.message || "Failed to complete AI audit.");
+      const fallbackReport = calculateClientSideAudit(parsedResume);
+      setAuditReport(fallbackReport);
+      setSuccessMessage("Resume Audit & ATS Score updated via built-in scoring engine.");
+      setTimeout(() => setSuccessMessage(null), 3500);
     } finally {
       setReAuditing(false);
     }

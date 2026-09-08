@@ -115,6 +115,17 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Cross-Origin & Preflight Handling for Production & Deployed Environments
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Global Server-Side Statistics for Admin Dashboard
 const serverStats = {
   totalRequests: 0,
@@ -1649,7 +1660,10 @@ app.post("/api/ai/evaluate-interview-answer", async (req, res) => {
 });
 
 // 6.10 AI Uploaded Resume Scanner, Deficiency Audit & Template Style Extractor
-app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
+app.all(["/api/ai/parse-and-audit-resume", "/api/parse-and-audit-resume"], async (req, res) => {
+  if (req.method === "GET") {
+    return res.json({ status: "ok", endpoint: "/api/ai/parse-and-audit-resume" });
+  }
   try {
     serverStats.totalRequests++;
     const result = await aiService.parseAndAuditResume(req.body);
@@ -1661,7 +1675,10 @@ app.post("/api/ai/parse-and-audit-resume", async (req, res) => {
 });
 
 // Real-time AI Resume Content Re-Audit Endpoint
-app.post("/api/ai/audit-resume-content", async (req, res) => {
+app.all(["/api/ai/audit-resume-content", "/api/audit-resume-content"], async (req, res) => {
+  if (req.method === "GET") {
+    return res.json({ status: "ok", endpoint: "/api/ai/audit-resume-content" });
+  }
   try {
     serverStats.totalRequests++;
     const result = await aiService.auditResumeContent(req.body);
@@ -1811,3 +1828,6 @@ async function startServer() {
 }
 
 startServer();
+
+export { app, startServer };
+export default app;
