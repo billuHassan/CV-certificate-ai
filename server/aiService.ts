@@ -34,7 +34,7 @@ export class AIService {
 
   private geminiClient: GoogleGenAI | null = null;
   private groqApiKey: string = "";
-  private geminiModels: string[] = ["gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-flash-latest"];
+  private geminiModels: string[] = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"];
   private groqModel: string = "llama-3.3-70b-versatile";
   private cache: Map<string, CacheEntry<any>> = new Map();
   private cacheTtlMs: number = 60 * 60 * 1000; // 1 hour
@@ -129,6 +129,45 @@ export class AIService {
     }
   }
 
+  public safeParseJson<T = any>(raw: string | undefined | null, fallback: T): T {
+    if (!raw) return fallback;
+    try {
+      const clean = raw
+        .trim()
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "")
+        .trim();
+      return JSON.parse(clean) as T;
+    } catch {
+      try {
+        const firstBrace = raw.indexOf("{");
+        const lastBrace = raw.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          return JSON.parse(raw.substring(firstBrace, lastBrace + 1)) as T;
+        }
+        const firstBracket = raw.indexOf("[");
+        const lastBracket = raw.lastIndexOf("]");
+        if (firstBracket !== -1 && lastBracket > firstBracket) {
+          return JSON.parse(raw.substring(firstBracket, lastBracket + 1)) as T;
+        }
+      } catch {
+        // absorb
+      }
+      return fallback;
+    }
+  }
+
+  public formatSkillsList(skills: any): string {
+    if (Array.isArray(skills)) {
+      return skills
+        .map((s) => (typeof s === "string" ? s : s?.name || ""))
+        .filter(Boolean)
+        .join(", ");
+    }
+    if (typeof skills === "string") return skills;
+    return "";
+  }
+
   // --- Usage Tracking & Free-Tier Guard ---
   private trackRequest(): boolean {
     const now = Date.now();
@@ -208,10 +247,11 @@ export class AIService {
 
     // 2. Try Gemini Models if not in rate-limit cooldown
     if (client && Date.now() >= this.geminiBlockedUntil) {
-      for (const modelName of this.geminiModels) {
+      const activeModels = this.geminiModels.slice(0, 2);
+      for (const modelName of activeModels) {
         try {
           const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("AI_TIMEOUT")), 7000)
+            setTimeout(() => reject(new Error("AI_TIMEOUT")), 5000)
           );
 
           const result = await Promise.race([geminiCall(client, modelName), timeoutPromise]);
@@ -224,8 +264,8 @@ export class AIService {
           const status = err?.status || err?.statusCode || 0;
 
           if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-            console.warn(`[AIService] Gemini quota reached on ${modelName}. Applying 6s cooldown.`);
-            this.geminiBlockedUntil = Date.now() + 6000;
+            console.warn(`[AIService] Gemini quota reached on ${modelName}. Applying 60s cooldown.`);
+            this.geminiBlockedUntil = Date.now() + 60000;
             break;
           }
 
@@ -249,9 +289,11 @@ export class AIService {
       try {
         const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true);
         if (groqText) {
-          const parsed = JSON.parse(groqText);
-          this.setInCache(cacheKey, parsed);
-          return parsed as T;
+          const parsed = this.safeParseJson<T | null>(groqText, null);
+          if (parsed) {
+            this.setInCache(cacheKey, parsed);
+            return parsed;
+          }
         }
       } catch (e) {
         console.warn("[AIService] Groq parsing error, using local generator:", e);
@@ -259,9 +301,14 @@ export class AIService {
     }
 
     // 4. Guaranteed Local Intelligent Generator Fallback
-    const fallbackResult = fallbackGenerator();
-    this.setInCache(cacheKey, fallbackResult, 10 * 60 * 1000); // 10 min TTL for fallback
-    return fallbackResult;
+    try {
+      const fallbackResult = fallbackGenerator();
+      this.setInCache(cacheKey, fallbackResult, 10 * 60 * 1000); // 10 min TTL for fallback
+      return fallbackResult;
+    } catch (fallbackErr) {
+      console.error("[AIService] Critical fallback generator error:", fallbackErr);
+      return ({} as unknown) as T;
+    }
   }
 
   // =========================================================================
@@ -305,7 +352,7 @@ Return JSON with:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => {
         const defaultVerbs = ["Spearheaded", "Orchestrated", "Optimized", "Delivered", "Architected"];
@@ -362,7 +409,7 @@ Return JSON:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => {
         const verbs = ["Spearheaded", "Orchestrated", "Optimized", "Delivered"];
@@ -421,7 +468,7 @@ Return JSON with:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         summary: roleInfo.sampleSummary || `Results-oriented ${jobTitle} with ${expYears} years of proven success in driving organizational growth, executing strategic initiatives, and optimizing cross-functional performance. Skilled in ${skillsList.slice(0, 3).join(", ") || roleInfo.coreSkills.slice(0, 3).join(", ")} with a dedicated commitment to operational excellence. Recognized for delivering measurable outcomes and fostering collaborative team environments.`,
@@ -460,7 +507,7 @@ Return JSON:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         skills: roleInfo.coreSkills.length >= 8 ? roleInfo.coreSkills : [
@@ -518,7 +565,7 @@ Return JSON:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         coverLetter: `Dear ${recipient},\n\nI am writing to express my strong enthusiasm for the ${jobTitle} role at ${company}. With a solid foundation in delivering high-impact solutions and driving operational efficiency, I am eager to contribute to your team's ongoing success.\n\nThroughout my career, I have consistently focused on executing strategic initiatives and solving complex challenges. My background in ${skills || "cross-functional collaboration and project leadership"} aligns directly with the core objectives of ${company}. I take pride in fostering collaborative relationships and delivering measurable results on critical milestones.\n\nI look forward to discussing how my experience and passion can bring tangible value to ${company}. Thank you for your time and consideration.\n\nSincerely,\n${candidateName}`,
@@ -567,7 +614,7 @@ Return JSON:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         recipientCompany: company,
@@ -630,7 +677,7 @@ Extract:
             temperature: 0.1,
           },
         });
-        const aiJson = JSON.parse(res.text || "{}");
+        const aiJson = this.safeParseJson<any>(res.text, {});
         const mergedResume = mergeParsedResume(deterministicResume, aiJson.parsedResume);
 
         return {
@@ -787,7 +834,7 @@ Return JSON:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         overallScore: 88,
@@ -852,7 +899,7 @@ Provide crisp, actionable, inspiring advice. Return JSON with:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         reply: `### Insights for ${role}\n\nHere are 3 high-impact recommendations to elevate your resume:\n\n1. **Lead with Quantifiable Impact**: Transform standard task descriptions into measurable accomplishments (e.g., *"Improved system throughput by 35% through query optimization"*).\n2. **Tailor for ATS Keywords**: Align technical and leadership skills with the specific requirements of target job postings.\n3. **Refine Your Executive Summary**: Open with a compelling 3-sentence summary highlighting your core domain background and value proposition.`,
@@ -931,7 +978,7 @@ Return JSON:
               },
             },
           });
-          return JSON.parse(res.text || "{}");
+          return this.safeParseJson(res.text, {});
         },
         () => ({
           questions: [
@@ -1022,7 +1069,7 @@ Return JSON:
               },
             },
           });
-          return JSON.parse(res.text || "{}");
+          return this.safeParseJson(res.text, {});
         },
         () => ({
           evaluation: {
@@ -1096,7 +1143,7 @@ Return JSON with pathways, salaryTarget, skillGaps, transitionAdvice.`;
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         targetRole: role,
@@ -1163,7 +1210,7 @@ Return JSON with:
             },
           },
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => ({
         tips: [
@@ -1258,7 +1305,7 @@ Return JSON:
             responseMimeType: "application/json",
           },
         });
-        const parsed = JSON.parse(res.text || "{}");
+        const parsed = this.safeParseJson<any>(res.text, {});
         return {
           updatedResume: { ...resume, ...(parsed.updatedResume || {}) },
           changesApplied: parsed.changesApplied || ["Polished executive summary", "Upgraded experience bullet points with action verbs"],
@@ -1337,7 +1384,7 @@ Return JSON matching:
           contents: prompt,
           config: { responseMimeType: "application/json" }
         });
-        const parsed = JSON.parse(res.text || "{}");
+        const parsed = this.safeParseJson<any>(res.text, {});
         return parsed.analytics ? parsed : { analytics: parsed };
       },
       () => {
@@ -1397,26 +1444,38 @@ Return JSON matching:
    * 16. Analyze Job Poster / Flyer / URL / Posting Text
    */
   public async analyzeJobPoster(payload: { posterImage?: string; jobPostingUrl?: string; jobText?: string; userResume?: any }) {
-    const candidateTitle = payload.userResume?.personalInfo?.jobTitle || "Professional";
-    const jobText = payload.jobText || "";
+    const safePayload = payload || {};
+    const candidateTitle = safePayload.userResume?.personalInfo?.jobTitle || "Professional";
+    const jobText = (safePayload.jobText || "").trim();
+    const candidateSkills = this.formatSkillsList(safePayload.userResume?.skills);
+    const candidateExp = Array.isArray(safePayload.userResume?.experience)
+      ? safePayload.userResume.experience.slice(0, 3)
+      : [];
 
     return this.executeWithFallback(
       "analyze_job_poster",
-      { candidateTitle, textLen: jobText.length, hasUrl: !!payload.jobPostingUrl },
+      { candidateTitle, textLen: jobText.length, hasUrl: !!safePayload.jobPostingUrl },
       async (client, model) => {
         const contents: any[] = [];
-        if (payload.posterImage) {
-          const base64Data = payload.posterImage.replace(/^data:image\/\w+;base64,/, "");
+        if (safePayload.posterImage) {
+          const base64Data = safePayload.posterImage.replace(/^data:image\/\w+;base64,/, "");
           let mimeType = "image/jpeg";
-          const match = payload.posterImage.match(/^data:(image\/\w+);base64,/);
+          const match = safePayload.posterImage.match(/^data:(image\/\w+);base64,/);
           if (match) mimeType = match[1];
           contents.push({ inlineData: { mimeType, data: base64Data } });
         }
+
+        const postingDetails = [
+          safePayload.jobPostingUrl ? `Target Job URL: ${safePayload.jobPostingUrl}` : null,
+          jobText ? `Job Text / Requirements: "${jobText}"` : null,
+          !safePayload.posterImage && !jobText && !safePayload.jobPostingUrl ? "Standard industry opening" : null,
+        ].filter(Boolean).join("\n\n");
+
         contents.push({
           text: `Analyze this job posting vs candidate resume (${candidateTitle}):
-Posting Text: "${jobText}"
-Candidate Skills: ${(payload.userResume?.skills || []).join(", ")}
-Candidate Experience: ${JSON.stringify((payload.userResume?.experience || []).slice(0, 3))}
+${postingDetails}
+Candidate Skills: ${candidateSkills || "Relevant professional competencies"}
+Candidate Experience: ${JSON.stringify(candidateExp)}
 
 Return JSON:
 {
@@ -1438,23 +1497,25 @@ Return JSON:
           contents,
           config: { responseMimeType: "application/json" }
         });
-        return JSON.parse(res.text || "{}");
+        const parsed = this.safeParseJson<any>(res.text, null);
+        if (!parsed) throw new Error("Invalid poster model output");
+        return parsed;
       },
       () => {
         const roleInfo = getRoleDomainInfo(candidateTitle);
         return {
-          matchScore: 82,
+          matchScore: 84,
           jobTitle: candidateTitle,
           companyName: "Target Employer",
-          fitSummary: `Strong foundational match for ${candidateTitle}. Your background aligns well with core operational requirements.`,
+          fitSummary: `Strong foundational match for ${candidateTitle}. Your background aligns well with core operational and technical requirements.`,
           matchedSkills: roleInfo.coreSkills.slice(0, 4),
           missingSkills: roleInfo.coreSkills.slice(4, 7),
-          missingGapsToBridge: ["Highlight specific project milestones", "Incorporate domain-specific ATS keywords"],
-          keyRequirements: ["Demonstrated track record in role", "Strong communication and execution skills", "Team collaboration"],
+          missingGapsToBridge: ["Highlight specific project milestones and metrics", "Incorporate domain-specific ATS keywords from job post"],
+          keyRequirements: ["Demonstrated track record in role", "Strong communication and execution capabilities", "Team collaboration and stakeholder delivery"],
           recommendedResumeAdjustments: [
-            `Tailor summary headline specifically to ${candidateTitle}`,
-            "Add measurable metrics in previous position descriptions",
-            "Promote core hard skills to top of skills section"
+            `Tailor executive summary headline specifically to ${candidateTitle}`,
+            "Add measurable business metrics (%, $, scale) in previous position descriptions",
+            "Promote core hard skills to the top of your skills section"
           ],
           alternativeCompaniesInArea: ["Leading Technology Corp", "Global Enterprise Solutions", "Strategic Growth Partners", "Apex Innovations"]
         };
@@ -1465,16 +1526,20 @@ Return JSON:
   /**
    * 17. Analyze Company & Job
    */
-  public async analyzeCompanyJob(payload: { companyNameOrLink: string; companyLocation: string; desiredPosition: string; userResume?: any }) {
-    const { companyNameOrLink, companyLocation, desiredPosition, userResume } = payload;
-    const candidateTitle = userResume?.personalInfo?.jobTitle || "Applicant";
+  public async analyzeCompanyJob(payload?: { companyNameOrLink?: string; companyLocation?: string; desiredPosition?: string; userResume?: any }) {
+    const safePayload = payload || {};
+    const companyNameOrLink = (safePayload.companyNameOrLink || "Target Organization").trim();
+    const companyLocation = (safePayload.companyLocation || "Global").trim();
+    const desiredPosition = (safePayload.desiredPosition || "Specialist").trim();
+    const candidateTitle = safePayload.userResume?.personalInfo?.jobTitle || "Applicant";
+    const candidateSkills = this.formatSkillsList(safePayload.userResume?.skills);
 
     return this.executeWithFallback(
       "analyze_company_job",
       { companyNameOrLink, companyLocation, desiredPosition, candidateTitle },
       async (client, model) => {
         const prompt = `Analyze target company "${companyNameOrLink}" at "${companyLocation}" for position "${desiredPosition}".
-Candidate: ${candidateTitle}, Skills: ${(userResume?.skills || []).join(", ")}
+Candidate: ${candidateTitle}, Skills: ${candidateSkills || "Relevant competencies"}
 
 Return JSON:
 {
@@ -1497,7 +1562,9 @@ Return JSON:
           contents: prompt,
           config: { responseMimeType: "application/json" }
         });
-        return JSON.parse(res.text || "{}");
+        const parsed = this.safeParseJson<any>(res.text, null);
+        if (!parsed) throw new Error("Invalid company intelligence model output");
+        return parsed;
       },
       () => {
         return {
@@ -1583,7 +1650,7 @@ Return JSON matching:
           contents: prompt,
           config: { responseMimeType: "application/json" }
         });
-        return JSON.parse(res.text || "{}");
+        return this.safeParseJson(res.text, {});
       },
       () => {
         const roleInfo = getRoleDomainInfo(role);

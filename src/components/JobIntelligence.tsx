@@ -99,7 +99,7 @@ export default function JobIntelligence({
 
   const activeResume = resumes.find((r) => r.id === selectedResumeId) || resumes[0];
 
-  // Handle Poster Image Upload
+  // Handle Poster Image Upload with client-side image downscaling
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -113,7 +113,40 @@ export default function JobIntelligence({
     setPosterImageName(file.name);
     const reader = new FileReader();
     reader.onload = (event) => {
-      setPosterImage(event.target?.result as string);
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) return;
+
+      // Optimize image size client-side to prevent network payload timeout
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1280;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", 0.85);
+          setPosterImage(compressed);
+        } else {
+          setPosterImage(rawDataUrl);
+        }
+      };
+      img.onerror = () => {
+        setPosterImage(rawDataUrl);
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   };
@@ -135,6 +168,9 @@ export default function JobIntelligence({
     setPosterResult(null);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
       const response = await fetch("/api/ai/analyze-job-poster", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,9 +178,11 @@ export default function JobIntelligence({
           posterImage,
           jobPostingUrl: jobPostingUrl.trim(),
           jobText: jobText.trim(),
-          userResume: activeResume,
+          userResume: activeResume || {},
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       const data = await response.json();
       if (!response.ok) {
@@ -153,9 +191,13 @@ export default function JobIntelligence({
       }
 
       setPosterResult(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Poster analysis error:", err);
-      setErrorMessage("AI Connection Error: Unable to connect to Job Intelligence service. Please check your network and retry.");
+      if (err?.name === "AbortError") {
+        setErrorMessage("Request Timeout: Analysis took longer than expected. Please try again or paste the job text directly.");
+      } else {
+        setErrorMessage("AI Connection Error: Unable to connect to Job Intelligence service. Please check your network and retry.");
+      }
     } finally {
       setAnalyzingPoster(false);
     }
@@ -173,6 +215,9 @@ export default function JobIntelligence({
     setCompanyResult(null);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
       const response = await fetch("/api/ai/analyze-company-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -180,9 +225,11 @@ export default function JobIntelligence({
           companyNameOrLink: companyNameOrLink.trim(),
           companyLocation: companyLocation.trim(),
           desiredPosition: desiredPosition.trim(),
-          userResume: activeResume,
+          userResume: activeResume || {},
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       const data = await response.json();
       if (!response.ok) {
@@ -191,9 +238,13 @@ export default function JobIntelligence({
       }
 
       setCompanyResult(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Company analysis error:", err);
-      setErrorMessage("AI Connection Error: Unable to research company intelligence. Please check your connection and retry.");
+      if (err?.name === "AbortError") {
+        setErrorMessage("Request Timeout: Company intelligence research took longer than expected. Please retry.");
+      } else {
+        setErrorMessage("AI Connection Error: Unable to research company intelligence. Please check your connection and retry.");
+      }
     } finally {
       setAnalyzingCompany(false);
     }

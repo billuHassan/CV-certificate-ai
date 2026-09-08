@@ -935,7 +935,7 @@ function getGenAIClient(): GoogleGenAI | null {
 
 getGenAIClient();
 
-const PRIMARY_GEMINI_MODEL = "gemini-2.5-flash";
+const PRIMARY_GEMINI_MODEL = "gemini-3.8-flash";
 
 /**
  * Executes a Gemini request using recommended active models with fast fallback.
@@ -951,7 +951,7 @@ async function callGeminiWithFallback<T>(
     return fallbackGenerator();
   }
 
-  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-2.5-flash-lite"];
+  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-2.5-flash"];
   const sanitizedPreferred = (preferredModels || []).map(m => 
     (m === "gemini-3.6-flash" || m === "gemini-3.1-pro-preview" || m === "gemini-2.0-flash" || m === "gemini-1.5-flash") 
       ? PRIMARY_GEMINI_MODEL 
@@ -1577,7 +1577,12 @@ app.post("/api/ai/analyze-job-poster", async (req, res) => {
     res.json(result);
   } catch (error: any) {
     console.error("Analyze Job Poster Error:", error);
-    res.status(500).json({ error: error?.message || "Failed to process job poster" });
+    try {
+      const fallback = await aiService.analyzeJobPoster({ userResume: req.body?.userResume });
+      res.json(fallback);
+    } catch {
+      res.status(500).json({ error: error?.message || "Failed to process job poster" });
+    }
   }
 });
 
@@ -1593,7 +1598,17 @@ app.post("/api/ai/analyze-company-job", async (req, res) => {
     res.json(result);
   } catch (error: any) {
     console.error("Analyze Company & Job Error:", error);
-    res.status(500).json({ error: error?.message || "Failed to process company intelligence" });
+    try {
+      const fallback = await aiService.analyzeCompanyJob({
+        companyNameOrLink: req.body?.companyNameOrLink || "Target Company",
+        companyLocation: req.body?.companyLocation || "Global",
+        desiredPosition: req.body?.desiredPosition || "Specialist",
+        userResume: req.body?.userResume
+      });
+      res.json(fallback);
+    } catch {
+      res.status(500).json({ error: error?.message || "Failed to process company intelligence" });
+    }
   }
 });
 
