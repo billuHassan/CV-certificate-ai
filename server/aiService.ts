@@ -248,10 +248,13 @@ export class AIService {
     // 2. Try Gemini Models if not in rate-limit cooldown
     if (client && Date.now() >= this.geminiBlockedUntil) {
       const activeModels = this.geminiModels.slice(0, 2);
+      const isHeavyTask = actionName.includes("parse") || actionName.includes("audit") || actionName.includes("coach") || actionName.includes("analytics");
+      const taskTimeoutMs = isHeavyTask ? 30000 : 15000;
+
       for (const modelName of activeModels) {
         try {
           const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("AI_TIMEOUT")), 5000)
+            setTimeout(() => reject(new Error("AI_TIMEOUT")), taskTimeoutMs)
           );
 
           const result = await Promise.race([geminiCall(client, modelName), timeoutPromise]);
@@ -630,13 +633,15 @@ Return JSON:
   public async parseAndAuditResume(payload: { resumeText?: string; fileDataUri?: string; fileName?: string }) {
     const { resumeText, fileDataUri, fileName } = payload;
     let extractedDocumentText = "";
+    let mimeType = "";
+    let base64Data = "";
 
     // Step A: Robust deterministic extraction from file if provided
     if (fileDataUri && fileDataUri.startsWith("data:")) {
       const matches = fileDataUri.match(/^data:([^;]+);base64,(.+)$/);
       if (matches) {
-        const mimeType = matches[1];
-        const base64Data = matches[2];
+        mimeType = matches[1];
+        base64Data = matches[2];
         const buf = Buffer.from(base64Data, "base64");
         try {
           extractedDocumentText = await extractDocumentText(buf, mimeType, fileName);
@@ -655,26 +660,99 @@ Return JSON:
 
     return this.executeWithFallback(
       "parse_and_audit_resume",
-      { textLength: combinedText.length, sampleText: combinedText.slice(0, 300) },
+      { textLength: combinedText.length, sampleText: combinedText.slice(0, 300), hasFile: Boolean(base64Data) },
       async (client, model) => {
-        const prompt = `You are an Executive ATS Resume Scanner & Document Parser.
-Analyze this resume text and extract structured JSON with zero omissions:
---- RESUME CONTENT ---
-${combinedText.slice(0, 15000)}
---- END CONTENT ---
+        const contents: any[] = [];
 
-Extract:
-1. parsedResume: personalInfo (fullName, jobTitle, email, phone, location, website, linkedin, github), summary, experience, education, projects, skills, languages, certifications, references, customSections.
-2. auditReport: overallRealityScore (0-100), strengths, weaknesses, missingInformation, suggestedImprovements, sections (sectionKey, sectionTitle, score, status, deficiencies, suggestedChanges).
-3. extractedTemplateStyle: templateId, templateName, description, colorTheme, fontFamily, layoutStyle, bgClass, sidebarClass, accentClass, isDark.`;
+        // When PDF or image is uploaded, pass base64 inlineData directly for native visual & OCR document parsing
+        if (base64Data && (mimeType === "application/pdf" || mimeType.startsWith("image/"))) {
+          contents.push({
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data,
+            },
+          });
+        }
+
+        const prompt = `You are an Expert ATS Resume & Career Document Parser.
+CRITICAL ACCURACY MANDATE:
+1. TRUTHFUL, EXACT EXTRACTION ONLY:
+   Extract the REAL candidate's actual information from the uploaded document file and/or text.
+   DO NOT HALLUCINATE. DO NOT INVENT PLACEHOLDER DATA.
+   DO NOT default to "Software Engineer", "Developer", "John Doe", or generic tech roles unless that is specifically what is written in this document!
+   If the candidate is a Nurse, Accountant, Financial Analyst, Chef, Architect, Sales Representative, Student, Teacher, Mechanical Engineer, Graphic Designer, Project Manager, Doctor, Lawyer, or any other profession, extract THEIR ACTUAL name, job title, and career accomplishments faithfully.
+2. COMPLETE EXTRACTION (ZERO OMISSIONS):
+   Extract EVERY single field and detail present in the document:
+   - parsedResume:
+     - personalInfo:
+         fullName: candidate's real full name as printed on the document (do not default to Candidate Name)
+         jobTitle: candidate's actual headline, current title, or target role from the document
+         email: email address
+         phone: phone number
+         location: city, state/province, country
+         website: portfolio URL or personal website
+         linkedin: LinkedIn profile URL or handle
+         github: GitHub profile URL or handle
+         profilePhoto: ""
+     - summary: candidate's actual professional summary or objective statement from the document (or a faithful 2-sentence summary based strictly on their actual experience if none is explicitly written)
+     - experience: array of ALL work history entries. Each item must have:
+         id: string (e.g. "exp_1")
+         company: exact company or employer name
+         position: exact job position or title
+         startDate: start date (e.g. "2021-03" or "2021")
+         endDate: end date or "Present"
+         current: boolean (true if current job)
+         location: location if listed
+         description: all accomplishment bullet points and responsibilities verbatim
+     - education: array of ALL degrees and education entries. Each item must have:
+         id: string (e.g. "edu_1")
+         school: school / university name
+         degree: degree name (e.g. "Bachelor of Arts", "Master of Science", "Associate Degree", "High School Diploma")
+         fieldOfStudy: major or academic focus
+         startDate: start year or date
+         endDate: graduation year or date
+         current: boolean
+         location: school location
+         gpa: GPA if listed
+         description: honors, coursework, or activities
+     - projects: array of projects (id, name, role, startDate, endDate, url, description)
+     - skills: array of ALL technical and domain skills, software tools, equipment, certifications, and capabilities mentioned in the document
+     - languages: array of languages and proficiencies (id, name, proficiency)
+     - certifications: array of certifications and licenses (id, name, issuer, date, url)
+     - references: array of references if listed (id, name, company, title, email, phone)
+     - customSections: array of any other sections (e.g. volunteer work, publications, awards, leadership)
+   - auditReport:
+     - overallRealityScore: number between 60 and 98 based on formatting, completeness, and ATS readiness
+     - strengths: 3-5 strings highlighting document strengths
+     - weaknesses: 2-4 strings with actionable gaps
+     - missingInformation: array of any missing standard elements
+     - suggestedImprovements: array of specific improvements
+     - sections: array of section assessments with score, status, deficiencies, suggestedChanges
+   - extractedTemplateStyle:
+     - templateId: string identifier (e.g. "executive_classic", "modern_split", "minimal_clean")
+     - templateName: human-readable name
+     - description: style description
+     - colorTheme: dominant color hex code from document or "#0f766e"
+     - fontFamily: "font-sans", "font-serif", or "font-mono"
+     - layoutStyle: "split", "standard", "sidebar-left", or "minimal"
+     - bgClass: "bg-white" or "bg-stone-50"
+     - sidebarClass: "bg-slate-900 text-white" or ""
+     - accentClass: Tailwind color class
+     - isDark: boolean
+
+${combinedText ? `--- EXTRACTED TEXT FROM DOCUMENT ---\n${combinedText.slice(0, 30000)}\n--- END EXTRACTED TEXT ---` : ""}
+
+Return valid JSON with top-level keys: "parsedResume", "auditReport", "extractedTemplateStyle".`;
+
+        contents.push({ text: prompt });
 
         const res = await client.models.generateContent({
           model,
-          contents: prompt,
+          contents,
           config: {
             responseMimeType: "application/json",
             maxOutputTokens: 8192,
-            temperature: 0.1,
+            temperature: 0.05,
           },
         });
         const aiJson = this.safeParseJson<any>(res.text, {});
@@ -926,16 +1004,30 @@ Provide crisp, actionable, inspiring advice. Return JSON with:
     userAnswer?: string;
   }) {
     const { mode, targetJobTitle, targetCompany, question, category, userAnswer } = payload;
-    const jobTitle = targetJobTitle || payload.resumeData?.personalInfo?.jobTitle || "Software Engineer";
+    const jobTitle = targetJobTitle || payload.resumeData?.personalInfo?.jobTitle || payload.resumeData?.title || "Professional Specialist";
     const company = targetCompany || "Target Employer";
+    const roleInfo = getRoleDomainInfo(jobTitle);
+    const candidateSkills = (payload.resumeData?.skills || []).slice(0, 10).join(", ") || roleInfo.coreSkills.slice(0, 6).join(", ");
+    const candidateExp = (payload.resumeData?.experience || [])
+      .slice(0, 2)
+      .map((e: any) => `${e.position} at ${e.company}`)
+      .filter(Boolean)
+      .join("; ");
 
     if (mode === "generate_questions") {
       return this.executeWithFallback(
         "interview_generate_questions",
-        { jobTitle, company },
+        { jobTitle, company, domain: roleInfo.domainName },
         async (client, model) => {
-          const prompt = `Generate 6 realistic interview questions for a candidate applying for "${jobTitle}" at "${company}".
-Include 2 technical, 2 behavioural, 2 HR questions with STAR guides and sample answers.
+          const prompt = `You are a Senior Executive Talent Interviewer specializing in ${roleInfo.domainName}.
+Candidate Profile:
+- Target Role: "${jobTitle}" at "${company}"
+- Domain Field: ${roleInfo.domainName}
+- Documented Skills: ${candidateSkills}
+- Background: ${candidateExp || "Experienced Practitioner"}
+
+CRITICAL REQUIREMENT: Generate 6 realistic interview questions specifically tailored to this candidate's actual career field ("${roleInfo.domainName}" / "${jobTitle}"). DO NOT ask software engineering or IT questions unless the candidate is actually in software/IT!
+Include 2 technical/domain questions, 2 behavioral questions, and 2 HR/alignment questions with STAR guides and sample answers.
 
 Return JSON:
 - questions: array of { id, question, category, difficulty, starGuide: { situation, task, action, result }, sampleAnswer, keyPoints }`;
@@ -945,37 +1037,8 @@ Return JSON:
             contents: prompt,
             config: {
               responseMimeType: "application/json",
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  questions: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        id: { type: Type.STRING },
-                        question: { type: Type.STRING },
-                        category: { type: Type.STRING },
-                        difficulty: { type: Type.STRING },
-                        starGuide: {
-                          type: Type.OBJECT,
-                          properties: {
-                            situation: { type: Type.STRING },
-                            task: { type: Type.STRING },
-                            action: { type: Type.STRING },
-                            result: { type: Type.STRING },
-                          },
-                          required: ["situation", "task", "action", "result"],
-                        },
-                        sampleAnswer: { type: Type.STRING },
-                        keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      },
-                      required: ["id", "question", "category", "difficulty", "starGuide", "sampleAnswer", "keyPoints"],
-                    },
-                  },
-                },
-                required: ["questions"],
-              },
+              maxOutputTokens: 4096,
+              temperature: 0.1,
             },
           });
           return this.safeParseJson(res.text, {});
@@ -988,26 +1051,26 @@ Return JSON:
               category: "technical",
               difficulty: "Senior",
               starGuide: {
-                situation: "Encountered bottleneck issues during peak system load.",
-                task: "Diagnose root causes and optimize workflows without service disruption.",
-                action: "Implemented distributed caching, optimized database queries, and introduced async pipelines.",
-                result: "Reduced latency by 45% and improved system stability under peak load.",
+                situation: `Faced an operational challenge impacting deliverable quality in ${roleInfo.domainName}.`,
+                task: "Diagnose root causes and implement an effective solution without interrupting daily workflows.",
+                action: `Applied ${candidateSkills.split(",")[0] || "structured domain methodologies"} and collaborated across stakeholders.`,
+                result: "Delivered a measurable 30% improvement in efficiency and achieved high stakeholder satisfaction.",
               },
-              sampleAnswer: `In my role as ${jobTitle}, our system experienced latency spikes during peak traffic. I audited performance bottlenecks, implemented caching strategies, and refactored core logic, improving throughput by 45%.`,
-              keyPoints: ["System Architecture", "Root Cause Analysis", "Measurable Optimization", "Leadership"],
+              sampleAnswer: `In my role as ${jobTitle}, we experienced quality challenges on a key initiative. I conducted root-cause analysis, standardized operational protocols, and coordinated team execution, achieving a 30% efficiency gain.`,
+              keyPoints: [roleInfo.domainName, "Root Cause Analysis", "Measurable Optimization", "Leadership"],
             },
             {
               id: "q2",
-              question: "Describe a time you navigated a significant disagreement with a teammate. How did you resolve it?",
+              question: "Describe a time you navigated a significant disagreement with a teammate or stakeholder. How did you resolve it?",
               category: "behavioural",
               difficulty: "Mid-Level",
               starGuide: {
-                situation: "Team was divided between speed-to-market versus architectural scalability.",
+                situation: "Project stakeholders held opposing viewpoints on prioritization and project scope.",
                 task: "Align priorities and agree on an execution plan that met deadline requirements safely.",
-                action: "Facilitated an objective decision matrix comparing technical debt, delivery timelines, and risk.",
+                action: "Facilitated an objective decision matrix comparing trade-offs, delivery timelines, and business impact.",
                 result: "Reached unanimous consensus on a phased rollout plan that delivered on schedule.",
               },
-              sampleAnswer: "When facing competing priorities between speed and scalability, I organized an objective decision matrix with stakeholders. By evaluating trade-offs transparently, we reached consensus on an iterative delivery plan.",
+              sampleAnswer: "When facing competing priorities, I brought stakeholders together around shared project objectives. By evaluating trade-offs transparently, we reached consensus on an iterative delivery plan.",
               keyPoints: ["Active Listening", "Stakeholder Alignment", "Conflict Resolution", "Data-driven Decisions"],
             },
             {
@@ -1016,12 +1079,12 @@ Return JSON:
               category: "hr",
               difficulty: "Mid-Level",
               starGuide: {
-                situation: "Initial recruiter and hiring manager alignment screening.",
+                situation: "Aligning professional trajectory with company vision and culture.",
                 task: "Articulate strong alignment with company vision, culture, and business objectives.",
-                action: "Researched company products, tech architecture, and mapped past achievements to role goals.",
-                result: "Established clear mutual value and technical alignment during screening.",
+                action: `Researched ${company}'s industry presence and mapped past achievements to their strategic goals.`,
+                result: "Established clear mutual value and domain readiness during screening.",
               },
-              sampleAnswer: `I have followed ${company}'s industry innovations closely. My experience in scaling solutions and driving efficiency directly aligns with your current roadmap, making this role an exciting match.`,
+              sampleAnswer: `I have followed ${company}'s work closely. My background in driving results in ${roleInfo.domainName} directly aligns with your current goals, making this role an exciting opportunity to contribute.`,
               keyPoints: ["Company Alignment", "Role Readiness", "Enthusiasm", "Mutual Value"],
             },
           ],
@@ -1033,7 +1096,7 @@ Return JSON:
         "interview_evaluate_answer",
         { question, userAnswer: (userAnswer || "").slice(0, 300) },
         async (client, model) => {
-          const prompt = `Evaluate this interview answer for a "${jobTitle}":
+          const prompt = `Evaluate this interview answer for a "${jobTitle}" in the "${roleInfo.domainName}" field:
 Question: "${question}"
 Candidate Answer: "${userAnswer}"
 
@@ -1045,40 +1108,28 @@ Return JSON:
             contents: prompt,
             config: {
               responseMimeType: "application/json",
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  evaluation: {
-                    type: Type.OBJECT,
-                    properties: {
-                      confidenceScore: { type: Type.INTEGER },
-                      communicationScore: { type: Type.INTEGER },
-                      technicalScore: { type: Type.INTEGER },
-                      overallScore: { type: Type.INTEGER },
-                      verdict: { type: Type.STRING },
-                      answerAnalysis: { type: Type.STRING },
-                      strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      improvementSuggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      exemplarAnswer: { type: Type.STRING },
-                      fillerWordsDetected: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    },
-                    required: ["confidenceScore", "communicationScore", "technicalScore", "overallScore", "verdict", "strengths", "improvementSuggestions"],
-                  },
-                },
-                required: ["evaluation"],
-              },
+              maxOutputTokens: 2048,
+              temperature: 0.1,
             },
           });
-          return this.safeParseJson(res.text, {});
+          const parsed = this.safeParseJson<any>(res.text, {});
+          const evalObj = parsed.evaluation || parsed;
+          return {
+            evaluation: evalObj,
+            score: evalObj.overallScore || 85,
+            feedback: evalObj.verdict || "Good response.",
+            areasToImprove: evalObj.improvementSuggestions || [],
+            recruiterFeedback: evalObj.answerAnalysis || "",
+          };
         },
-        () => ({
-          evaluation: {
+        () => {
+          const evaluation = {
             confidenceScore: 88,
             communicationScore: 86,
             technicalScore: 90,
             overallScore: 88,
             verdict: "Strong structured answer demonstrating clear problem ownership and logical flow.",
-            answerAnalysis: "Your answer effectively addresses the core question and demonstrates domain maturity.",
+            answerAnalysis: `Your answer effectively addresses the core question and demonstrates maturity in ${roleInfo.domainName}.`,
             strengths: [
               "Directly addresses the situation with active ownership verbs.",
               "Maintains a clear progression from challenge to resolution.",
@@ -1088,10 +1139,17 @@ Return JSON:
               "Include specific quantifiable metrics (e.g. percentage improvements or time saved).",
               "Briefly highlight cross-functional communication and stakeholder buy-in.",
             ],
-            exemplarAnswer: `In my previous role as ${jobTitle}, I resolved this challenge by first analyzing root causes, implementing targeted optimizations using industry best practices, and delivering a 35% improvement in overall team efficiency.`,
+            exemplarAnswer: `In my experience as a ${jobTitle}, I approached this challenge by first analyzing root causes, implementing targeted optimizations using industry best practices, and delivering a 30% improvement in operational outcomes.`,
             fillerWordsDetected: ["basically", "like"],
-          },
-        })
+          };
+          return {
+            evaluation,
+            score: evaluation.overallScore,
+            feedback: evaluation.verdict,
+            areasToImprove: evaluation.improvementSuggestions,
+            recruiterFeedback: evaluation.answerAnalysis,
+          };
+        }
       );
     }
   }
@@ -1099,87 +1157,267 @@ Return JSON:
   /**
    * 11. Career Recommendations & Transition Pathways
    */
-  public async careerRecommendation(payload: { resumeData: any; targetRole?: string; yearsExperience?: string }) {
-    const role = payload.targetRole || payload.resumeData?.personalInfo?.jobTitle || "Specialist";
-    const skills = (payload.resumeData?.skills || []).slice(0, 8).join(", ");
+  public async careerRecommendation(payload: { resume?: any; resumeData?: any; targetRole?: string; yearsExperience?: string }) {
+    const resume = payload.resume || payload.resumeData || {};
+    const role = payload.targetRole || resume.personalInfo?.jobTitle || resume.title || "Professional";
+    const roleInfo = getRoleDomainInfo(role);
+    const skills = (resume.skills || []).slice(0, 12).join(", ") || roleInfo.coreSkills.slice(0, 8).join(", ");
+    const expCount = (resume.experience || []).length;
+    const pastCompanies = (resume.experience || []).map((e: any) => e.company).filter(Boolean).slice(0, 3).join(", ");
 
     return this.executeWithFallback(
       "career_recommendation",
-      { role, skills },
+      { role, skills, expCount },
       async (client, model) => {
-        const prompt = `Provide career pathways, salary benchmarks, and skill gap recommendations for a "${role}".
-Candidate Skills: ${skills}
+        const prompt = `You are a Global Executive Career Placement Strategist.
+Candidate Background:
+- Current/Target Role: "${role}" (Industry Domain: ${roleInfo.domainName})
+- Documented Skills: ${skills}
+- Past Employers / History: ${pastCompanies || "Established track record"}
+- Total Positions: ${expCount}
 
-Return JSON with pathways, salaryTarget, skillGaps, transitionAdvice.`;
+CRITICAL: All recommendations MUST be strictly aligned with the candidate's actual field ("${roleInfo.domainName}" / "${role}"). Do NOT default to software engineering or IT unless the candidate is actually in that domain!
+
+Generate comprehensive career recommendations in valid JSON:
+{
+  "overallFitSummary": "2-3 sentences summarizing candidate's market competitiveness and trajectory in ${roleInfo.domainName}.",
+  "recommendedRoles": [
+    {
+      "title": "Role Title 1",
+      "category": "Immediate Match",
+      "matchScore": 95,
+      "salaryRange": "$85,000 - $125,000",
+      "demandTrend": "High Growth (+14% YoY)",
+      "whyFit": "Direct alignment with candidate documented skills and experience.",
+      "keySkillsNeeded": ["Skill 1", "Skill 2", "Skill 3"],
+      "recommendedCertifications": ["Cert 1", "Cert 2"],
+      "actionPlan": "Actionable next steps to secure this position."
+    },
+    {
+      "title": "Role Title 2 (Senior / Next Step)",
+      "category": "Next-Level Advancement",
+      "matchScore": 88,
+      "salaryRange": "$115,000 - $160,000",
+      "demandTrend": "Strong Demand (+18% YoY)",
+      "whyFit": "Natural promotion pathway leveraging leadership and domain background.",
+      "keySkillsNeeded": ["Advanced Skill 1", "Advanced Skill 2", "Leadership"],
+      "recommendedCertifications": ["Advanced Cert"],
+      "actionPlan": "Focus on high-visibility projects and team mentoring."
+    },
+    {
+      "title": "Role Title 3 (Lateral / Specialized)",
+      "category": "Strategic Pivot",
+      "matchScore": 82,
+      "salaryRange": "$95,000 - $140,000",
+      "demandTrend": "Emerging Field (+22% YoY)",
+      "whyFit": "Transfers core domain competencies into high-value specialization.",
+      "keySkillsNeeded": ["Specialized Skill 1", "Specialized Skill 2"],
+      "recommendedCertifications": ["Specialized Credential"],
+      "actionPlan": "Highlight cross-functional achievements and analytics."
+    }
+  ],
+  "recommendedCompanies": [
+    {
+      "name": "Leading Organization 1",
+      "industry": "${roleInfo.industry}",
+      "hiringStatus": "Actively Recruiting",
+      "matchedRoles": ["${role}", "Senior ${role}"],
+      "headquarters": "Global / Remote"
+    },
+    {
+      "name": "Leading Organization 2",
+      "industry": "${roleInfo.industry}",
+      "hiringStatus": "High Demand",
+      "matchedRoles": ["${role}"],
+      "headquarters": "United States"
+    }
+  ],
+  "recommendedCountries": [
+    {
+      "country": "United States",
+      "visaEase": "H1B / O1 / TN",
+      "averageSalary": "$95,000 - $145,000",
+      "jobMarketDemand": "Top Global Demand",
+      "techHubs": ["New York", "San Francisco", "Austin", "Chicago"]
+    },
+    {
+      "country": "Canada",
+      "visaEase": "Express Entry / Global Talent Stream",
+      "averageSalary": "$85,000 - $125,000 CAD",
+      "jobMarketDemand": "Strong Growth",
+      "techHubs": ["Toronto", "Vancouver", "Montreal"]
+    },
+    {
+      "country": "United Kingdom",
+      "visaEase": "Skilled Worker Visa",
+      "averageSalary": "£65,000 - £95,000",
+      "jobMarketDemand": "High Demand",
+      "techHubs": ["London", "Manchester", "Edinburgh"]
+    }
+  ],
+  "pathways": [
+    {
+      "title": "Senior ${role}",
+      "timeframe": "1 - 2 Years",
+      "salaryGrowth": "+25% to +35%",
+      "requiredSkills": ["Advanced Domain Strategy", "Cross-Team Leadership"]
+    },
+    {
+      "title": "${role} Director / Department Lead",
+      "timeframe": "3 - 5 Years",
+      "salaryGrowth": "+50% to +80%",
+      "requiredSkills": ["Executive Resource Planning", "Operational Scalability"]
+    }
+  ],
+  "skillGaps": ["Domain Analytics", "Leadership & Mentoring", "High-Impact Project Execution"],
+  "strategicAdvice": "Focus on driving measurable business outcomes and documenting quantifiable results on your resume."
+}`;
 
         const res = await client.models.generateContent({
           model,
           contents: prompt,
           config: {
             responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                targetRole: { type: Type.STRING },
-                salaryRange: { type: Type.STRING },
-                demandLevel: { type: Type.STRING },
-                pathways: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      title: { type: Type.STRING },
-                      timeframe: { type: Type.STRING },
-                      salaryGrowth: { type: Type.STRING },
-                      requiredSkills: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    },
-                    required: ["title", "timeframe", "salaryGrowth", "requiredSkills"],
-                  },
-                },
-                skillGaps: { type: Type.ARRAY, items: { type: Type.STRING } },
-                strategicAdvice: { type: Type.STRING },
-              },
-              required: ["targetRole", "salaryRange", "demandLevel", "pathways", "skillGaps", "strategicAdvice"],
-            },
+            maxOutputTokens: 4096,
+            temperature: 0.1,
           },
         });
-        return this.safeParseJson(res.text, {});
+        const parsed = this.safeParseJson<any>(res.text, {});
+        const report = {
+          overallFitSummary: parsed.overallFitSummary || `Strong competitive profile for ${role} within ${roleInfo.domainName}.`,
+          recommendedRoles: parsed.recommendedRoles || [],
+          recommendedCompanies: parsed.recommendedCompanies || [],
+          recommendedCountries: parsed.recommendedCountries || [],
+        };
+        return {
+          report,
+          ...report,
+          targetRole: role,
+          salaryRange: parsed.recommendedRoles?.[0]?.salaryRange || "$85,000 - $130,000",
+          demandLevel: "High Growth",
+          pathways: parsed.pathways || [],
+          skillGaps: parsed.skillGaps || [],
+          strategicAdvice: parsed.strategicAdvice || "",
+        };
       },
-      () => ({
-        targetRole: role,
-        salaryRange: "$95,000 - $145,000 / year",
-        demandLevel: "High Growth (Top 10% Industry Demand)",
-        pathways: [
-          {
-            title: `Senior ${role}`,
-            timeframe: "1 - 2 Years",
-            salaryGrowth: "+25% to +40%",
-            requiredSkills: ["Advanced System Design", "Strategic Roadmap Planning", "Cross-Team Leadership"],
-          },
-          {
-            title: `${role} Lead / Principal Architect`,
-            timeframe: "3 - 5 Years",
-            salaryGrowth: "+50% to +85%",
-            requiredSkills: ["Enterprise Architecture", "Executive Stakeholder Management", "High-Scale Optimization"],
-          },
-        ],
-        skillGaps: ["Cloud Infrastructure Optimization", "Data-Driven Performance Analytics", "Mentorship & Team Coaching"],
-        strategicAdvice: `Focus on taking ownership of end-to-end projects that directly move high-level business metrics. Document your achievements in your resume with quantifiable metrics.`,
-      })
+      () => {
+        const report = {
+          overallFitSummary: `Strong profile for ${role} across the ${roleInfo.domainName} market. Demonstrates solid domain competence with clear pathways for high-compensation advancement.`,
+          recommendedRoles: [
+            {
+              title: role,
+              category: "Direct Match",
+              matchScore: 94,
+              salaryRange: "$80,000 - $120,000",
+              demandTrend: "High Demand (+12% YoY)",
+              whyFit: `Direct match for candidate's background in ${roleInfo.domainName}.`,
+              keySkillsNeeded: roleInfo.coreSkills.slice(0, 3),
+              recommendedCertifications: ["Professional Certified Specialist"],
+              actionPlan: "Highlight project outcomes and quantified metrics in primary resume bullets.",
+            },
+            {
+              title: `Senior ${role}`,
+              category: "Next-Level Advancement",
+              matchScore: 86,
+              salaryRange: "$105,000 - $150,000",
+              demandTrend: "High Demand (+16% YoY)",
+              whyFit: "Natural progression path requiring leadership and strategic execution.",
+              keySkillsNeeded: ["Cross-Functional Leadership", ...roleInfo.coreSkills.slice(0, 2)],
+              recommendedCertifications: ["Executive Leadership Credential"],
+              actionPlan: "Lead cross-team initiatives and mentor colleagues.",
+            },
+            {
+              title: `${roleInfo.industry} Operations Lead`,
+              category: "Strategic Pivot",
+              matchScore: 80,
+              salaryRange: "$95,000 - $135,000",
+              demandTrend: "Steady (+9% YoY)",
+              whyFit: "Applies foundational domain capabilities to operational governance.",
+              keySkillsNeeded: ["Operational Workflow Design", "Resource Planning"],
+              recommendedCertifications: ["Project Management Professional (PMP)"],
+              actionPlan: "Emphasize efficiency gains and process improvements.",
+            },
+          ],
+          recommendedCompanies: [
+            {
+              name: `Global ${roleInfo.industry} Leaders`,
+              industry: roleInfo.industry,
+              hiringStatus: "Actively Recruiting",
+              matchedRoles: [role, `Senior ${role}`],
+              headquarters: "Remote / Hybrid Global",
+            },
+            {
+              name: `Enterprise ${roleInfo.domainName} Group`,
+              industry: roleInfo.industry,
+              hiringStatus: "High Growth",
+              matchedRoles: [role],
+              headquarters: "United States",
+            },
+          ],
+          recommendedCountries: [
+            {
+              country: "United States",
+              visaEase: "H1B / TN / O1",
+              averageSalary: "$90,000 - $140,000",
+              jobMarketDemand: "Top Global Demand",
+              techHubs: ["New York", "Chicago", "San Francisco", "Austin"],
+            },
+            {
+              country: "United Kingdom",
+              visaEase: "Skilled Worker Visa",
+              averageSalary: "£60,000 - £90,000",
+              jobMarketDemand: "High Demand",
+              techHubs: ["London", "Manchester", "Bristol"],
+            },
+            {
+              country: "Canada",
+              visaEase: "Express Entry / PNP",
+              averageSalary: "$85,000 - $125,000 CAD",
+              jobMarketDemand: "Strong Growth",
+              techHubs: ["Toronto", "Vancouver", "Calgary"],
+            },
+          ],
+        };
+        return {
+          report,
+          ...report,
+          targetRole: role,
+          salaryRange: "$80,000 - $120,000",
+          demandLevel: "High Growth",
+          pathways: [
+            {
+              title: `Senior ${role}`,
+              timeframe: "1 - 2 Years",
+              salaryGrowth: "+25% to +35%",
+              requiredSkills: ["Strategic Roadmap Planning", "Cross-Team Leadership"],
+            },
+            {
+              title: `${role} Lead / Department Director`,
+              timeframe: "3 - 5 Years",
+              salaryGrowth: "+50% to +80%",
+              requiredSkills: ["Executive Stakeholder Management", "Resource Optimization"],
+            },
+          ],
+          skillGaps: ["Advanced Domain Analytics", "Cross-Team Project Leadership"],
+          strategicAdvice: "Ensure your resume explicitly quantifies business impact and outcome metrics.",
+        };
+      }
     );
   }
 
   /**
    * 12. Daily Career Tips & Market Insights
    */
-  public async careerTips(payload: { jobTitle?: string; industry?: string }) {
-    const jobTitle = payload.jobTitle || "Professional";
+  public async careerTips(payload: { jobTitle?: string; industry?: string; resume?: any }) {
+    const jobTitle = payload.jobTitle || payload.resume?.personalInfo?.jobTitle || payload.resume?.title || "Professional";
+    const roleInfo = getRoleDomainInfo(jobTitle);
+    const industry = payload.industry || roleInfo.industry;
 
     return this.executeWithFallback(
       "career_tips",
-      { jobTitle },
+      { jobTitle, industry },
       async (client, model) => {
-        const prompt = `Provide 4 high-impact career growth tips and market trends for a "${jobTitle}".
+        const prompt = `Provide 4 high-impact career growth tips, ATS advice, and market trends specifically for a "${jobTitle}" in the "${industry}" / "${roleInfo.domainName}" industry.
 Return JSON with:
 - tips: array of { id, title, description, category, impactLevel }`;
 
@@ -1188,26 +1426,8 @@ Return JSON with:
           contents: prompt,
           config: {
             responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                tips: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      id: { type: Type.STRING },
-                      title: { type: Type.STRING },
-                      description: { type: Type.STRING },
-                      category: { type: Type.STRING },
-                      impactLevel: { type: Type.STRING },
-                    },
-                    required: ["id", "title", "description", "category", "impactLevel"],
-                  },
-                },
-              },
-              required: ["tips"],
-            },
+            maxOutputTokens: 2048,
+            temperature: 0.1,
           },
         });
         return this.safeParseJson(res.text, {});
@@ -1216,15 +1436,15 @@ Return JSON with:
         tips: [
           {
             id: "tip_1",
-            title: "Quantify Experience with Outcome Metrics",
+            title: `Quantify ${roleInfo.domainName} Achievements`,
             description: "Replace generic responsibilities with tangible results like revenue generated, time saved, or efficiency gains.",
             category: "Resume Optimization",
             impactLevel: "High Impact",
           },
           {
             id: "tip_2",
-            title: "Align Skill Keywords with ATS Filters",
-            description: "Incorporate specialized technical tools and methodologies directly matching target job descriptions.",
+            title: `Align Skills for ${jobTitle} Roles`,
+            description: `Incorporate specialized tools (${roleInfo.coreSkills.slice(0, 3).join(", ")}) directly matching job descriptions.`,
             category: "ATS Strategy",
             impactLevel: "Critical",
           },
@@ -1234,6 +1454,13 @@ Return JSON with:
             description: "Structure interview answers around Situation, Task, Action, and Result for maximum recruiter engagement.",
             category: "Interview Prep",
             impactLevel: "High Impact",
+          },
+          {
+            id: "tip_4",
+            title: `Stay Ahead in ${industry}`,
+            description: "Pursue high-visibility certifications and network actively with industry peers.",
+            category: "Career Growth",
+            impactLevel: "Medium Impact",
           },
         ],
       })

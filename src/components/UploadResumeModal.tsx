@@ -430,71 +430,21 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
 
             if (response.ok) {
               data = await response.json();
+            } else {
+              const errJson = await response.json().catch(() => ({}));
+              throw new Error(errJson.error || `Server responded with ${response.status}`);
             }
-          } catch (fetchErr) {
-            console.warn("Server parse fetch error, using local extractor:", fetchErr);
+          } catch (fetchErr: any) {
+            console.error("Server parse fetch error:", fetchErr);
+            setError(`Document analysis could not be completed: ${fetchErr?.message || "Check connection"}. Please try again.`);
+            setLoading(false);
+            return;
           }
 
           if (!data || !data.parsedResume) {
-            const baseName = file.name.replace(/\.[^/.]+$/, "");
-            data = {
-              parsedResume: {
-                title: baseName || "Uploaded Resume",
-                personalInfo: {
-                  fullName: "Candidate",
-                  jobTitle: "Professional Specialist",
-                  email: "",
-                  phone: "",
-                  location: "",
-                  website: "",
-                  linkedin: "",
-                  github: "",
-                  profilePhoto: ""
-                },
-                summary: "Experienced professional with background in driving impactful initiatives and operational excellence.",
-                experience: [
-                  {
-                    id: "exp_1",
-                    company: "Company / Organization",
-                    position: "Role / Position",
-                    startDate: "2021",
-                    endDate: "Present",
-                    current: true,
-                    location: "",
-                    description: "• Led project execution and collaborated across teams to deliver high quality results."
-                  }
-                ],
-                education: [],
-                projects: [],
-                skills: ["Project Management", "Problem Solving", "Strategic Planning", "Communication"],
-                languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
-                certifications: [],
-                references: [],
-                customSections: []
-              },
-              auditReport: {
-                overallRealityScore: 82,
-                headlineTitleMismatchDetected: false,
-                titleMismatchExplanation: "Resume structure loaded cleanly.",
-                strengths: ["Document imported successfully.", "Structured section layout initialized."],
-                weaknesses: ["Review and customize section bullet points with quantified achievements."],
-                missingInformation: [],
-                suggestedImprovements: ["Add quantifiable metrics to experience bullets."],
-                sections: []
-              },
-              extractedTemplateStyle: {
-                templateId: "minimal",
-                templateName: "Clean Minimal Layout",
-                description: "Extracted clean document layout.",
-                colorTheme: "#0f766e",
-                fontFamily: "font-sans",
-                layoutStyle: "standard",
-                bgClass: "bg-white",
-                sidebarClass: "",
-                accentClass: "text-teal-600",
-                isDark: false
-              }
-            };
+            setError("Could not extract structured data from the document. Please ensure the file is readable.");
+            setLoading(false);
+            return;
           }
 
           setLoadingStep("Running ATS Reality Audit & Template Deduplication check...");

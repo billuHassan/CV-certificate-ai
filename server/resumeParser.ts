@@ -686,20 +686,11 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
     }
   }
 
-  // Default fallback skills if none extracted
-  if (skillsSet.size === 0) {
-    skillsSet.add("Problem Solving");
-    skillsSet.add("Strategic Planning");
-    skillsSet.add("Project Management");
-    skillsSet.add("Communication");
-    skillsSet.add("Cross-Functional Collaboration");
-  }
-
   return {
-    title: fileName ? `Resume - ${fileName}` : `${fullName} Resume`,
+    title: fileName ? `Resume - ${fileName}` : (fullName ? `${fullName} Resume` : "Candidate Resume"),
     personalInfo: {
-      fullName: fullName || "Candidate Name",
-      jobTitle: jobTitle || "Professional Specialist",
+      fullName: fullName || "",
+      jobTitle: jobTitle || "",
       email: emailMatch ? emailMatch[0] : "",
       phone: phoneMatch ? phoneMatch[0] : "",
       location: location || "",
@@ -708,33 +699,9 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
       github: githubMatch ? (githubMatch[0].startsWith("http") ? githubMatch[0] : `https://${githubMatch[0]}`) : "",
       profilePhoto: ""
     },
-    summary: summary || "Dedicated and results-driven professional with a proven track record of driving operational success and executing high-impact solutions.",
-    experience: experience.length > 0 ? experience : [
-      {
-        id: "exp_1",
-        company: "Enterprise Organization",
-        position: jobTitle || "Operations Specialist",
-        startDate: "2021-01",
-        endDate: "Present",
-        current: true,
-        location: location || "Global",
-        description: "• Spearheaded core operational initiatives and delivered high-quality project outcomes.\n• Collaborated cross-functionally to streamline workflows and improve productivity."
-      }
-    ],
-    education: education.length > 0 ? education : [
-      {
-        id: "edu_1",
-        school: "Accredited University",
-        degree: "Bachelor of Science",
-        fieldOfStudy: "Professional Studies",
-        startDate: "2016",
-        endDate: "2020",
-        current: false,
-        location: location || "USA",
-        gpa: "",
-        description: ""
-      }
-    ],
+    summary: summary || "",
+    experience,
+    education,
     projects,
     skills: Array.from(skillsSet),
     languages: languages.length > 0 ? languages : [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
@@ -773,79 +740,103 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
 
   const merged: ExtractedResume = { ...deterministic };
 
-  // Personal Info
+  // Personal Info: prioritize AI extracted details, fall back to deterministic if empty
   if (aiParsed.personalInfo && typeof aiParsed.personalInfo === "object") {
     merged.personalInfo = {
-      fullName: aiParsed.personalInfo.fullName?.trim() || deterministic.personalInfo.fullName,
-      jobTitle: aiParsed.personalInfo.jobTitle?.trim() || deterministic.personalInfo.jobTitle,
-      email: aiParsed.personalInfo.email?.trim() || deterministic.personalInfo.email,
-      phone: aiParsed.personalInfo.phone?.trim() || deterministic.personalInfo.phone,
-      location: aiParsed.personalInfo.location?.trim() || deterministic.personalInfo.location,
-      website: aiParsed.personalInfo.website?.trim() || deterministic.personalInfo.website,
-      linkedin: aiParsed.personalInfo.linkedin?.trim() || deterministic.personalInfo.linkedin,
-      github: aiParsed.personalInfo.github?.trim() || deterministic.personalInfo.github,
-      profilePhoto: aiParsed.personalInfo.profilePhoto || deterministic.personalInfo.profilePhoto
+      fullName: aiParsed.personalInfo.fullName?.trim() || deterministic.personalInfo.fullName || "Candidate",
+      jobTitle: aiParsed.personalInfo.jobTitle?.trim() || deterministic.personalInfo.jobTitle || "",
+      email: aiParsed.personalInfo.email?.trim() || deterministic.personalInfo.email || "",
+      phone: aiParsed.personalInfo.phone?.trim() || deterministic.personalInfo.phone || "",
+      location: aiParsed.personalInfo.location?.trim() || deterministic.personalInfo.location || "",
+      website: aiParsed.personalInfo.website?.trim() || deterministic.personalInfo.website || "",
+      linkedin: aiParsed.personalInfo.linkedin?.trim() || deterministic.personalInfo.linkedin || "",
+      github: aiParsed.personalInfo.github?.trim() || deterministic.personalInfo.github || "",
+      profilePhoto: aiParsed.personalInfo.profilePhoto || deterministic.personalInfo.profilePhoto || ""
     };
   }
 
-  // Summary
-  if (aiParsed.summary && typeof aiParsed.summary === "string" && aiParsed.summary.trim().length > 15) {
-    merged.summary = aiParsed.summary.trim();
+  if (!merged.personalInfo.fullName && deterministic.personalInfo.fullName) {
+    merged.personalInfo.fullName = deterministic.personalInfo.fullName;
+  }
+  if (!merged.personalInfo.jobTitle && deterministic.personalInfo.jobTitle) {
+    merged.personalInfo.jobTitle = deterministic.personalInfo.jobTitle;
   }
 
-  // Experience: Union of AI parsed jobs and deterministic jobs
+  // Summary
+  if (aiParsed.summary && typeof aiParsed.summary === "string" && aiParsed.summary.trim().length > 10) {
+    merged.summary = aiParsed.summary.trim();
+  } else if (deterministic.summary) {
+    merged.summary = deterministic.summary;
+  }
+
+  // Experience: prioritize AI parsed entries if available
   if (Array.isArray(aiParsed.experience) && aiParsed.experience.length > 0) {
     merged.experience = aiParsed.experience.map((e: any, idx: number) => ({
       id: e.id || `exp_${idx + 1}`,
-      company: e.company || "Company",
-      position: e.position || "Role",
-      startDate: e.startDate || "2020",
+      company: e.company || "",
+      position: e.position || "",
+      startDate: e.startDate || "",
       endDate: e.endDate || "Present",
-      current: typeof e.current === "boolean" ? e.current : true,
+      current: typeof e.current === "boolean" ? e.current : (e.endDate ? /present|current/i.test(e.endDate) : true),
       location: e.location || "",
-      description: e.description || "• Led key business initiatives."
-    }));
+      description: e.description || ""
+    })).filter((e: any) => e.company || e.position || e.description);
+  } else if (deterministic.experience && deterministic.experience.length > 0) {
+    merged.experience = deterministic.experience;
   }
 
-  // Education
+  // Education: prioritize AI parsed entries
   if (Array.isArray(aiParsed.education) && aiParsed.education.length > 0) {
     merged.education = aiParsed.education.map((edu: any, idx: number) => ({
       id: edu.id || `edu_${idx + 1}`,
-      school: edu.school || "University",
-      degree: edu.degree || "Bachelor's Degree",
-      fieldOfStudy: edu.fieldOfStudy || "Academic Focus",
-      startDate: edu.startDate || "2016",
-      endDate: edu.endDate || "2020",
+      school: edu.school || "",
+      degree: edu.degree || "",
+      fieldOfStudy: edu.fieldOfStudy || "",
+      startDate: edu.startDate || "",
+      endDate: edu.endDate || "",
       current: typeof edu.current === "boolean" ? edu.current : false,
       location: edu.location || "",
       gpa: edu.gpa || "",
       description: edu.description || ""
-    }));
+    })).filter((edu: any) => edu.school || edu.degree || edu.fieldOfStudy);
+  } else if (deterministic.education && deterministic.education.length > 0) {
+    merged.education = deterministic.education;
   }
 
   // Projects
   if (Array.isArray(aiParsed.projects) && aiParsed.projects.length > 0) {
     merged.projects = aiParsed.projects.map((p: any, idx: number) => ({
       id: p.id || `proj_${idx + 1}`,
-      name: p.name || "Project",
-      role: p.role || "Lead Contributor",
-      startDate: p.startDate || "2022",
-      endDate: p.endDate || "Present",
+      name: p.name || "",
+      role: p.role || "",
+      startDate: p.startDate || "",
+      endDate: p.endDate || "",
       url: p.url || "",
       description: p.description || ""
-    }));
+    })).filter((p: any) => p.name || p.description);
+  } else if (deterministic.projects && deterministic.projects.length > 0) {
+    merged.projects = deterministic.projects;
   }
 
-  // Skills: Union of both sets
-  const skillsSet = new Set<string>(deterministic.skills);
-  if (Array.isArray(aiParsed.skills)) {
-    for (const s of aiParsed.skills) {
-      if (typeof s === "string" && s.trim().length > 1) {
-        skillsSet.add(s.trim());
+  // Skills: prioritize AI extracted skills without injecting fake generic skills
+  if (Array.isArray(aiParsed.skills) && aiParsed.skills.length > 0) {
+    const validAiSkills = aiParsed.skills
+      .map((s: any) => (typeof s === "string" ? s.trim() : ""))
+      .filter((s: string) => s.length > 1);
+    
+    // Combine with deterministic text-matched skills if present
+    const combinedSkills = new Set<string>(validAiSkills);
+    if (deterministic.skills && deterministic.skills.length > 0) {
+      for (const ds of deterministic.skills) {
+        if (ds && ds.trim().length > 1) {
+          combinedSkills.add(ds.trim());
+        }
       }
     }
+    merged.skills = Array.from(combinedSkills);
+  } else if (deterministic.skills && deterministic.skills.length > 0) {
+    merged.skills = deterministic.skills;
   }
-  merged.skills = Array.from(skillsSet);
 
   // Languages
   if (Array.isArray(aiParsed.languages) && aiParsed.languages.length > 0) {
