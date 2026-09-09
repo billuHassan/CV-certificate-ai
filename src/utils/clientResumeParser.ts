@@ -287,11 +287,11 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
 
   if (!fullName || fullName.length < 2) {
     const baseName = (fileName || "").replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").trim();
-    fullName = baseName && !baseName.toLowerCase().includes("resume") ? baseName : "Candidate";
+    fullName = baseName && !baseName.toLowerCase().includes("resume") ? baseName : "";
   }
 
   if (!jobTitle) {
-    jobTitle = "Professional Specialist";
+    jobTitle = "";
   }
 
   // 2. Section Partitioning
@@ -357,7 +357,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
     }
   }
   if (!summary) {
-    summary = `Dedicated and results-oriented ${jobTitle} with a proven track record of driving operational excellence, executing complex deliverables, and collaborating across teams to achieve strategic goals.`;
+    summary = "";
   }
 
   // 4. Extract Experience
@@ -374,45 +374,67 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
   }> = [];
 
   if (expSec && expSec.lines.length > 0) {
-    const dateRegex = /\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,.-]+)?(?:19|20)\d{2}\s*[-–—to]+\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,.-]+)?(?:19|20)\d{2}|present|current)\b/i;
+    const dateRegex = /(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*[\s,.-]+)?\b(?:19|20)\d{2}\s*[-–—to/\\]+\s*(?:(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*[\s,.-]+)?\b(?:19|20)\d{2}|present|current|now)\b|\b(?:19|20)\d{2}\s*[-–—to]+\s*(?:(?:19|20)\d{2}|present|current)\b/i;
     let currentExp: any = null;
 
     for (let i = 0; i < expSec.lines.length; i++) {
       const line = expSec.lines[i];
       const hasDate = dateRegex.test(line);
 
-      if (hasDate || (!line.startsWith("•") && !line.startsWith("-") && line.length < 55 && i + 1 < expSec.lines.length && dateRegex.test(expSec.lines[i + 1]))) {
-        if (currentExp) {
+      if (hasDate || (!line.startsWith("•") && !line.startsWith("-") && !line.startsWith("*") && line.length < 60 && (line.includes(" - ") || line.includes(" at ") || line.includes(" | ") || line.includes(" — ")))) {
+        if (currentExp && (currentExp.company || currentExp.position || currentExp.description)) {
           experience.push(currentExp);
         }
 
-        let company = "Organization";
-        let position = jobTitle || "Professional";
+        let company = "";
+        let position = "";
         let dateRange = line.match(dateRegex)?.[0] || "";
 
         if (hasDate) {
           const nonDatePart = line.replace(dateRegex, "").replace(/[|•·,-]/g, " ").trim();
-          if (nonDatePart.length > 0) {
+          if (nonDatePart.includes(" at ")) {
+            const [pos, comp] = nonDatePart.split(" at ");
+            position = pos.trim();
+            company = comp.trim();
+          } else if (nonDatePart.includes(" - ") || nonDatePart.includes(" — ")) {
+            const parts = nonDatePart.split(/\s+[-—]\s+/);
+            position = parts[0]?.trim() || "";
+            company = parts[1]?.trim() || "";
+          } else {
             position = nonDatePart;
           }
         } else {
-          position = line;
-          if (i + 1 < expSec.lines.length) {
+          if (line.includes(" at ")) {
+            const [pos, comp] = line.split(" at ");
+            position = pos.trim();
+            company = comp.trim();
+          } else if (line.includes(" - ") || line.includes(" — ")) {
+            const parts = line.split(/\s+[-—]\s+/);
+            position = parts[0]?.trim() || "";
+            company = parts[1]?.trim() || "";
+          } else if (line.includes(" | ")) {
+            const parts = line.split(" | ");
+            position = parts[0]?.trim() || "";
+            company = parts[1]?.trim() || "";
+          } else {
+            position = line;
+          }
+
+          if (i + 1 < expSec.lines.length && dateRegex.test(expSec.lines[i + 1])) {
             dateRange = expSec.lines[i + 1].match(dateRegex)?.[0] || "";
-            company = expSec.lines[i + 1].replace(dateRegex, "").replace(/[|•·,-]/g, " ").trim() || company;
             i++;
           }
         }
 
-        const dateParts = dateRange.split(/[-–—to]+/i).map(d => d.trim());
-        const startDate = dateParts[0] || "2021";
-        const endDate = dateParts[1] || "Present";
-        const isCurrent = endDate.toLowerCase().includes("present") || endDate.toLowerCase().includes("current");
+        const dateParts = dateRange.split(/[-–—to/\\]+/i).map(d => d.trim());
+        const startDate = dateParts[0] || "";
+        const endDate = dateParts[1] || "";
+        const isCurrent = Boolean(endDate && /present|current|now/i.test(endDate));
 
         currentExp = {
           id: `exp_${experience.length + 1}`,
-          company: company || "Company",
-          position: position || "Specialist",
+          company,
+          position,
           startDate,
           endDate,
           current: isCurrent,
@@ -420,27 +442,13 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
           description: ""
         };
       } else if (currentExp) {
-        currentExp.description += (currentExp.description ? "\n" : "") + (line.startsWith("•") || line.startsWith("-") ? line : `• ${line}`);
+        currentExp.description += (currentExp.description ? "\n" : "") + (line.startsWith("•") || line.startsWith("-") || line.startsWith("*") ? line : `• ${line}`);
       }
     }
 
-    if (currentExp) {
+    if (currentExp && (currentExp.company || currentExp.position || currentExp.description)) {
       experience.push(currentExp);
     }
-  }
-
-  // If no experience parsed, build sensible entry from text
-  if (experience.length === 0) {
-    experience.push({
-      id: "exp_1",
-      company: "Professional Organization",
-      position: jobTitle,
-      startDate: "2021",
-      endDate: "Present",
-      current: true,
-      location: location || "",
-      description: "• Led day-to-day project operations and collaborated with cross-functional partners to hit targets.\n• Implemented quality improvements and workflow optimizations to increase overall team efficiency.\n• Delivered measurable results aligned with core company milestones and performance metrics."
-    });
   }
 
   // 5. Extract Education
@@ -465,38 +473,53 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
         lower.includes("university") ||
         lower.includes("college") ||
         lower.includes("institute") ||
+        lower.includes("school") ||
         lower.includes("bachelor") ||
         lower.includes("master") ||
         lower.includes("degree") ||
-        lower.includes("bs ") ||
-        lower.includes("ba ") ||
-        lower.includes("ms ")
+        lower.includes("bs") ||
+        lower.includes("ba") ||
+        lower.includes("ms") ||
+        lower.includes("phd") ||
+        lower.includes("doctor") ||
+        lower.includes("diploma") ||
+        lower.includes("certificate") ||
+        /\b(19|20)\d{2}\b/.test(line)
       ) {
         const yearMatch = line.match(/\b(19|20)\d{2}\b/g);
-        let school = "University";
-        let degree = "Bachelor's Degree";
+        let school = "";
+        let degree = "";
         let fieldOfStudy = "";
 
-        if (lower.includes("bachelor")) degree = "Bachelor of Science";
-        else if (lower.includes("master")) degree = "Master of Science";
-        else if (lower.includes("doctor") || lower.includes("phd")) degree = "Ph.D.";
+        if (lower.includes("bachelor")) degree = "Bachelor";
+        else if (lower.includes("master")) degree = "Master";
+        else if (lower.includes("doctor") || lower.includes("phd")) degree = "Doctorate / Ph.D.";
 
-        const parts = line.split(/[|,-]/).map(p => p.trim());
+        const cleanEdu = line.replace(/\b(19|20)\d{2}\b/g, "").replace(/\s*[-–—to/\\]+\s*$/, "").trim();
+        const parts = cleanEdu.split(/[|,-]/).map(p => p.trim()).filter(Boolean);
         if (parts.length > 0) school = parts[0];
-        if (parts.length > 1) fieldOfStudy = parts[1];
+        if (parts.length > 1) {
+          if (!degree) degree = parts[1];
+          else fieldOfStudy = parts[1];
+        }
+        if (parts.length > 2 && !fieldOfStudy) {
+          fieldOfStudy = parts[2];
+        }
 
-        education.push({
-          id: `edu_${education.length + 1}`,
-          school,
-          degree,
-          fieldOfStudy,
-          startDate: yearMatch?.[0] || "",
-          endDate: yearMatch?.[1] || yearMatch?.[0] || "",
-          current: false,
-          location: "",
-          gpa: "",
-          description: line
-        });
+        if (school || degree || fieldOfStudy) {
+          education.push({
+            id: `edu_${education.length + 1}`,
+            school,
+            degree,
+            fieldOfStudy,
+            startDate: yearMatch?.[0] && yearMatch.length > 1 ? yearMatch[0] : "",
+            endDate: yearMatch?.[yearMatch.length - 1] || "",
+            current: false,
+            location: "",
+            gpa: "",
+            description: line
+          });
+        }
       }
     }
   }
@@ -507,40 +530,147 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
 
   if (skillSec && skillSec.lines.length > 0) {
     for (const line of skillSec.lines) {
-      const tokens = line.split(/[,•|·;/\\]+/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 35);
+      const tokens = line.split(/[,•|·;/\\]+/).map(s => s.trim().replace(/^[-*]\s*/, "")).filter(s => s.length > 1 && s.length < 40);
       for (const t of tokens) {
-        skillsSet.add(t);
+        if (!t.toLowerCase().includes("skills") && !t.toLowerCase().includes("competencies")) {
+          skillsSet.add(t);
+        }
       }
     }
   }
 
-  // Scan document for recognized technical & professional keywords
+  // Also extract domain words explicitly mentioned in document text
   const standardKeywords = [
     "Project Management", "Strategic Planning", "Leadership", "Communication",
     "Data Analysis", "Problem Solving", "Process Optimization", "Client Relations",
     "Operations", "Financial Modeling", "Quality Assurance", "Agile", "Scrum",
     "Budget Management", "Workflow Automation", "Stakeholder Management",
-    "Team Coaching", "Product Strategy", "Research & Development", "Risk Management"
+    "Team Coaching", "Product Strategy", "Research & Development", "Risk Management",
+    "Python", "JavaScript", "TypeScript", "React", "Node.js", "SQL", "Git", "Docker",
+    "Java", "C++", "C#", "AWS", "GCP", "Azure", "Kubernetes", "Linux", "Figma"
   ];
 
   for (const kw of standardKeywords) {
-    const regex = new RegExp(`\\b${kw}\\b`, "i");
+    const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "i");
     if (regex.test(cleanText)) {
       skillsSet.add(kw);
     }
   }
 
-  const skills = Array.from(skillsSet).slice(0, 18);
-  if (skills.length === 0) {
-    skills.push("Strategic Planning", "Project Management", "Team Leadership", "Problem Solving", "Communication");
+  const skills = Array.from(skillsSet).slice(0, 24);
+
+  // 7. Extract Projects if section exists
+  const projects: Array<{
+    id: string;
+    name: string;
+    role: string;
+    startDate: string;
+    endDate: string;
+    url: string;
+    description: string;
+  }> = [];
+  const projSec = sections.find(s => s.type === "projects");
+  if (projSec && projSec.lines.length > 0) {
+    let curProj: any = null;
+    for (const line of projSec.lines) {
+      if ((line.includes(" - ") || line.includes(" | ") || line.length < 50) && !line.startsWith("•") && !line.startsWith("-")) {
+        if (curProj && curProj.name) projects.push(curProj);
+        const namePart = line.split(/[-|]/)[0].trim();
+        curProj = {
+          id: `proj_${projects.length + 1}`,
+          name: namePart,
+          role: "",
+          startDate: "",
+          endDate: "",
+          url: "",
+          description: ""
+        };
+      } else if (curProj) {
+        curProj.description += (curProj.description ? "\n" : "") + (line.startsWith("•") || line.startsWith("-") ? line : `• ${line}`);
+      }
+    }
+    if (curProj && curProj.name) projects.push(curProj);
   }
 
-  // 7. Audit Report
+  // 8. Extract Languages if section exists
+  const languages: Array<{ id: string; name: string; proficiency: string }> = [];
+  const langSec = sections.find(s => s.type === "languages");
+  if (langSec && langSec.lines.length > 0) {
+    for (const line of langSec.lines) {
+      const items = line.split(/[,•|·;/\\]+/).map(t => t.trim().replace(/^[-*]\s*/, "")).filter(Boolean);
+      for (const item of items) {
+        if (item.length > 1) {
+          let name = item;
+          let proficiency = "";
+          if (item.includes("(") && item.includes(")")) {
+            const match = item.match(/(.*?)\s*\((.*?)\)/);
+            if (match) {
+              name = match[1].trim();
+              proficiency = match[2].trim();
+            }
+          }
+          languages.push({
+            id: `lang_${languages.length + 1}`,
+            name,
+            proficiency
+          });
+        }
+      }
+    }
+  }
+
+  // 9. Extract Certifications if section exists
+  const certifications: Array<{ id: string; name: string; issuer: string; date: string; url: string }> = [];
+  const certSec = sections.find(s => s.type === "certifications");
+  if (certSec && certSec.lines.length > 0) {
+    for (const line of certSec.lines) {
+      const cleanLine = line.replace(/^[•*-]\s*/, "").trim();
+      if (cleanLine.length > 2) {
+        const yearMatch = cleanLine.match(/\b(19|20)\d{2}\b/);
+        let name = cleanLine;
+        let issuer = "";
+        if (cleanLine.includes(" - ")) {
+          const parts = cleanLine.split(" - ");
+          name = parts[0].trim();
+          issuer = parts[1].trim();
+        }
+        certifications.push({
+          id: `cert_${certifications.length + 1}`,
+          name,
+          issuer,
+          date: yearMatch ? yearMatch[0] : "",
+          url: ""
+        });
+      }
+    }
+  }
+
+  // 10. Extract References if section exists
+  const references: Array<{ id: string; name: string; company: string; title: string; email: string; phone: string }> = [];
+  const refSec = sections.find(s => s.type === "references");
+  if (refSec && refSec.lines.length > 0) {
+    for (const line of refSec.lines) {
+      if (!line.toLowerCase().includes("available upon request") && line.length > 2) {
+        const refEmail = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
+        const refPhone = line.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
+        references.push({
+          id: `ref_${references.length + 1}`,
+          name: line.split(/[,|-]/)[0].trim(),
+          company: "",
+          title: "",
+          email: refEmail ? refEmail[0] : "",
+          phone: refPhone ? refPhone[0] : ""
+        });
+      }
+    }
+  }
+
+  // 11. Audit Report
   const realityScore = Math.min(94, Math.max(78, 70 + (emailMatch ? 6 : 0) + (phoneMatch ? 5 : 0) + (experience.length > 0 ? 8 : 0) + (skills.length >= 5 ? 5 : 0)));
 
   const strengths = [
     "Direct field-by-field document parsing succeeded without data loss.",
-    `${experience.length} work experience milestone${experience.length > 1 ? "s" : ""} detected and extracted.`,
+    `${experience.length} work experience milestone${experience.length === 1 ? "" : "s"} detected and extracted.`,
     `${skills.length} core professional and domain competencies identified.`
   ];
 
@@ -594,7 +724,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
     ]
   };
 
-  // 8. Extracted Template Style
+  // 12. Extracted Template Style
   const extractedTemplateStyle: ClientParsedResume["extractedTemplateStyle"] = {
     templateId: "minimal",
     templateName: "Executive Clean Layout",
@@ -625,11 +755,11 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
       summary,
       experience,
       education,
-      projects: [],
+      projects,
       skills,
-      languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
-      certifications: [],
-      references: [],
+      languages,
+      certifications,
+      references,
       customSections: []
     },
     auditReport,

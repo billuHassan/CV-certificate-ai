@@ -246,8 +246,8 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
   }
 
   // Determine candidate name and job title from top lines
-  let fullName = "Candidate";
-  let jobTitle = "Professional";
+  let fullName = "";
+  let jobTitle = "";
 
   const nonHeaderLines = lines.filter(l => 
     !l.includes("@") &&
@@ -344,20 +344,20 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
     let currentExp: Partial<ExtractedExperience> | null = null;
     let bulletBuffer: string[] = [];
 
-    const datePattern = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?\d{4}\s*(?:-|–|—|to)\s*(?:(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?\d{4}|Present|Current|Now)/i;
+    const datePattern = /(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}\s*(?:-|–|—|to|\/)\s*(?:(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}|Present|Current|Now)\b|\b(?:0?[1-9]|1[0-2])\/(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:0?[1-9]|1[0-2])\/(?:19|20)\d{2}|Present|Current|Now)\b|\b(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:19|20)\d{2}|Present|Current|Now)\b/i;
 
     const finalizeExp = () => {
-      if (currentExp && (currentExp.company || currentExp.position)) {
+      if (currentExp && (currentExp.company || currentExp.position || bulletBuffer.length > 0)) {
         currentExp.description = bulletBuffer.join("\n").trim();
         experience.push({
           id: currentExp.id || `exp_${experience.length + 1}`,
-          company: currentExp.company || "Company",
-          position: currentExp.position || jobTitle || "Role",
-          startDate: currentExp.startDate || "2020",
-          endDate: currentExp.endDate || "Present",
-          current: currentExp.current ?? true,
+          company: currentExp.company || "",
+          position: currentExp.position || "",
+          startDate: currentExp.startDate || "",
+          endDate: currentExp.endDate || "",
+          current: currentExp.current ?? false,
           location: currentExp.location || location || "",
-          description: currentExp.description || "• Led key operational responsibilities and project initiatives."
+          description: currentExp.description || ""
         });
       }
       currentExp = null;
@@ -369,7 +369,7 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
       const hasDate = datePattern.test(line);
 
       // New job entry detected by date or capitalized title header
-      if (hasDate || (line.length < 50 && (line.includes(" - ") || line.includes(" at ") || line.includes(" | ")) && !line.startsWith("•") && !line.startsWith("-"))) {
+      if (hasDate || (line.length < 60 && (line.includes(" - ") || line.includes(" at ") || line.includes(" | ") || line.includes(" — ")) && !line.startsWith("•") && !line.startsWith("-") && !line.startsWith("*"))) {
         if (currentExp) {
           finalizeExp();
         }
@@ -379,8 +379,8 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
         const dateMatch = line.match(datePattern);
         if (dateMatch) {
           const parts = dateMatch[0].split(/(?:-|–|—|to)/i).map(p => p.trim());
-          currentExp.startDate = parts[0] || "2020";
-          currentExp.endDate = parts[1] || "Present";
+          currentExp.startDate = parts[0] || "";
+          currentExp.endDate = parts[1] || "";
           currentExp.current = /present|current|now/i.test(parts[1] || "");
         }
 
@@ -398,37 +398,26 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
           const [pos, comp] = textWithoutDate.split(" at ");
           currentExp.position = pos.trim().replace(/\(\s*$/, "");
           currentExp.company = comp.trim().replace(/\(\s*$/, "");
-        } else if (textWithoutDate.includes(" - ")) {
-          const [first, second] = textWithoutDate.split(" - ");
-          currentExp.position = first.trim().replace(/\(\s*$/, "");
-          currentExp.company = second.trim().replace(/\(\s*$/, "");
+        } else if (textWithoutDate.includes(" - ") || textWithoutDate.includes(" — ")) {
+          const parts = textWithoutDate.split(/\s+[-—]\s+/);
+          currentExp.position = parts[0]?.trim().replace(/\(\s*$/, "") || "";
+          currentExp.company = parts[1]?.trim().replace(/\(\s*$/, "") || "";
         } else if (textWithoutDate.includes(" | ")) {
           const [first, second] = textWithoutDate.split(" | ");
           currentExp.position = first.trim().replace(/\(\s*$/, "");
           currentExp.company = second.trim().replace(/\(\s*$/, "");
         } else {
-          currentExp.position = textWithoutDate.replace(/\(\s*$/, "") || "Specialist";
-          // Check next line for company
-          if (i + 1 < expLines.length && expLines[i + 1].length < 50 && !expLines[i + 1].startsWith("•") && !expLines[i + 1].startsWith("-")) {
+          currentExp.position = textWithoutDate.replace(/\(\s*$/, "") || "";
+          // Check next line for company if it is short and not a bullet
+          if (i + 1 < expLines.length && expLines[i + 1].length < 50 && !expLines[i + 1].startsWith("•") && !expLines[i + 1].startsWith("-") && !datePattern.test(expLines[i + 1])) {
             currentExp.company = expLines[i + 1].trim().replace(/\(\s*$/, "");
             i++;
-          } else {
-            currentExp.company = "Enterprise Organization";
           }
         }
       } else {
-        if (!currentExp) {
-          currentExp = {
-            id: `exp_${experience.length + 1}`,
-            company: "Organization",
-            position: jobTitle || "Professional",
-            startDate: "2021",
-            endDate: "Present",
-            current: true,
-            location: location || ""
-          };
+        if (currentExp) {
+          bulletBuffer.push(line.startsWith("•") || line.startsWith("-") || line.startsWith("*") ? line : `• ${line}`);
         }
-        bulletBuffer.push(line.startsWith("•") || line.startsWith("-") ? line : `• ${line}`);
       }
     }
     finalizeExp();
@@ -453,11 +442,11 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
         if (currentEdu && (currentEdu.school || currentEdu.degree)) {
           education.push({
             id: currentEdu.id || `edu_${education.length + 1}`,
-            school: currentEdu.school || "University / College",
-            degree: currentEdu.degree || "Bachelor of Science",
-            fieldOfStudy: currentEdu.fieldOfStudy || "Field of Study",
-            startDate: currentEdu.startDate || "2016",
-            endDate: currentEdu.endDate || "2020",
+            school: currentEdu.school || "",
+            degree: currentEdu.degree || "",
+            fieldOfStudy: currentEdu.fieldOfStudy || "",
+            startDate: currentEdu.startDate || "",
+            endDate: currentEdu.endDate || "",
             current: currentEdu.current ?? false,
             location: currentEdu.location || location || "",
             gpa: currentEdu.gpa || "",
@@ -473,7 +462,7 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
           currentEdu.endDate = years[1];
         } else if (years && years.length === 1) {
           currentEdu.endDate = years[0];
-          currentEdu.startDate = String(parseInt(years[0]) - 4);
+          currentEdu.startDate = "";
         }
 
         const gpaMatch = line.match(/GPA:?\s*(\d(?:\.\d+)?(?:\/\d(?:\.\d+)?)?)/i);
@@ -493,8 +482,8 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
 
         if (cleanEduLine.includes(" - ") || cleanEduLine.includes(" in ") || cleanEduLine.includes(" at ")) {
           const parts = cleanEduLine.split(/\s+[-|in|at]\s+/i);
-          currentEdu.degree = (parts[0]?.trim() || "Bachelor of Science").replace(/\(\s*$/, "").replace(/\)\s*$/, "");
-          currentEdu.school = (parts[1]?.trim() || "University").replace(/\(\s*$/, "").replace(/\)\s*$/, "");
+          currentEdu.degree = (parts[0]?.trim() || "").replace(/\(\s*$/, "").replace(/\)\s*$/, "");
+          currentEdu.school = (parts[1]?.trim() || "").replace(/\(\s*$/, "").replace(/\)\s*$/, "");
           if (parts[2]) currentEdu.fieldOfStudy = parts[2].trim().replace(/\(\s*$/, "").replace(/\)\s*$/, "");
         } else if (degreePattern.test(cleanEduLine)) {
           currentEdu.degree = cleanEduLine.replace(/\(\s*$/, "").replace(/\)\s*$/, "");
@@ -511,11 +500,11 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
     if (currentEdu && (currentEdu.school || currentEdu.degree)) {
       education.push({
         id: currentEdu.id || `edu_${education.length + 1}`,
-        school: currentEdu.school || "University / College",
-        degree: currentEdu.degree || "Bachelor of Science",
-        fieldOfStudy: currentEdu.fieldOfStudy || "Academic Major",
-        startDate: currentEdu.startDate || "2016",
-        endDate: currentEdu.endDate || "2020",
+        school: currentEdu.school || "",
+        degree: currentEdu.degree || "",
+        fieldOfStudy: currentEdu.fieldOfStudy || "",
+        startDate: currentEdu.startDate || "",
+        endDate: currentEdu.endDate || "",
         current: currentEdu.current ?? false,
         location: currentEdu.location || location || "",
         gpa: currentEdu.gpa || "",
@@ -552,11 +541,11 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
         projects.push({
           id: currentProj.id || `proj_${projects.length + 1}`,
           name: currentProj.name,
-          role: currentProj.role || "Lead Developer / Creator",
-          startDate: currentProj.startDate || "2022",
-          endDate: currentProj.endDate || "Present",
+          role: currentProj.role || "",
+          startDate: currentProj.startDate || "",
+          endDate: currentProj.endDate || "",
           url: currentProj.url || "",
-          description: projDesc.join("\n").trim() || "• Built and deployed scalable system architecture."
+          description: projDesc.join("\n").trim()
         });
       }
       currentProj = null;
@@ -572,10 +561,10 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
         if (urlMatch) currentProj.url = urlMatch[0];
 
         const namePart = line.replace(/(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/, "").split(/[-|]/)[0].trim();
-        currentProj.name = namePart || "Key Project";
+        currentProj.name = namePart || "";
       } else {
         if (!currentProj) {
-          currentProj = { id: `proj_${projects.length + 1}`, name: "Project Initiative" };
+          currentProj = { id: `proj_${projects.length + 1}`, name: "" };
         }
         projDesc.push(line.startsWith("•") || line.startsWith("-") ? line : `• ${line}`);
       }
@@ -591,9 +580,9 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
       const cleanLine = line.replace(/^[•*-]\s*/, "").trim();
       if (cleanLine.length > 2) {
         const yearMatch = cleanLine.match(/\b(20\d{2}|19\d{2})\b/);
-        const date = yearMatch ? yearMatch[0] : "2023";
+        const date = yearMatch ? yearMatch[0] : "";
         const titlePart = cleanLine.replace(/\b(20\d{2}|19\d{2})\b/, "").trim();
-        let issuer = "Accredited Provider";
+        let issuer = "";
         let certName = titlePart;
 
         if (titlePart.includes(" - ")) {
@@ -608,7 +597,7 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
 
         certifications.push({
           id: `cert_${certifications.length + 1}`,
-          name: certName || "Professional Certification",
+          name: certName || "",
           issuer: issuer,
           date: date,
           url: ""
@@ -626,7 +615,7 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
       for (const item of items) {
         if (item.length > 1) {
           let name = item;
-          let proficiency = "Native / Fluent";
+          let proficiency = "";
           if (item.includes("(") && item.includes(")")) {
             const match = item.match(/(.*?)\s*\((.*?)\)/);
             if (match) {
@@ -659,8 +648,8 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
         references.push({
           id: `ref_${references.length + 1}`,
           name: line.split(/[,|-]/)[0].trim(),
-          company: "Reference Company",
-          title: "Professional Reference",
+          company: "",
+          title: "",
           email: refEmail ? refEmail[0] : "",
           phone: refPhone ? refPhone[0] : ""
         });
@@ -704,7 +693,7 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
     education,
     projects,
     skills: Array.from(skillsSet),
-    languages: languages.length > 0 ? languages : [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
+    languages: languages,
     certifications,
     references,
     customSections,
@@ -743,7 +732,7 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   // Personal Info: prioritize AI extracted details, fall back to deterministic if empty
   if (aiParsed.personalInfo && typeof aiParsed.personalInfo === "object") {
     merged.personalInfo = {
-      fullName: aiParsed.personalInfo.fullName?.trim() || deterministic.personalInfo.fullName || "Candidate",
+      fullName: aiParsed.personalInfo.fullName?.trim() || deterministic.personalInfo.fullName || "",
       jobTitle: aiParsed.personalInfo.jobTitle?.trim() || deterministic.personalInfo.jobTitle || "",
       email: aiParsed.personalInfo.email?.trim() || deterministic.personalInfo.email || "",
       phone: aiParsed.personalInfo.phone?.trim() || deterministic.personalInfo.phone || "",
@@ -776,10 +765,10 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
       company: e.company || "",
       position: e.position || "",
       startDate: e.startDate || "",
-      endDate: e.endDate || "Present",
-      current: typeof e.current === "boolean" ? e.current : (e.endDate ? /present|current/i.test(e.endDate) : true),
+      endDate: e.endDate || "",
+      current: typeof e.current === "boolean" ? e.current : (e.endDate ? /present|current/i.test(e.endDate) : false),
       location: e.location || "",
-      description: e.description || ""
+      description: Array.isArray(e.description) ? e.description.join("\n") : (e.description || "")
     })).filter((e: any) => e.company || e.position || e.description);
   } else if (deterministic.experience && deterministic.experience.length > 0) {
     merged.experience = deterministic.experience;
@@ -797,7 +786,7 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
       current: typeof edu.current === "boolean" ? edu.current : false,
       location: edu.location || "",
       gpa: edu.gpa || "",
-      description: edu.description || ""
+      description: Array.isArray(edu.description) ? edu.description.join("\n") : (edu.description || "")
     })).filter((edu: any) => edu.school || edu.degree || edu.fieldOfStudy);
   } else if (deterministic.education && deterministic.education.length > 0) {
     merged.education = deterministic.education;
@@ -812,7 +801,7 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
       startDate: p.startDate || "",
       endDate: p.endDate || "",
       url: p.url || "",
-      description: p.description || ""
+      description: Array.isArray(p.description) ? p.description.join("\n") : (p.description || "")
     })).filter((p: any) => p.name || p.description);
   } else if (deterministic.projects && deterministic.projects.length > 0) {
     merged.projects = deterministic.projects;
@@ -842,32 +831,32 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   if (Array.isArray(aiParsed.languages) && aiParsed.languages.length > 0) {
     merged.languages = aiParsed.languages.map((l: any, idx: number) => ({
       id: l.id || `lang_${idx + 1}`,
-      name: l.name || "Language",
-      proficiency: l.proficiency || "Fluent"
-    }));
+      name: l.name || "",
+      proficiency: l.proficiency || ""
+    })).filter((l: any) => l.name);
   }
 
   // Certifications
   if (Array.isArray(aiParsed.certifications) && aiParsed.certifications.length > 0) {
     merged.certifications = aiParsed.certifications.map((c: any, idx: number) => ({
       id: c.id || `cert_${idx + 1}`,
-      name: c.name || "Certification",
-      issuer: c.issuer || "Issuing Body",
-      date: c.date || "2023",
+      name: c.name || "",
+      issuer: c.issuer || "",
+      date: c.date || "",
       url: c.url || ""
-    }));
+    })).filter((c: any) => c.name);
   }
 
   // References
   if (Array.isArray(aiParsed.references) && aiParsed.references.length > 0) {
     merged.references = aiParsed.references.map((r: any, idx: number) => ({
       id: r.id || `ref_${idx + 1}`,
-      name: r.name || "Reference",
+      name: r.name || "",
       company: r.company || "",
       title: r.title || "",
       email: r.email || "",
       phone: r.phone || ""
-    }));
+    })).filter((r: any) => r.name);
   }
 
   // Custom Sections

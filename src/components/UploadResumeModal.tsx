@@ -262,9 +262,17 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
             profilePhoto: data.parsedResume?.personalInfo?.profilePhoto || ""
           },
           summary: data.parsedResume?.summary || "",
-          experience: (data.parsedResume?.experience || []).map((e: any) => ({ ...e, id: e.id || crypto.randomUUID() })),
+          experience: (data.parsedResume?.experience || []).map((e: any) => ({
+            ...e,
+            id: e.id || crypto.randomUUID(),
+            description: Array.isArray(e.description) ? e.description.join("\n") : (e.description || "")
+          })),
           education: (data.parsedResume?.education || []).map((e: any) => ({ ...e, id: e.id || crypto.randomUUID() })),
-          projects: (data.parsedResume?.projects || []).map((p: any) => ({ ...p, id: p.id || crypto.randomUUID() })),
+          projects: (data.parsedResume?.projects || []).map((p: any) => ({
+            ...p,
+            id: p.id || crypto.randomUUID(),
+            description: Array.isArray(p.description) ? p.description.join("\n") : (p.description || "")
+          })),
           skills: data.parsedResume?.skills || [],
           languages: (data.parsedResume?.languages || []).map((l: any) => ({ ...l, id: l.id || crypto.randomUUID() })),
           certifications: (data.parsedResume?.certifications || []).map((c: any) => ({ ...c, id: c.id || crypto.randomUUID() })),
@@ -301,8 +309,8 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
           id: `uploaded_${Date.now()}`,
           title: "Pasted Resume",
           personalInfo: {
-            fullName: lines[0] || "Candidate",
-            jobTitle: lines[1] || "Professional Specialist",
+            fullName: lines[0] || "",
+            jobTitle: lines[1] || "",
             email: "",
             phone: "",
             location: "",
@@ -311,12 +319,12 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
             github: "",
             profilePhoto: ""
           },
-          summary: lines.slice(2, 5).join(" ") || "Professional profile summary.",
+          summary: lines.slice(2, 5).join(" "),
           experience: [],
           education: [],
           projects: [],
-          skills: ["Problem Solving", "Communication", "Teamwork"],
-          languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
+          skills: [],
+          languages: [],
           certifications: [],
           references: [],
           customSections: [],
@@ -432,7 +440,8 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
             summary: data.parsedResume?.summary || "",
             experience: (data.parsedResume?.experience || []).map((e: any) => ({
               ...e,
-              id: e.id || crypto.randomUUID()
+              id: e.id || crypto.randomUUID(),
+              description: Array.isArray(e.description) ? e.description.join("\n") : (e.description || "")
             })),
             education: (data.parsedResume?.education || []).map((e: any) => ({
               ...e,
@@ -440,7 +449,8 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
             })),
             projects: (data.parsedResume?.projects || []).map((p: any) => ({
               ...p,
-              id: p.id || crypto.randomUUID()
+              id: p.id || crypto.randomUUID(),
+              description: Array.isArray(p.description) ? p.description.join("\n") : (p.description || "")
             })),
             skills: data.parsedResume?.skills || [],
             languages: (data.parsedResume?.languages || []).map((l: any) => ({

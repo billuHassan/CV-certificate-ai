@@ -34,7 +34,7 @@ export class AIService {
 
   private geminiClient: GoogleGenAI | null = null;
   private groqApiKey: string = "";
-  private geminiModels: string[] = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"];
+  private geminiModels: string[] = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"];
   private groqModel: string = "llama-3.3-70b-versatile";
   private cache: Map<string, CacheEntry<any>> = new Map();
   private cacheTtlMs: number = 60 * 60 * 1000; // 1 hour
@@ -267,13 +267,12 @@ export class AIService {
           const status = err?.status || err?.statusCode || 0;
 
           if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-            console.warn(`[AIService] Gemini quota reached on ${modelName}. Applying 60s cooldown.`);
-            this.geminiBlockedUntil = Date.now() + 60000;
-            break;
+            console.warn(`[AIService] Gemini quota reached on ${modelName}. Trying next available model.`);
+            continue;
           }
 
           if (errMsg.includes("AI_TIMEOUT")) {
-            console.warn(`[AIService] Call timed out on ${modelName}. Trying next provider.`);
+            console.warn(`[AIService] Call timed out on ${modelName}. Trying next model.`);
             continue;
           }
 
@@ -281,8 +280,8 @@ export class AIService {
             continue;
           }
 
-          console.warn(`[AIService] Gemini error on ${modelName} (${errMsg}).`);
-          break;
+          console.warn(`[AIService] Gemini error on ${modelName} (${errMsg}). Trying next model.`);
+          continue;
         }
       }
     }
@@ -679,14 +678,16 @@ CRITICAL ACCURACY MANDATE:
 1. TRUTHFUL, EXACT EXTRACTION ONLY:
    Extract the REAL candidate's actual information from the uploaded document file and/or text.
    DO NOT HALLUCINATE. DO NOT INVENT PLACEHOLDER DATA.
+   DO NOT generate generic placeholders like "Company", "Organization", "Enterprise Organization", "Professional Organization", "Specialist", "Lead Developer", or "Candidate".
    DO NOT default to "Software Engineer", "Developer", "John Doe", or generic tech roles unless that is specifically what is written in this document!
-   If the candidate is a Nurse, Accountant, Financial Analyst, Chef, Architect, Sales Representative, Student, Teacher, Mechanical Engineer, Graphic Designer, Project Manager, Doctor, Lawyer, or any other profession, extract THEIR ACTUAL name, job title, and career accomplishments faithfully.
+   If the candidate is a Doctor, Nurse, Accountant, Financial Analyst, Chef, Architect, Sales Representative, Student, Teacher, Mechanical Engineer, Graphic Designer, Project Manager, Lawyer, or any other profession, extract THEIR ACTUAL name, job title, and career accomplishments faithfully.
+   IF A SECTION IS NOT PRESENT in the document (e.g. no projects, no certifications, no languages, no references), RETURN AN EMPTY ARRAY [] OR EMPTY STRING "". DO NOT INVENT THEM.
 2. COMPLETE EXTRACTION (ZERO OMISSIONS):
    Extract EVERY single field and detail present in the document:
    - parsedResume:
      - personalInfo:
-         fullName: candidate's real full name as printed on the document (do not default to Candidate Name)
-         jobTitle: candidate's actual headline, current title, or target role from the document
+         fullName: candidate's real full name as printed on the document (empty string "" if missing)
+         jobTitle: candidate's actual headline, current title, or target role from the document (empty string "" if missing)
          email: email address
          phone: phone number
          location: city, state/province, country
@@ -694,20 +695,20 @@ CRITICAL ACCURACY MANDATE:
          linkedin: LinkedIn profile URL or handle
          github: GitHub profile URL or handle
          profilePhoto: ""
-     - summary: candidate's actual professional summary or objective statement from the document (or a faithful 2-sentence summary based strictly on their actual experience if none is explicitly written)
+     - summary: candidate's actual professional summary or objective statement from the document (empty string "" if none is written)
      - experience: array of ALL work history entries. Each item must have:
          id: string (e.g. "exp_1")
-         company: exact company or employer name
-         position: exact job position or title
-         startDate: start date (e.g. "2021-03" or "2021")
+         company: exact company or employer name from document
+         position: exact job position or title from document
+         startDate: start date from document (e.g. "2021-03" or "2021")
          endDate: end date or "Present"
          current: boolean (true if current job)
          location: location if listed
-         description: all accomplishment bullet points and responsibilities verbatim
+         description: all accomplishment bullet points and responsibilities verbatim as written
      - education: array of ALL degrees and education entries. Each item must have:
          id: string (e.g. "edu_1")
-         school: school / university name
-         degree: degree name (e.g. "Bachelor of Arts", "Master of Science", "Associate Degree", "High School Diploma")
+         school: exact school / university name
+         degree: exact degree name (e.g. "Doctor of Medicine", "Master of Science", "High School Diploma")
          fieldOfStudy: major or academic focus
          startDate: start year or date
          endDate: graduation year or date
@@ -715,10 +716,10 @@ CRITICAL ACCURACY MANDATE:
          location: school location
          gpa: GPA if listed
          description: honors, coursework, or activities
-     - projects: array of projects (id, name, role, startDate, endDate, url, description)
-     - skills: array of ALL technical and domain skills, software tools, equipment, certifications, and capabilities mentioned in the document
-     - languages: array of languages and proficiencies (id, name, proficiency)
-     - certifications: array of certifications and licenses (id, name, issuer, date, url)
+     - projects: array of projects if present (id, name, role, startDate, endDate, url, description)
+     - skills: array of ALL real skills, tools, equipment, certifications, and capabilities mentioned in the document (do not add unrelated filler skills)
+     - languages: array of languages and proficiencies if mentioned (id, name, proficiency)
+     - certifications: array of certifications and licenses if mentioned (id, name, issuer, date, url)
      - references: array of references if listed (id, name, company, title, email, phone)
      - customSections: array of any other sections (e.g. volunteer work, publications, awards, leadership)
    - auditReport:
