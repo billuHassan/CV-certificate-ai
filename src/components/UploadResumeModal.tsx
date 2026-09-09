@@ -1724,9 +1724,9 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                         onClick={() => {
                           const newCert: Certification = {
                             id: crypto.randomUUID(),
-                            name: "AWS Certified Solutions Architect",
-                            issuer: "Amazon Web Services",
-                            date: "2023",
+                            name: "",
+                            issuer: "",
+                            date: "",
                             url: ""
                           };
                           setParsedResume({ ...parsedResume, certifications: [...(parsedResume.certifications || []), newCert] });
@@ -1756,7 +1756,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                             <input
                               type="text"
                               value={cert.name}
@@ -1785,6 +1785,16 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
                                 certifications: (parsedResume.certifications || []).map(c => c.id === cert.id ? { ...c, date: e.target.value } : c)
                               })}
                               placeholder="Issue Date"
+                              className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
+                            />
+                            <input
+                              type="text"
+                              value={cert.url || ""}
+                              onChange={(e) => setParsedResume({
+                                ...parsedResume,
+                                certifications: (parsedResume.certifications || []).map(c => c.id === cert.id ? { ...c, url: e.target.value } : c)
+                              })}
+                              placeholder="Credential ID / URL"
                               className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100"
                             />
                           </div>

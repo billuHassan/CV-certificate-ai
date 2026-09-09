@@ -719,7 +719,13 @@ CRITICAL ACCURACY MANDATE:
      - projects: array of projects if present (id, name, role, startDate, endDate, url, description)
      - skills: array of clean strings containing specific tools, technologies, and competencies mentioned in the document (e.g. ["Python", "Docker", "SQL"]). CRITICAL: Do NOT include filler phrases like "and everything in between", "and more", "etc.". Do NOT leave stray commas, colons, or punctuation (never output "Python," or "Tools: Python"). Strip category labels.
      - languages: array of languages and proficiencies if mentioned (id, name, proficiency)
-     - certifications: array of certifications and licenses if mentioned (id, name, issuer, date, url)
+     - certifications: array of certifications, licenses, and credentials found in the document. For each entry:
+         id: string (e.g. "cert_1")
+         name: ONLY the official title of the certification or license (e.g. "AWS Certified Solutions Architect – Associate", "Certified ScrumMaster (CSM)", "PMP"). CRITICAL: Do NOT lump the issuing organization or dates into the name (never output "AWS Solutions Architect, Amazon, 2023"). Strip empty parentheses "()" and trailing commas.
+         issuer: the organization, institution, or provider that issued the certification (e.g. "Amazon Web Services", "Scrum Alliance", "Project Management Institute", "Google Cloud", "Coursera"). If not stated, leave empty string.
+         date: the date issued or validity period (e.g. "2023", "Sep 2023 - Sep 2026", "2022"). Do NOT include prefix words like "Issued:" or "Date:".
+         url: verification link or credential ID if listed (e.g. "Credential ID: ABC123XYZ" or "https://...").
+         CRITICAL: Do NOT split multi-line certification entries into separate phantom items (e.g. if the document lists the certification title on one line and the issuer or date on the following line, merge them into ONE coherent certification object).
      - references: array of references if listed (id, name, company, title, email, phone)
      - customSections: array of any extra categories found in the document (e.g. Volunteer Experience, Publications, Awards, Honors, Leadership, Extracurricular Activities, Patents, Affiliations). Each custom section MUST have:
          id: string (e.g. "custom_1")

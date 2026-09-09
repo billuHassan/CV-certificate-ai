@@ -491,18 +491,18 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
 
   // 2. Section Segmentation
   const sectionKeywords: { [key: string]: RegExp } = {
-    summary: /^(?:professional\s+summary|executive\s+summary|summary|profile|about\s+me|career\s+objective|objective|about)\b/i,
-    experience: /^(?:work\s+experience|professional\s+experience|experience|employment\s+history|work\s+history|career\s+history)\b/i,
-    education: /^(?:education|academic\s+background|qualifications|academic\s+credentials|education\s+&\s+qualifications)\b/i,
-    projects: /^(?:projects|personal\s+projects|key\s+projects|academic\s+projects|selected\s+projects)\b/i,
-    skills: /^(?:skills|technical\s+skills|core\s+competencies|key\s+skills|expertise|skills\s+&\s+tools|proficiencies)\b/i,
-    certifications: /^(?:certifications|certificates|licenses|credentials|courses\s+&\s+certifications)\b/i,
-    languages: /^(?:languages|language\s+proficiency|languages\s+spoken)\b/i,
-    references: /^(?:references|referees)\b/i,
-    volunteer: /^(?:volunteer\s+experience|volunteering|community\s+service)\b/i,
-    publications: /^(?:publications|research\s+papers|articles)\b/i,
-    awards: /^(?:awards|honors|awards\s+&\s+honors|achievements)\b/i,
-    hobbies: /^(?:hobbies|interests|extracurricular\s+activities)\b/i,
+    summary: /^(?:professional\s+summary|executive\s+summary|summary|profile|about\s+me|career\s+objective|objective|about)(?:\s*[:])?\s*$/i,
+    experience: /^(?:work\s+experience|professional\s+experience|experience|employment\s+history|work\s+history|career\s+history|employment)(?:\s*[:])?\s*$/i,
+    education: /^(?:education|academic\s+background|qualifications|academic\s+credentials|education\s+&\s+qualifications|degrees)(?:\s*[:])?\s*$/i,
+    projects: /^(?:projects|personal\s+projects|key\s+projects|academic\s+projects|selected\s+projects|notable\s+projects)(?:\s*[:])?\s*$/i,
+    skills: /^(?:skills|technical\s+skills|core\s+competencies|key\s+skills|expertise|skills\s+&\s+tools|proficiencies|technologies)(?:\s*[:])?\s*$/i,
+    certifications: /^(?:certifications?(?:\s*(?:&|and|\/)\s*(?:licenses?|training|courses?|credentials?|accreditations?))?|licenses?(?:\s*(?:&|and|\/)\s*certifications?)?|professional\s+(?:certifications?|credentials?|licenses?)|credentials?|certificates?|courses?\s*(?:&|and)\s*certifications?|accreditations?)(?:\s*[:])?\s*$/i,
+    languages: /^(?:languages|language\s+proficiency|languages\s+spoken)(?:\s*[:])?\s*$/i,
+    references: /^(?:references|referees)(?:\s*[:])?\s*$/i,
+    volunteer: /^(?:volunteer\s+experience|volunteering|community\s+service)(?:\s*[:])?\s*$/i,
+    publications: /^(?:publications|research\s+papers|articles)(?:\s*[:])?\s*$/i,
+    awards: /^(?:awards|honors|awards\s+&\s+honors|honors\s+&\s+awards|achievements)(?:\s*[:])?\s*$/i,
+    hobbies: /^(?:hobbies|interests|extracurricular\s+activities)(?:\s*[:])?\s*$/i,
   };
 
   interface SectionBlock {
@@ -515,16 +515,19 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
   let currentSection: SectionBlock = { type: "header", title: "Header", lines: [] };
 
   for (const line of lines) {
-    const trimmed = line.replace(/^[#*-]+\s*/, "").trim();
+    const trimmed = line.replace(/^[#*•·\-\–\—]+\s*/, "").trim();
     let matchedType: string | null = null;
     let matchedTitle = trimmed;
 
-    // Check if line matches a major section heading
-    for (const [secType, regex] of Object.entries(sectionKeywords)) {
-      if (regex.test(trimmed) && trimmed.length < 40) {
-        matchedType = secType;
-        matchedTitle = trimmed;
-        break;
+    // Check if line matches a major section heading (do not break on bullets or fields with values)
+    const isBulletOrField = /^[•*·\-]/.test(line.trim()) || /(?:credential\s*id|license\s*#|cert\s*id|issue\s*date|issued\s*by|valid\s*through)\s*[:#]/i.test(trimmed);
+    if (!isBulletOrField) {
+      for (const [secType, regex] of Object.entries(sectionKeywords)) {
+        if (regex.test(trimmed) && trimmed.length < 45) {
+          matchedType = secType;
+          matchedTitle = trimmed;
+          break;
+        }
       }
     }
 
@@ -793,38 +796,247 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
   }
 
   // Certifications
-  const certifications: ExtractedCertification[] = [];
-  const certSec = sections.find(s => s.type === "certifications");
-  if (certSec && certSec.lines.length > 0) {
-    for (const line of certSec.lines) {
-      const cleanLine = line.replace(/^[•*-]\s*/, "").trim();
-      if (cleanLine.length > 2) {
-        const yearMatch = cleanLine.match(/\b(20\d{2}|19\d{2})\b/);
-        const date = yearMatch ? yearMatch[0] : "";
-        const titlePart = cleanLine.replace(/\b(20\d{2}|19\d{2})\b/, "").trim();
-        let issuer = "";
-        let certName = titlePart;
+  const parseCertificationLines = (certLines: string[]): ExtractedCertification[] => {
+    const list: ExtractedCertification[] = [];
+    let currentCert: Partial<ExtractedCertification> | null = null;
 
-        if (titlePart.includes(" - ")) {
-          const [c, i] = titlePart.split(" - ");
-          certName = c.trim();
-          issuer = i.trim();
-        } else if (titlePart.includes(" by ") || titlePart.includes(" from ")) {
-          const [c, i] = titlePart.split(/\s+(?:by|from)\s+/i);
-          certName = c.trim();
-          issuer = i.trim();
+    const datePattern = /(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}(?:\s*(?:-|–|—|to|\/)\s*(?:(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}|Present|Current|Now))?\b|\b(?:19|20)\d{2}\b/i;
+    const knownIssuersRegex = /\b(?:amazon\s+web\s+services|aws|microsoft(?:\s+corporation)?|azure|google\s+cloud|google|gcp|cisco|comptia|\(isc\)²|\(isc\)2|isc2|linux\s+foundation|oracle(?:\s+corporation)?|hashicorp|scrum\.org|scrum\s+alliance|pmi|project\s+management\s+institute|salesforce|meta|ibm|red\s+hat|udemy|coursera|edx|datacamp|linkedin(?:\s+learning)?|freecodecamp|pluralsight|codecademy|stanford|mit|harvard|offsec|offensive\s+security|docker|kubernetes|cncf)\b/i;
+    const certSubtypesRegex = /\b(?:associate|professional|developer|engineer|architect|administrator|specialist|practitioner|expert|master|consultant|manager|level\s*\d|specialty|track|fundamentals|essentials|advanced|foundations?)\b/i;
+
+    const cleanField = (s: string): string => {
+      return s
+        .replace(/\(\s*\)/g, "") // remove empty parentheses
+        .replace(/^[•*·\-\s,:]+/, "") // remove leading bullets/colons/dashes
+        .replace(/[,;:\-\s]+$/, "") // remove trailing punctuation/dashes
+        .trim();
+    };
+
+    const finalizeCert = () => {
+      if (currentCert && (currentCert.name || currentCert.issuer)) {
+        let name = cleanField(currentCert.name || "");
+        let issuer = cleanField(currentCert.issuer || "");
+        let date = cleanField(currentCert.date || "");
+        let url = cleanField(currentCert.url || "");
+
+        if (!name && issuer) {
+          name = issuer;
+          issuer = "";
         }
 
-        certifications.push({
-          id: `cert_${certifications.length + 1}`,
-          name: certName || "",
-          issuer: issuer,
-          date: date,
-          url: ""
-        });
+        // If date was not set but name contains a date
+        if (!date) {
+          const dMatch = name.match(datePattern);
+          if (dMatch) {
+            date = dMatch[0];
+            name = cleanField(name.replace(datePattern, ""));
+          }
+        }
+
+        // If date is in issuer
+        if (!date && issuer) {
+          const dMatch = issuer.match(datePattern);
+          if (dMatch) {
+            date = dMatch[0];
+            issuer = cleanField(issuer.replace(datePattern, ""));
+          }
+        }
+
+        name = cleanField(name);
+        issuer = cleanField(issuer);
+        date = cleanField(date);
+
+        if (name && name.length > 1) {
+          list.push({
+            id: currentCert.id || `cert_${list.length + 1}`,
+            name,
+            issuer,
+            date,
+            url
+          });
+        }
+      }
+      currentCert = null;
+    };
+
+    for (const rawLine of certLines) {
+      const rawTrimmed = rawLine.trim();
+      if (!rawTrimmed) continue;
+
+      const trimmed = rawTrimmed.replace(/^[•*·\-\s]+/, "").trim();
+      if (!trimmed) continue;
+
+      // 1. Check if line is purely a verification URL or Credential ID
+      const urlMatch = trimmed.match(/https?:\/\/[^\s]+/i);
+      const credMatch = trimmed.match(/(?:credential\s*id|license\s*#|cert\s*id|verification|id)\s*[:#]\s*([^\n,]+)/i);
+
+      if ((urlMatch || credMatch) && currentCert) {
+        currentCert.url = urlMatch ? urlMatch[0] : trimmed;
+        continue;
+      }
+
+      // 2. Check if line is an explicit issuer line
+      const issuerPrefixMatch = trimmed.match(/^(?:issuer|issued\s+by|issuing\s+organization|organization|provider)\s*[:\-]\s*(.+)$/i);
+      if (issuerPrefixMatch && currentCert) {
+        let issuerText = issuerPrefixMatch[1].trim();
+        const dMatch = issuerText.match(datePattern);
+        if (dMatch && !currentCert.date) {
+          currentCert.date = dMatch[0];
+          issuerText = issuerText.replace(datePattern, "");
+        }
+        currentCert.issuer = cleanField(issuerText);
+        continue;
+      }
+
+      // 3. Check if line is an explicit date line or expiration date line
+      const datePrefixMatch = trimmed.match(/^(?:issued|issue\s+date|date|completed|achieved|earned|expires|expiration|valid\s+through)\s*[:\-]\s*(.+)$/i);
+      if (datePrefixMatch && currentCert) {
+        currentCert.date = cleanField(datePrefixMatch[1]);
+        continue;
+      }
+
+      // 4. Check if line is solely a standalone date
+      const dateOnlyMatch = trimmed.match(datePattern);
+      if (dateOnlyMatch && trimmed.length < 35 && (!trimmed.includes(" ") || trimmed.split(/\s+/).length <= 4) && currentCert && !currentCert.date) {
+        currentCert.date = cleanField(trimmed);
+        continue;
+      }
+
+      // 5. Check if line is a continuation line for issuer (e.g. multi-line entry where line 2 is the organization)
+      const isBullet = rawTrimmed.startsWith("•") || rawTrimmed.startsWith("*") || rawTrimmed.startsWith("-");
+      if (currentCert && currentCert.name && !currentCert.issuer && !isBullet && trimmed.length < 60 && !/(?:specialist|architect|engineer|developer|professional|certified|associate|lead|master)/i.test(trimmed)) {
+        let candidateIssuer = trimmed;
+        const dMatch = candidateIssuer.match(datePattern);
+        if (dMatch) {
+          if (!currentCert.date) currentCert.date = dMatch[0];
+          candidateIssuer = candidateIssuer.replace(datePattern, "");
+        }
+        currentCert.issuer = cleanField(candidateIssuer);
+        continue;
+      }
+
+      // Otherwise, this line begins a new certification entry!
+      finalizeCert();
+      currentCert = { id: `cert_${list.length + 1}` };
+
+      let lineText = trimmed;
+
+      // Check for inline URL
+      if (urlMatch) {
+        currentCert.url = urlMatch[0];
+        lineText = lineText.replace(urlMatch[0], "").trim();
+      }
+
+      // Check for inline Credential ID
+      if (credMatch) {
+        currentCert.url = currentCert.url || credMatch[0].trim();
+        lineText = lineText.replace(credMatch[0], "").trim();
+      }
+
+      // Check for parenthetical metadata at end of line: e.g. " (Amazon Web Services, 2023)" or " (2023)"
+      const endParenMatch = lineText.match(/\(([^)]+)\)\s*$/);
+      if (endParenMatch) {
+        const parenContent = endParenMatch[1].trim();
+        const pDate = parenContent.match(datePattern);
+
+        if (pDate) {
+          currentCert.date = pDate[0];
+          const remainingParen = cleanField(parenContent.replace(pDate[0], ""));
+          if (remainingParen && !/^(?:issued|expires|valid|completed)$/i.test(remainingParen)) {
+            currentCert.issuer = remainingParen;
+          }
+          lineText = cleanField(lineText.replace(endParenMatch[0], ""));
+        } else if (!/^[A-Z0-9]{2,6}$/.test(parenContent) && (parenContent.length > 5 || parenContent.includes(" "))) {
+          currentCert.issuer = parenContent;
+          lineText = cleanField(lineText.replace(endParenMatch[0], ""));
+        }
+      }
+
+      // Check if there's a date in lineText
+      if (!currentCert.date) {
+        const dMatch = lineText.match(datePattern);
+        if (dMatch) {
+          currentCert.date = dMatch[0];
+          lineText = cleanField(lineText.replace(datePattern, ""));
+        }
+      }
+
+      // Split remaining lineText into name and issuer if issuer not yet determined
+      if (!currentCert.issuer) {
+        const byMatch = lineText.match(/\s+(?:issued\s+by|provided\s+by|by|from)\s+/i);
+        if (byMatch && byMatch.index) {
+          currentCert.name = cleanField(lineText.substring(0, byMatch.index));
+          currentCert.issuer = cleanField(lineText.substring(byMatch.index + byMatch[0].length));
+        } else if (lineText.includes(" - ") || lineText.includes(" – ") || lineText.includes(" — ")) {
+          const parts = lineText.split(/\s+[-–—]\s+/).map(p => cleanField(p)).filter(Boolean);
+          if (parts.length === 2) {
+            if (knownIssuersRegex.test(parts[1])) {
+              currentCert.name = parts[0];
+              currentCert.issuer = parts[1];
+            } else if (knownIssuersRegex.test(parts[0])) {
+              currentCert.name = parts[1];
+              currentCert.issuer = parts[0];
+            } else if (certSubtypesRegex.test(parts[1]) && !certSubtypesRegex.test(parts[0])) {
+              currentCert.name = `${parts[0]} - ${parts[1]}`;
+            } else {
+              currentCert.name = parts[0];
+              currentCert.issuer = parts[1];
+            }
+          } else if (parts.length >= 3) {
+            const last = parts[parts.length - 1];
+            if (knownIssuersRegex.test(last) || !certSubtypesRegex.test(last)) {
+              currentCert.name = parts.slice(0, -1).join(" - ");
+              currentCert.issuer = last;
+            } else {
+              currentCert.name = parts[0];
+              currentCert.issuer = parts.slice(1).join(" - ");
+            }
+          } else {
+            currentCert.name = cleanField(lineText);
+          }
+        } else if (lineText.includes(" | ")) {
+          const parts = lineText.split(/\s*\|\s*/).map(p => cleanField(p)).filter(Boolean);
+          currentCert.name = parts[0];
+          if (parts.length > 1) {
+            currentCert.issuer = parts.slice(1).join(", ");
+          }
+        } else if (lineText.includes(", ")) {
+          const parts = lineText.split(/,\s+/).map(p => cleanField(p)).filter(Boolean);
+          if (parts.length === 2) {
+            if (knownIssuersRegex.test(parts[1])) {
+              currentCert.name = parts[0];
+              currentCert.issuer = parts[1];
+            } else if (knownIssuersRegex.test(parts[0]) && !certSubtypesRegex.test(parts[0])) {
+              currentCert.name = parts[1];
+              currentCert.issuer = parts[0];
+            } else if (certSubtypesRegex.test(parts[1])) {
+              currentCert.name = `${parts[0]}, ${parts[1]}`;
+            } else if (parts[1].length < 35 && !/[0-9]/.test(parts[1])) {
+              currentCert.name = parts[0];
+              currentCert.issuer = parts[1];
+            } else {
+              currentCert.name = cleanField(lineText);
+            }
+          } else {
+            currentCert.name = cleanField(lineText);
+          }
+        } else {
+          currentCert.name = cleanField(lineText);
+        }
+      } else {
+        currentCert.name = cleanField(lineText);
       }
     }
-  }
+
+    finalizeCert();
+    return list;
+  };
+
+  const certSections = sections.filter(s => s.type === "certifications");
+  const allCertLines = certSections.flatMap(s => s.lines);
+  const certifications: ExtractedCertification[] = allCertLines.length > 0
+    ? parseCertificationLines(allCertLines)
+    : [];
 
   // Languages
   const languages: ExtractedLanguage[] = [];
@@ -1059,14 +1271,38 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   }
 
   // Certifications
+  const cleanCertField = (val: any): string => {
+    return cleanTextToken(String(val || ""))
+      .replace(/\(\s*\)/g, "")
+      .replace(/^[•*·\-\s,:]+/, "")
+      .replace(/[,;:\-\s]+$/, "")
+      .trim();
+  };
+
   if (Array.isArray(aiParsed.certifications) && aiParsed.certifications.length > 0) {
     merged.certifications = aiParsed.certifications.map((c: any, idx: number) => ({
       id: c.id || `cert_${idx + 1}`,
-      name: cleanTextToken(c.name || ""),
-      issuer: cleanTextToken(c.issuer || ""),
-      date: cleanTextToken(c.date || ""),
-      url: cleanTextToken(c.url || "")
+      name: cleanCertField(c.name),
+      issuer: cleanCertField(c.issuer),
+      date: cleanCertField(c.date).replace(/^(?:issued|date|issue\s+date|completed)\s*[:\-]\s*/i, "").trim(),
+      url: cleanCertField(c.url)
     })).filter((c: any) => c.name);
+  }
+
+  // Fallback to deterministic certifications or merge any missing ones
+  if (deterministic.certifications && deterministic.certifications.length > 0) {
+    if (!merged.certifications || merged.certifications.length === 0) {
+      merged.certifications = deterministic.certifications;
+    } else {
+      const existingNames = new Set(merged.certifications.map(c => c.name.toLowerCase().replace(/[^a-z0-9]/g, "")));
+      for (const detCert of deterministic.certifications) {
+        const normalized = detCert.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (normalized && !existingNames.has(normalized)) {
+          merged.certifications.push(detCert);
+          existingNames.add(normalized);
+        }
+      }
+    }
   }
 
   // References

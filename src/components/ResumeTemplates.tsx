@@ -590,14 +590,24 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
                 <div key={cert.id} className="text-xs flex justify-between items-start break-inside-avoid">
                   <div>
                     <span className={`font-bold text-slate-800 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]' : ''}`}>{cert.name}</span>
-                    <span className={`text-slate-500 text-[11px] block mt-0.5 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}`}>{cert.issuer}</span>
+                    {cert.issuer && (
+                      <span className={`text-slate-500 text-[11px] block mt-0.5 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}`}>{cert.issuer}</span>
+                    )}
                     {cert.url && (
-                      <a href={cert.url} target="_blank" rel="noreferrer" className={`text-[10px] text-indigo-500 underline block mt-0.5 ${config.styleCategory === 'cyber' ? '!text-[#00ff66]/90' : ''}`}>
-                        {cert.url}
-                      </a>
+                      cert.url.startsWith("http://") || cert.url.startsWith("https://") ? (
+                        <a href={cert.url} target="_blank" rel="noreferrer" className={`text-[10px] text-indigo-500 underline block mt-0.5 ${config.styleCategory === 'cyber' ? '!text-[#00ff66]/90' : ''}`}>
+                          {cert.url}
+                        </a>
+                      ) : (
+                        <span className={`text-[10px] text-slate-400 block mt-0.5 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}`}>
+                          {cert.url}
+                        </span>
+                      )
                     )}
                   </div>
-                  <span className={`text-[10px] text-slate-400 shrink-0 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/60' : ''}`}>{cert.date}</span>
+                  {cert.date && (
+                    <span className={`text-[10px] text-slate-400 shrink-0 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/60' : ''}`}>{cert.date}</span>
+                  )}
                 </div>
               ))}
             </div>
