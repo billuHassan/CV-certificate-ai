@@ -492,13 +492,13 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
           setActiveView("edit");
         } catch (err: any) {
           console.error(err);
-          const baseName = file.name.replace(/\.[^/.]+$/, "");
+          const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
           const fallbackData: ResumeData = {
             id: `uploaded_${Date.now()}`,
             title: baseName || "Uploaded Resume",
             personalInfo: {
-              fullName: "Candidate",
-              jobTitle: "Professional Specialist",
+              fullName: baseName && !baseName.toLowerCase().includes("resume") ? baseName : "",
+              jobTitle: "",
               email: "",
               phone: "",
               location: "",
@@ -507,12 +507,12 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
               github: "",
               profilePhoto: ""
             },
-            summary: "Experienced professional with proven track record.",
+            summary: "",
             experience: [],
             education: [],
             projects: [],
-            skills: ["Problem Solving", "Communication", "Teamwork"],
-            languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
+            skills: [],
+            languages: [],
             certifications: [],
             references: [],
             customSections: [],
@@ -532,13 +532,13 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
       };
 
       reader.onerror = () => {
-        const baseName = file.name.replace(/\.[^/.]+$/, "");
+        const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
         const fallbackData: ResumeData = {
           id: `uploaded_${Date.now()}`,
           title: baseName || "Uploaded Resume",
           personalInfo: {
-            fullName: "Candidate",
-            jobTitle: "Professional Specialist",
+            fullName: baseName && !baseName.toLowerCase().includes("resume") ? baseName : "",
+            jobTitle: "",
             email: "",
             phone: "",
             location: "",
@@ -547,12 +547,12 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
             github: "",
             profilePhoto: ""
           },
-          summary: "Professional resume profile.",
+          summary: "",
           experience: [],
           education: [],
           projects: [],
-          skills: ["Problem Solving", "Communication"],
-          languages: [{ id: "lang_1", name: "English", proficiency: "Native / Fluent" }],
+          skills: [],
+          languages: [],
           certifications: [],
           references: [],
           customSections: [],

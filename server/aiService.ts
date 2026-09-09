@@ -717,11 +717,20 @@ CRITICAL ACCURACY MANDATE:
          gpa: GPA if listed
          description: honors, coursework, or activities
      - projects: array of projects if present (id, name, role, startDate, endDate, url, description)
-     - skills: array of ALL real skills, tools, equipment, certifications, and capabilities mentioned in the document (do not add unrelated filler skills)
+     - skills: array of clean strings containing specific tools, technologies, and competencies mentioned in the document (e.g. ["Python", "Docker", "SQL"]). CRITICAL: Do NOT include filler phrases like "and everything in between", "and more", "etc.". Do NOT leave stray commas, colons, or punctuation (never output "Python," or "Tools: Python"). Strip category labels.
      - languages: array of languages and proficiencies if mentioned (id, name, proficiency)
      - certifications: array of certifications and licenses if mentioned (id, name, issuer, date, url)
      - references: array of references if listed (id, name, company, title, email, phone)
-     - customSections: array of any other sections (e.g. volunteer work, publications, awards, leadership)
+     - customSections: array of any extra categories found in the document (e.g. Volunteer Experience, Publications, Awards, Honors, Leadership, Extracurricular Activities, Patents, Affiliations). Each custom section MUST have:
+         id: string (e.g. "custom_1")
+         title: exact title of the section from the document (e.g. "Volunteer Experience" or "Honors & Awards")
+         items: array of entries in this section. CRITICAL: Do NOT create a separate item for every bullet or explanation line! For each distinct organization, role, award, or project, create ONE item containing:
+           id: string (e.g. "item_1")
+           heading: the primary title, award name, organization, or role (e.g. "Lead Volunteer" or "Best Researcher Award")
+           subheading: the secondary title, organization, or category (e.g. "Red Cross" or "National Science Foundation")
+           date: date or date range (e.g. "2021 - 2023")
+           location: location if listed
+           description: the complete explanation, responsibilities, accomplishment bullets, or details for this entry combined together as a single string (separated by newlines)
    - auditReport:
      - overallRealityScore: number between 60 and 98 based on formatting, completeness, and ATS readiness
      - strengths: 3-5 strings highlighting document strengths

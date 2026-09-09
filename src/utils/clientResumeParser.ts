@@ -74,7 +74,14 @@ export interface ClientParsedResume {
     customSections: Array<{
       id: string;
       title: string;
-      content: string;
+      items: Array<{
+        id: string;
+        heading: string;
+        subheading?: string;
+        date?: string;
+        location?: string;
+        description?: string;
+      }>;
     }>;
   };
   auditReport: {
@@ -240,6 +247,231 @@ export async function extractDocumentTextClientSide(
 }
 
 /**
+ * Clean stray commas, colons, bullets, and delimiter artifacts from text tokens
+ */
+export function cleanTextToken(raw: string): string {
+  if (!raw) return "";
+  return raw
+    .replace(/^[•*·\-\s,;|:]+/, "")
+    .replace(/[•*·\-\s,;|:]+$/, "")
+    .trim();
+}
+
+/**
+ * Robust Skill Sanitizer
+ * Strips category prefixes ("Languages:"), conjunctions ("and ", "or "),
+ * trailing punctuation (commas, periods), and filters out filler phrases like "and everything".
+ */
+export function sanitizeSkillToken(raw: string): string | null {
+  if (!raw) return null;
+  let s = raw.trim();
+
+  // Strip leading bullet marks, list numbers, dashes
+  s = s.replace(/^[•*·\-\d.)\]\s]+/, "").trim();
+
+  // Strip common label prefixes like "Languages:", "Programming Languages:", "Tools:", etc.
+  s = s.replace(/^(?:languages|programming\s+languages|frameworks(?:\s+and\s+libraries)?|tools(?:\s+and\s+technologies)?|libraries|technical\s+skills|core\s+competencies|competencies|proficiencies|proficient\s+in|familiar\s+with|technologies|databases|methodologies|platforms|devops|skills|expertise)\s*:\s*/i, "").trim();
+
+  // Strip leading conjunctions: "and ", "or ", "& "
+  s = s.replace(/^(?:and|or|&)\s+/i, "").trim();
+
+  // Strip trailing punctuation (commas, semicolons, colons, periods, dashes)
+  s = s.replace(/[,.;:\-]+$/, "").trim();
+
+  // Strip surrounding quotes or parentheses if balanced or stray
+  s = s.replace(/^["'([{]+|[)"'\]}]+$/g, "").trim();
+
+  // Reject if too short or too long
+  if (s.length < 2 || s.length > 45) return null;
+
+  // Reject common filler phrases
+  if (/^(?:and|or|etc|etc\.|and\s+more|and\s+everything|and\s+others|including|such\s+as|with|various|plus|all\s+above|other|related)$/i.test(s)) {
+    return null;
+  }
+
+  // Reject if it looks like a sentence fragment with verbs
+  if (/\b(?:responsible\s+for|experienced\s+(?:in|with)|worked\s+(?:on|with)|proven\s+track\s+record|ability\s+to|knowledge\s+of|expert\s+in|hands-on\s+experience)\b/i.test(s)) {
+    return null;
+  }
+
+  // Must contain at least one letter or number
+  if (!/[a-zA-Z0-9]/.test(s)) return null;
+
+  return s;
+}
+
+/**
+ * Tokenizes skill lines without breaking composite terms like HTML/CSS, CI/CD, UI/UX
+ */
+export function extractSkillsFromLine(line: string): string[] {
+  let cleanedLine = line.trim();
+  cleanedLine = cleanedLine.replace(/^(?:languages|programming\s+languages|frameworks(?:\s+and\s+libraries)?|tools(?:\s+and\s+technologies)?|libraries|technical\s+skills|core\s+competencies|competencies|proficiencies|proficient\s+in|familiar\s+with|technologies|databases|methodologies|platforms|devops|skills|expertise)\s*:\s*/i, "").trim();
+
+  const rawTokens = cleanedLine
+    .split(/[,;•|·\t]|\s+and\s+|\s+&\s+/)
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  const skills: string[] = [];
+  for (const token of rawTokens) {
+    if (token.includes("/") && !/^(?:html\/css|ci\/cd|ui\/ux|tcp\/ip|pl\/sql|c\/c\+\+|sys\/ops)$/i.test(token.trim())) {
+      const subTokens = token.split("/").map(st => sanitizeSkillToken(st)).filter((s): s is string => Boolean(s));
+      skills.push(...subTokens);
+    } else {
+      const sanitized = sanitizeSkillToken(token);
+      if (sanitized) {
+        skills.push(sanitized);
+      }
+    }
+  }
+
+  return skills;
+}
+
+/**
+ * Intelligent Custom Section Parser
+ * Accurately groups an item's Header (title/role, org, date, location)
+ * with all its Explanation lines (bullet points, descriptions) into ONE single item.
+ * Never creates a separate item for each line!
+ */
+export function parseCustomSectionItems(lines: string[]): Array<{
+  id: string;
+  heading: string;
+  subheading?: string;
+  date?: string;
+  location?: string;
+  description?: string;
+}> {
+  const items: Array<{
+    id: string;
+    heading: string;
+    subheading?: string;
+    date?: string;
+    location?: string;
+    description?: string;
+  }> = [];
+  if (!lines || lines.length === 0) return items;
+
+  const datePattern = /(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}(?:\s*(?:-|–|—|to|\/)\s*(?:(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}|Present|Current|Now))?\b|\b(?:19|20)\d{2}\b/i;
+
+  let currentItem: any = null;
+  let explanationBuffer: string[] = [];
+
+  const finalizeItem = () => {
+    if (currentItem && (currentItem.heading || explanationBuffer.length > 0)) {
+      const description = explanationBuffer.map(b => b.trim()).filter(Boolean).join("\n");
+      items.push({
+        id: currentItem.id || `item_${items.length + 1}`,
+        heading: cleanTextToken(currentItem.heading || (explanationBuffer[0] ? explanationBuffer[0].replace(/^•\s*/, "") : "Item")),
+        subheading: cleanTextToken(currentItem.subheading || ""),
+        date: cleanTextToken(currentItem.date || ""),
+        location: cleanTextToken(currentItem.location || ""),
+        description: description || currentItem.description || ""
+      });
+    }
+    currentItem = null;
+    explanationBuffer = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
+
+    const isBullet = /^[•*·\-\d.)\]]/.test(trimmed);
+    const hasDate = datePattern.test(trimmed);
+    const hasSeparator = trimmed.includes(" | ") || trimmed.includes(" - ") || trimmed.includes(" — ") || trimmed.includes(" at ");
+
+    // If currentItem exists, has NO explanations yet, and this line is NOT a bullet:
+    // Check if this line is metadata for the current item (date, location, subheading)
+    if (currentItem && explanationBuffer.length === 0 && !isBullet && (hasDate || trimmed.length < 50 || /^[A-Z][a-zA-Z\s.-]+,\s*[A-Z]{2}/.test(trimmed))) {
+      let metaLine = trimmed;
+      const dMatch = metaLine.match(datePattern);
+      if (dMatch && !currentItem.date) {
+        currentItem.date = dMatch[0].trim();
+        metaLine = metaLine.replace(dMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+      const locMatch = metaLine.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
+      if (locMatch && !locMatch[0].includes("University") && !currentItem.location) {
+        currentItem.location = locMatch[0].trim();
+        metaLine = metaLine.replace(locMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+      metaLine = cleanTextToken(metaLine);
+      if (metaLine && !currentItem.subheading) {
+        currentItem.subheading = metaLine;
+      }
+      continue;
+    }
+
+    // Determine if this line starts a NEW item header vs being an explanation line
+    const isNewItemHeader = !isBullet && (
+      !currentItem ||
+      hasDate ||
+      hasSeparator ||
+      explanationBuffer.length > 0 ||
+      (trimmed.length < 75 && !/[.!?]$/.test(trimmed))
+    );
+
+    if (isNewItemHeader) {
+      finalizeItem();
+
+      currentItem = { id: `item_${items.length + 1}` };
+
+      let lineText = trimmed;
+      const dMatch = lineText.match(datePattern);
+      if (dMatch) {
+        currentItem.date = dMatch[0].trim();
+        lineText = lineText.replace(dMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+
+      const locMatch = lineText.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
+      if (locMatch && !locMatch[0].includes("University")) {
+        currentItem.location = locMatch[0].trim();
+        lineText = lineText.replace(locMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+
+      lineText = cleanTextToken(lineText);
+
+      if (lineText.includes(" | ")) {
+        const [h, s] = lineText.split(" | ");
+        currentItem.heading = cleanTextToken(h);
+        currentItem.subheading = cleanTextToken(s);
+      } else if (lineText.includes(" - ") || lineText.includes(" — ")) {
+        const parts = lineText.split(/\s+[-—]\s+/);
+        currentItem.heading = cleanTextToken(parts[0] || "");
+        currentItem.subheading = cleanTextToken(parts.slice(1).join(" - "));
+      } else if (lineText.includes(" at ")) {
+        const [h, s] = lineText.split(" at ");
+        currentItem.heading = cleanTextToken(h);
+        currentItem.subheading = cleanTextToken(s);
+      } else if (lineText.includes(", ") && lineText.split(", ").length === 2 && lineText.split(", ")[1].length < 40) {
+        const parts = lineText.split(", ");
+        currentItem.heading = cleanTextToken(parts[0]);
+        currentItem.subheading = cleanTextToken(parts[1]);
+      } else {
+        currentItem.heading = lineText;
+      }
+    } else {
+      // Explanation line: attach to current item's description
+      if (!currentItem) {
+        currentItem = {
+          id: `item_${items.length + 1}`,
+          heading: cleanTextToken(trimmed.replace(/^[•*·\-\d.)\]\s]+/, ""))
+        };
+      } else {
+        const cleanExp = trimmed.replace(/^[•*·\-\d.)\]\s]+/, "").replace(/^[,;]\s*/, "").trim();
+        if (cleanExp) {
+          explanationBuffer.push(`• ${cleanExp}`);
+        }
+      }
+    }
+  }
+
+  finalizeItem();
+  return items;
+}
+
+/**
  * Parses raw resume text into structured ResumeData deterministically without hallucinations
  */
 export function parseResumeClientSide(rawText: string, fileName?: string): ClientParsedResume {
@@ -296,14 +528,19 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
 
   // 2. Section Partitioning
   const sectionKeywords: Record<string, string[]> = {
-    summary: ["summary", "profile", "about me", "professional summary", "objective", "executive summary", "overview"],
-    experience: ["experience", "work experience", "employment history", "work history", "professional experience", "career history"],
-    education: ["education", "academic background", "academic history", "qualifications", "degrees"],
-    skills: ["skills", "technical skills", "core competencies", "competencies", "technologies", "expertise", "proficiencies", "tools"],
-    projects: ["projects", "key projects", "personal projects", "portfolio"],
-    certifications: ["certifications", "certificates", "licenses", "credentials"],
-    languages: ["languages", "language skills"],
+    summary: ["summary", "profile", "about me", "professional summary", "objective", "executive summary", "overview", "professional profile"],
+    experience: ["experience", "work experience", "employment history", "work history", "professional experience", "career history", "employment"],
+    education: ["education", "academic background", "academic history", "qualifications", "degrees", "academic qualifications"],
+    skills: ["skills", "technical skills", "core competencies", "competencies", "technologies", "expertise", "proficiencies", "tools", "areas of expertise"],
+    projects: ["projects", "key projects", "personal projects", "portfolio", "notable projects"],
+    certifications: ["certifications", "certificates", "licenses", "credentials", "licensure"],
+    languages: ["languages", "language skills", "languages spoken"],
     references: ["references", "referees"],
+    volunteer: ["volunteer", "volunteering", "volunteer experience", "community involvement", "community service"],
+    publications: ["publications", "research", "research papers", "articles", "published works"],
+    awards: ["awards", "honors", "awards & honors", "honors & awards", "achievements", "recognitions"],
+    leadership: ["leadership", "extracurricular", "extracurricular activities", "activities", "affiliations", "memberships", "involvement"],
+    interests: ["interests", "hobbies", "personal interests"]
   };
 
   interface SectionBlock {
@@ -316,15 +553,21 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
   let currentSection: SectionBlock = { type: "header", title: "Header", lines: [] };
 
   for (const line of lines) {
-    const lower = line.toLowerCase().replace(/[^a-z\s]/g, "").trim();
+    const rawTrimmed = line.trim();
+    const lower = rawTrimmed.toLowerCase().replace(/[^a-z\s]/g, "").trim();
     let matchedType: string | null = null;
 
-    if (line.length < 40 && !line.includes(".")) {
+    if (rawTrimmed.length < 50 && !rawTrimmed.endsWith(".")) {
       for (const [secType, keywords] of Object.entries(sectionKeywords)) {
         if (keywords.some(k => lower === k || lower.startsWith(k + " ") || lower.endsWith(" " + k))) {
           matchedType = secType;
           break;
         }
+      }
+
+      // Check if it's a generic custom section header (e.g. "### Additional Information" or ALL CAPS short header)
+      if (!matchedType && (rawTrimmed.startsWith("### ") || rawTrimmed.startsWith("## ") || (rawTrimmed === rawTrimmed.toUpperCase() && rawTrimmed.length >= 4 && rawTrimmed.length <= 40 && !/[0-9]/.test(rawTrimmed) && !rawTrimmed.includes("@")))) {
+        matchedType = "custom";
       }
     }
 
@@ -332,7 +575,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
       if (currentSection.lines.length > 0) {
         sections.push(currentSection);
       }
-      currentSection = { type: matchedType, title: line, lines: [] };
+      currentSection = { type: matchedType, title: rawTrimmed.replace(/^#+\s*/, ""), lines: [] };
     } else {
       currentSection.lines.push(line);
     }
@@ -524,40 +767,20 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
     }
   }
 
-  // 6. Extract Skills
+  // 6. Extract Skills (strictly from document text, zero hallucinations)
   const skillSec = sections.find(s => s.type === "skills");
   const skillsSet = new Set<string>();
 
   if (skillSec && skillSec.lines.length > 0) {
     for (const line of skillSec.lines) {
-      const tokens = line.split(/[,•|·;/\\]+/).map(s => s.trim().replace(/^[-*]\s*/, "")).filter(s => s.length > 1 && s.length < 40);
-      for (const t of tokens) {
-        if (!t.toLowerCase().includes("skills") && !t.toLowerCase().includes("competencies")) {
-          skillsSet.add(t);
-        }
+      const extracted = extractSkillsFromLine(line);
+      for (const t of extracted) {
+        skillsSet.add(t);
       }
     }
   }
 
-  // Also extract domain words explicitly mentioned in document text
-  const standardKeywords = [
-    "Project Management", "Strategic Planning", "Leadership", "Communication",
-    "Data Analysis", "Problem Solving", "Process Optimization", "Client Relations",
-    "Operations", "Financial Modeling", "Quality Assurance", "Agile", "Scrum",
-    "Budget Management", "Workflow Automation", "Stakeholder Management",
-    "Team Coaching", "Product Strategy", "Research & Development", "Risk Management",
-    "Python", "JavaScript", "TypeScript", "React", "Node.js", "SQL", "Git", "Docker",
-    "Java", "C++", "C#", "AWS", "GCP", "Azure", "Kubernetes", "Linux", "Figma"
-  ];
-
-  for (const kw of standardKeywords) {
-    const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "i");
-    if (regex.test(cleanText)) {
-      skillsSet.add(kw);
-    }
-  }
-
-  const skills = Array.from(skillsSet).slice(0, 24);
+  const skills = Array.from(skillsSet).slice(0, 30);
 
   // 7. Extract Projects if section exists
   const projects: Array<{
@@ -575,7 +798,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
     for (const line of projSec.lines) {
       if ((line.includes(" - ") || line.includes(" | ") || line.length < 50) && !line.startsWith("•") && !line.startsWith("-")) {
         if (curProj && curProj.name) projects.push(curProj);
-        const namePart = line.split(/[-|]/)[0].trim();
+        const namePart = cleanTextToken(line.split(/[-|]/)[0].trim());
         curProj = {
           id: `proj_${projects.length + 1}`,
           name: namePart,
@@ -586,7 +809,10 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
           description: ""
         };
       } else if (curProj) {
-        curProj.description += (curProj.description ? "\n" : "") + (line.startsWith("•") || line.startsWith("-") ? line : `• ${line}`);
+        const cleanDesc = cleanTextToken(line);
+        if (cleanDesc) {
+          curProj.description += (curProj.description ? "\n" : "") + (line.startsWith("•") || line.startsWith("-") ? cleanDesc : `• ${cleanDesc}`);
+        }
       }
     }
     if (curProj && curProj.name) projects.push(curProj);
@@ -597,7 +823,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
   const langSec = sections.find(s => s.type === "languages");
   if (langSec && langSec.lines.length > 0) {
     for (const line of langSec.lines) {
-      const items = line.split(/[,•|·;/\\]+/).map(t => t.trim().replace(/^[-*]\s*/, "")).filter(Boolean);
+      const items = line.split(/[,•|·;/\\]+/).map(t => cleanTextToken(t)).filter(Boolean);
       for (const item of items) {
         if (item.length > 1) {
           let name = item;
@@ -605,8 +831,8 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
           if (item.includes("(") && item.includes(")")) {
             const match = item.match(/(.*?)\s*\((.*?)\)/);
             if (match) {
-              name = match[1].trim();
-              proficiency = match[2].trim();
+              name = cleanTextToken(match[1]);
+              proficiency = cleanTextToken(match[2]);
             }
           }
           languages.push({
@@ -624,15 +850,15 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
   const certSec = sections.find(s => s.type === "certifications");
   if (certSec && certSec.lines.length > 0) {
     for (const line of certSec.lines) {
-      const cleanLine = line.replace(/^[•*-]\s*/, "").trim();
+      const cleanLine = cleanTextToken(line);
       if (cleanLine.length > 2) {
         const yearMatch = cleanLine.match(/\b(19|20)\d{2}\b/);
         let name = cleanLine;
         let issuer = "";
         if (cleanLine.includes(" - ")) {
           const parts = cleanLine.split(" - ");
-          name = parts[0].trim();
-          issuer = parts[1].trim();
+          name = cleanTextToken(parts[0]);
+          issuer = cleanTextToken(parts[1]);
         }
         certifications.push({
           id: `cert_${certifications.length + 1}`,
@@ -655,7 +881,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
         const refPhone = line.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
         references.push({
           id: `ref_${references.length + 1}`,
-          name: line.split(/[,|-]/)[0].trim(),
+          name: cleanTextToken(line.split(/[,|-]/)[0]),
           company: "",
           title: "",
           email: refEmail ? refEmail[0] : "",
@@ -665,7 +891,27 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
     }
   }
 
-  // 11. Audit Report
+  // 11. Extract Custom Sections (volunteer, publications, awards, leadership, etc.)
+  const customSectionBlocks = sections.filter(s =>
+    ["volunteer", "publications", "awards", "leadership", "interests", "custom"].includes(s.type) ||
+    !["header", "summary", "experience", "education", "skills", "projects", "languages", "certifications", "references"].includes(s.type)
+  );
+
+  const customSections: ClientParsedResume["parsedResume"]["customSections"] = [];
+  for (const cSec of customSectionBlocks) {
+    if (cSec.lines && cSec.lines.length > 0) {
+      const items = parseCustomSectionItems(cSec.lines);
+      if (items.length > 0) {
+        customSections.push({
+          id: `custom_${customSections.length + 1}`,
+          title: cleanTextToken(cSec.title.replace(/^#+\s*/, "")) || "Additional Section",
+          items
+        });
+      }
+    }
+  }
+
+  // 12. Audit Report
   const realityScore = Math.min(94, Math.max(78, 70 + (emailMatch ? 6 : 0) + (phoneMatch ? 5 : 0) + (experience.length > 0 ? 8 : 0) + (skills.length >= 5 ? 5 : 0)));
 
   const strengths = [
@@ -724,7 +970,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
     ]
   };
 
-  // 12. Extracted Template Style
+  // 13. Extracted Template Style
   const extractedTemplateStyle: ClientParsedResume["extractedTemplateStyle"] = {
     templateId: "minimal",
     templateName: "Executive Clean Layout",
@@ -760,7 +1006,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
       languages,
       certifications,
       references,
-      customSections: []
+      customSections
     },
     auditReport,
     extractedTemplateStyle

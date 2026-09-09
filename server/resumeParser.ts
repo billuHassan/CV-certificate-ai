@@ -224,6 +224,217 @@ export async function extractDocumentText(buf: Buffer, mimeType: string, fileNam
 }
 
 /**
+ * Clean stray commas, colons, bullets, and delimiter artifacts from text tokens
+ */
+export function cleanTextToken(raw: string): string {
+  if (!raw) return "";
+  return raw
+    .replace(/^[•*·\-\s,;|:]+/, "")
+    .replace(/[•*·\-\s,;|:]+$/, "")
+    .trim();
+}
+
+/**
+ * Robust Skill Sanitizer
+ * Strips category prefixes ("Languages:"), conjunctions ("and ", "or "),
+ * trailing punctuation (commas, periods), and filters out filler phrases like "and everything".
+ */
+export function sanitizeSkillToken(raw: string): string | null {
+  if (!raw) return null;
+  let s = raw.trim();
+
+  // Strip leading bullet marks, list numbers, dashes
+  s = s.replace(/^[•*·\-\d.)\]\s]+/, "").trim();
+
+  // Strip common label prefixes like "Languages:", "Programming Languages:", "Tools:", etc.
+  s = s.replace(/^(?:languages|programming\s+languages|frameworks(?:\s+and\s+libraries)?|tools(?:\s+and\s+technologies)?|libraries|technical\s+skills|core\s+competencies|competencies|proficiencies|proficient\s+in|familiar\s+with|technologies|databases|methodologies|platforms|devops|skills|expertise)\s*:\s*/i, "").trim();
+
+  // Strip leading conjunctions: "and ", "or ", "& "
+  s = s.replace(/^(?:and|or|&)\s+/i, "").trim();
+
+  // Strip trailing punctuation (commas, semicolons, colons, periods, dashes)
+  s = s.replace(/[,.;:\-]+$/, "").trim();
+
+  // Strip surrounding quotes or parentheses if balanced or stray
+  s = s.replace(/^["'([{]+|[)"'\]}]+$/g, "").trim();
+
+  // Reject if too short or too long
+  if (s.length < 2 || s.length > 45) return null;
+
+  // Reject common filler phrases
+  if (/^(?:and|or|etc|etc\.|and\s+more|and\s+everything|and\s+others|including|such\s+as|with|various|plus|all\s+above|other|related)$/i.test(s)) {
+    return null;
+  }
+
+  // Reject if it looks like a sentence fragment with verbs
+  if (/\b(?:responsible\s+for|experienced\s+(?:in|with)|worked\s+(?:on|with)|proven\s+track\s+record|ability\s+to|knowledge\s+of|expert\s+in|hands-on\s+experience)\b/i.test(s)) {
+    return null;
+  }
+
+  // Must contain at least one letter or number
+  if (!/[a-zA-Z0-9]/.test(s)) return null;
+
+  return s;
+}
+
+/**
+ * Tokenizes skill lines without breaking composite terms like HTML/CSS, CI/CD, UI/UX
+ */
+export function extractSkillsFromLine(line: string): string[] {
+  let cleanedLine = line.trim();
+  cleanedLine = cleanedLine.replace(/^(?:languages|programming\s+languages|frameworks(?:\s+and\s+libraries)?|tools(?:\s+and\s+technologies)?|libraries|technical\s+skills|core\s+competencies|competencies|proficiencies|proficient\s+in|familiar\s+with|technologies|databases|methodologies|platforms|devops|skills|expertise)\s*:\s*/i, "").trim();
+
+  const rawTokens = cleanedLine
+    .split(/[,;•|·\t]|\s+and\s+|\s+&\s+/)
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  const skills: string[] = [];
+  for (const token of rawTokens) {
+    if (token.includes("/") && !/^(?:html\/css|ci\/cd|ui\/ux|tcp\/ip|pl\/sql|c\/c\+\+|sys\/ops)$/i.test(token.trim())) {
+      const subTokens = token.split("/").map(st => sanitizeSkillToken(st)).filter((s): s is string => Boolean(s));
+      skills.push(...subTokens);
+    } else {
+      const sanitized = sanitizeSkillToken(token);
+      if (sanitized) {
+        skills.push(sanitized);
+      }
+    }
+  }
+
+  return skills;
+}
+
+/**
+ * Intelligent Custom Section Parser
+ * Accurately groups an item's Header (title/role, org, date, location)
+ * with all its Explanation lines (bullet points, descriptions) into ONE single item.
+ * Never creates a separate item for each line!
+ */
+export function parseCustomSectionItems(lines: string[]): ExtractedCustomSectionItem[] {
+  const items: ExtractedCustomSectionItem[] = [];
+  if (!lines || lines.length === 0) return items;
+
+  const datePattern = /(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}(?:\s*(?:-|–|—|to|\/)\s*(?:(?:\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*\.?\s+)?\b(?:19|20)\d{2}|Present|Current|Now))?\b|\b(?:19|20)\d{2}\b/i;
+
+  let currentItem: Partial<ExtractedCustomSectionItem> | null = null;
+  let explanationBuffer: string[] = [];
+
+  const finalizeItem = () => {
+    if (currentItem && (currentItem.heading || explanationBuffer.length > 0)) {
+      const description = explanationBuffer.map(b => b.trim()).filter(Boolean).join("\n");
+      items.push({
+        id: currentItem.id || `item_${items.length + 1}`,
+        heading: cleanTextToken(currentItem.heading || (explanationBuffer[0] ? explanationBuffer[0].replace(/^•\s*/, "") : "Item")),
+        subheading: cleanTextToken(currentItem.subheading || ""),
+        date: cleanTextToken(currentItem.date || ""),
+        location: cleanTextToken(currentItem.location || ""),
+        description: description || currentItem.description || ""
+      });
+    }
+    currentItem = null;
+    explanationBuffer = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
+
+    const isBullet = /^[•*·\-\d.)\]]/.test(trimmed);
+    const hasDate = datePattern.test(trimmed);
+    const hasSeparator = trimmed.includes(" | ") || trimmed.includes(" - ") || trimmed.includes(" — ") || trimmed.includes(" at ");
+
+    // If currentItem exists, has NO explanations yet, and this line is NOT a bullet:
+    // Check if this line is metadata for the current item (date, location, subheading)
+    if (currentItem && explanationBuffer.length === 0 && !isBullet && (hasDate || trimmed.length < 50 || /^[A-Z][a-zA-Z\s.-]+,\s*[A-Z]{2}/.test(trimmed))) {
+      let metaLine = trimmed;
+      const dMatch = metaLine.match(datePattern);
+      if (dMatch && !currentItem.date) {
+        currentItem.date = dMatch[0].trim();
+        metaLine = metaLine.replace(dMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+      const locMatch = metaLine.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
+      if (locMatch && !locMatch[0].includes("University") && !currentItem.location) {
+        currentItem.location = locMatch[0].trim();
+        metaLine = metaLine.replace(locMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+      metaLine = cleanTextToken(metaLine);
+      if (metaLine && !currentItem.subheading) {
+        currentItem.subheading = metaLine;
+      }
+      continue;
+    }
+
+    // Determine if this line starts a NEW item header vs being an explanation line
+    const isNewItemHeader = !isBullet && (
+      !currentItem ||
+      hasDate ||
+      hasSeparator ||
+      explanationBuffer.length > 0 ||
+      (trimmed.length < 75 && !/[.!?]$/.test(trimmed))
+    );
+
+    if (isNewItemHeader) {
+      finalizeItem();
+
+      currentItem = { id: `item_${items.length + 1}` };
+
+      let lineText = trimmed;
+      const dMatch = lineText.match(datePattern);
+      if (dMatch) {
+        currentItem.date = dMatch[0].trim();
+        lineText = lineText.replace(dMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+
+      const locMatch = lineText.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
+      if (locMatch && !locMatch[0].includes("University")) {
+        currentItem.location = locMatch[0].trim();
+        lineText = lineText.replace(locMatch[0], "").replace(/\(\s*\)/g, "").trim();
+      }
+
+      lineText = cleanTextToken(lineText);
+
+      if (lineText.includes(" | ")) {
+        const [h, s] = lineText.split(" | ");
+        currentItem.heading = cleanTextToken(h);
+        currentItem.subheading = cleanTextToken(s);
+      } else if (lineText.includes(" - ") || lineText.includes(" — ")) {
+        const parts = lineText.split(/\s+[-—]\s+/);
+        currentItem.heading = cleanTextToken(parts[0] || "");
+        currentItem.subheading = cleanTextToken(parts.slice(1).join(" - "));
+      } else if (lineText.includes(" at ")) {
+        const [h, s] = lineText.split(" at ");
+        currentItem.heading = cleanTextToken(h);
+        currentItem.subheading = cleanTextToken(s);
+      } else if (lineText.includes(", ") && lineText.split(", ").length === 2 && lineText.split(", ")[1].length < 40) {
+        const parts = lineText.split(", ");
+        currentItem.heading = cleanTextToken(parts[0]);
+        currentItem.subheading = cleanTextToken(parts[1]);
+      } else {
+        currentItem.heading = lineText;
+      }
+    } else {
+      // Explanation line: attach to current item's description
+      if (!currentItem) {
+        currentItem = {
+          id: `item_${items.length + 1}`,
+          heading: cleanTextToken(trimmed.replace(/^[•*·\-\d.)\]\s]+/, ""))
+        };
+      } else {
+        const cleanExp = trimmed.replace(/^[•*·\-\d.)\]\s]+/, "").replace(/^[,;]\s*/, "").trim();
+        if (cleanExp) {
+          explanationBuffer.push(`• ${cleanExp}`);
+        }
+      }
+    }
+  }
+
+  finalizeItem();
+  return items;
+}
+
+/**
  * Deterministic Resume Parser & Section Extractor
  * Parses 100% of resume contents using pattern recognition, regex, and structured section splitting
  */
@@ -260,9 +471,21 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
 
   if (nonHeaderLines.length > 0) {
     // Top non-header line is usually Full Name
-    fullName = nonHeaderLines[0].replace(/^#+\s*/, "").trim();
-    if (nonHeaderLines.length > 1 && nonHeaderLines[1].length < 60 && !nonHeaderLines[1].includes("http")) {
-      jobTitle = nonHeaderLines[1].replace(/^#+\s*/, "").trim();
+    const rawName = nonHeaderLines[0].replace(/^#+\s*/, "").trim();
+    if (rawName.includes(" | ")) {
+      const [n, t] = rawName.split(" | ");
+      fullName = cleanTextToken(n);
+      jobTitle = cleanTextToken(t);
+    } else if (rawName.includes(" - ")) {
+      const [n, t] = rawName.split(" - ");
+      fullName = cleanTextToken(n);
+      jobTitle = cleanTextToken(t);
+    } else {
+      fullName = cleanTextToken(rawName);
+    }
+
+    if (!jobTitle && nonHeaderLines.length > 1 && nonHeaderLines[1].length < 60 && !nonHeaderLines[1].includes("http")) {
+      jobTitle = cleanTextToken(nonHeaderLines[1].replace(/^#+\s*/, ""));
     }
   }
 
@@ -518,12 +741,9 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
   const skillSec = sections.find(s => s.type === "skills");
   if (skillSec && skillSec.lines.length > 0) {
     for (const line of skillSec.lines) {
-      // Split on commas, bullets, pipes, slashes, or tabs
-      const tokens = line.split(/[,|•·/|\t;]/).map(t => t.trim().replace(/^[-*]\s*/, "")).filter(t => t.length > 1 && t.length < 40);
-      for (const token of tokens) {
-        if (!token.toLowerCase().includes("skills") && !token.toLowerCase().includes("competencies")) {
-          skillsSet.add(token);
-        }
+      const extracted = extractSkillsFromLine(line);
+      for (const skill of extracted) {
+        skillsSet.add(skill);
       }
     }
   }
@@ -663,15 +883,14 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
   
   for (const sec of sections) {
     if (!standardTypes.has(sec.type) && sec.lines.length > 0) {
-      customSections.push({
-        id: `custom_${sec.type}_${Date.now()}`,
-        title: sec.title || "Additional Information",
-        items: sec.lines.map((l, idx) => ({
-          id: `item_${idx + 1}`,
-          heading: l.replace(/^[•*-]\s*/, "").trim(),
-          description: l
-        }))
-      });
+      const parsedItems = parseCustomSectionItems(sec.lines);
+      if (parsedItems.length > 0) {
+        customSections.push({
+          id: `custom_${sec.type}_${Date.now()}_${customSections.length + 1}`,
+          title: cleanTextToken(sec.title) || "Additional Information",
+          items: parsedItems
+        });
+      }
     }
   }
 
@@ -697,7 +916,7 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
     certifications,
     references,
     customSections,
-    sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references"],
+    sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references", "customSections"],
     templateId: "extracted_executive_slate",
     colorTheme: "#0f766e",
     fontFamily: "font-sans",
@@ -810,29 +1029,32 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   // Skills: prioritize AI extracted skills without injecting fake generic skills
   if (Array.isArray(aiParsed.skills) && aiParsed.skills.length > 0) {
     const validAiSkills = aiParsed.skills
-      .map((s: any) => (typeof s === "string" ? s.trim() : ""))
-      .filter((s: string) => s.length > 1);
+      .map((s: any) => (typeof s === "string" ? sanitizeSkillToken(s) : null))
+      .filter((s: string | null): s is string => Boolean(s));
     
     // Combine with deterministic text-matched skills if present
     const combinedSkills = new Set<string>(validAiSkills);
     if (deterministic.skills && deterministic.skills.length > 0) {
       for (const ds of deterministic.skills) {
-        if (ds && ds.trim().length > 1) {
-          combinedSkills.add(ds.trim());
+        const cleaned = sanitizeSkillToken(ds);
+        if (cleaned) {
+          combinedSkills.add(cleaned);
         }
       }
     }
     merged.skills = Array.from(combinedSkills);
   } else if (deterministic.skills && deterministic.skills.length > 0) {
-    merged.skills = deterministic.skills;
+    merged.skills = deterministic.skills
+      .map(s => sanitizeSkillToken(s))
+      .filter((s: string | null): s is string => Boolean(s));
   }
 
   // Languages
   if (Array.isArray(aiParsed.languages) && aiParsed.languages.length > 0) {
     merged.languages = aiParsed.languages.map((l: any, idx: number) => ({
       id: l.id || `lang_${idx + 1}`,
-      name: l.name || "",
-      proficiency: l.proficiency || ""
+      name: cleanTextToken(l.name || ""),
+      proficiency: cleanTextToken(l.proficiency || "")
     })).filter((l: any) => l.name);
   }
 
@@ -840,10 +1062,10 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   if (Array.isArray(aiParsed.certifications) && aiParsed.certifications.length > 0) {
     merged.certifications = aiParsed.certifications.map((c: any, idx: number) => ({
       id: c.id || `cert_${idx + 1}`,
-      name: c.name || "",
-      issuer: c.issuer || "",
-      date: c.date || "",
-      url: c.url || ""
+      name: cleanTextToken(c.name || ""),
+      issuer: cleanTextToken(c.issuer || ""),
+      date: cleanTextToken(c.date || ""),
+      url: cleanTextToken(c.url || "")
     })).filter((c: any) => c.name);
   }
 
@@ -851,11 +1073,11 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   if (Array.isArray(aiParsed.references) && aiParsed.references.length > 0) {
     merged.references = aiParsed.references.map((r: any, idx: number) => ({
       id: r.id || `ref_${idx + 1}`,
-      name: r.name || "",
-      company: r.company || "",
-      title: r.title || "",
-      email: r.email || "",
-      phone: r.phone || ""
+      name: cleanTextToken(r.name || ""),
+      company: cleanTextToken(r.company || ""),
+      title: cleanTextToken(r.title || ""),
+      email: cleanTextToken(r.email || ""),
+      phone: cleanTextToken(r.phone || "")
     })).filter((r: any) => r.name);
   }
 
@@ -863,9 +1085,18 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   if (Array.isArray(aiParsed.customSections) && aiParsed.customSections.length > 0) {
     merged.customSections = aiParsed.customSections.map((cs: any, idx: number) => ({
       id: cs.id || `custom_${idx + 1}`,
-      title: cs.title || "Custom Section",
-      items: Array.isArray(cs.items) ? cs.items : []
-    }));
+      title: cleanTextToken(cs.title || "Additional Information"),
+      items: Array.isArray(cs.items) ? cs.items.map((item: any, iIdx: number) => ({
+        id: item.id || `item_${iIdx + 1}`,
+        heading: cleanTextToken(item.heading || ""),
+        subheading: cleanTextToken(item.subheading || ""),
+        date: cleanTextToken(item.date || ""),
+        location: cleanTextToken(item.location || ""),
+        description: Array.isArray(item.description) ? item.description.join("\n").trim() : (item.description || "").trim()
+      })).filter((item: any) => item.heading || item.description) : []
+    })).filter((cs: any) => cs.items.length > 0);
+  } else if (deterministic.customSections && deterministic.customSections.length > 0) {
+    merged.customSections = deterministic.customSections;
   }
 
   return merged;
