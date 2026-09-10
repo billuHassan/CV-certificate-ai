@@ -1,10 +1,10 @@
 import "./env-init";
 import express from "express";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 import os from "os";
 import { GoogleGenAI, Type } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
 import mammoth from "mammoth";
 import * as pdfParseModule from "pdf-parse";
@@ -126,6 +126,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Proxy & Serverless URL Normalization (ensures both /api/... and proxy-stripped /ai/..., /auth/... routes work identically)
+app.use((req, res, next) => {
+  if (!req.url.startsWith("/api") && (
+    req.url.startsWith("/ai/") ||
+    req.url.startsWith("/auth/") ||
+    req.url.startsWith("/admin/") ||
+    req.url.startsWith("/payments/") ||
+    req.url.startsWith("/feedback/")
+  )) {
+    req.url = "/api" + req.url;
+  }
+  next();
+});
+
 // Global Server-Side Statistics for Admin Dashboard
 const serverStats = {
   totalRequests: 0,
@@ -150,6 +164,11 @@ function addServerEvent(event: string) {
     serverStats.recentEvents.pop();
   }
 }
+
+// Standard health check for Cloud Run, Docker, and deployment verifications
+app.get(["/api/health", "/health"], (req, res) => {
+  res.json({ status: "ok", environment: process.env.NODE_ENV || "development", timestamp: Date.now() });
+});
 
 // Stats recording middleware
 app.use((req, res, next) => {
@@ -1805,20 +1824,52 @@ app.post("/api/feedback/send-email", async (req, res) => {
 // Express static & Vite Middleware setup
 // ----------------------------------------------------
 
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  (typeof __filename !== "undefined" && __filename.endsWith(".cjs")) ||
+  (typeof __dirname !== "undefined" && __dirname.includes("dist")) ||
+  Boolean(process.env.RENDER) ||
+  Boolean(process.env.RAILWAY_ENVIRONMENT) ||
+  Boolean(process.env.K_SERVICE);
+
+if (isProduction && process.env.NODE_ENV !== "production") {
+  process.env.NODE_ENV = "production";
+}
+
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    // Vite Dev Mode
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+  if (!isProduction) {
+    // Vite Dev Mode (lazy-loaded so vite is not required in production containers)
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (viteErr) {
+      console.warn("[SERVER] Vite dev server failed to start, falling back to static files:", viteErr);
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        const indexPath = path.join(distPath, "index.html");
+        if (fs.existsSync(indexPath)) {
+          res.sendFile(indexPath);
+        } else {
+          res.send("CV Craft AI Server Running");
+        }
+      });
+    }
   } else {
     // Production Mode
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      const indexPath = path.join(distPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.send("CV Craft AI Server Running");
+      }
     });
   }
 
@@ -1827,7 +1878,12 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only start standalone HTTP server if running as standalone process (not inside Vercel serverless function or AWS Lambda)
+const isServerless = Boolean(process.env.VERCEL) || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+if (!isServerless) {
+  startServer();
+}
 
 export { app, startServer };
 export default app;

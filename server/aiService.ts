@@ -34,8 +34,20 @@ export class AIService {
 
   private geminiClient: GoogleGenAI | null = null;
   private groqApiKey: string = "";
-  private geminiModels: string[] = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"];
-  private groqModel: string = "llama-3.3-70b-versatile";
+  private geminiModels: string[] = [
+    "gemini-3.8-flash",
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+  ];
+  private groqModels: string[] = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
+    "groq/compound-mini",
+    "llama-3.3-70b-versatile",
+  ];
   private cache: Map<string, CacheEntry<any>> = new Map();
   private cacheTtlMs: number = 60 * 60 * 1000; // 1 hour
   private geminiBlockedUntil: number = 0;
@@ -48,7 +60,10 @@ export class AIService {
   private constructor() {
     this.initProviders();
     // Periodically clean expired cache
-    setInterval(() => this.cleanCache(), 5 * 60 * 1000);
+    const timer = setInterval(() => this.cleanCache(), 5 * 60 * 1000);
+    if (typeof timer.unref === "function") {
+      timer.unref();
+    }
   }
 
   public static getInstance(): AIService {
@@ -78,9 +93,9 @@ export class AIService {
       console.warn("[AIService] No GEMINI_API_KEY detected. Dynamic local generator fallback active.");
     }
 
-    this.groqApiKey = (process.env.GROQ_API_KEY || "").trim();
+    this.groqApiKey = (process.env.GROQ_API_KEY || process.env.RAHMORA_API_KEY || "").trim();
     if (this.groqApiKey) {
-      console.log("[AIService] Groq secondary fallback provider configured.");
+      console.log("[AIService] High-speed Groq secondary/failover provider initialized with active API key.");
     }
   }
 
@@ -188,39 +203,45 @@ export class AIService {
   // --- Groq Secondary Provider Call ---
   private async callGroq(prompt: string, systemPrompt?: string, jsonMode: boolean = true): Promise<string | null> {
     if (!this.groqApiKey) return null;
-    try {
-      const messages: any[] = [];
-      if (systemPrompt) {
-        messages.push({ role: "system", content: systemPrompt });
+
+    for (const model of this.groqModels) {
+      try {
+        const messages: any[] = [];
+        if (systemPrompt) {
+          messages.push({ role: "system", content: systemPrompt });
+        }
+        messages.push({ role: "user", content: prompt });
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8500);
+
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${this.groqApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            response_format: jsonMode ? { type: "json_object" } : undefined,
+            temperature: 0.2,
+            max_tokens: 4096,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const json: any = await res.json();
+          const content = json?.choices?.[0]?.message?.content || null;
+          if (content) {
+            return content;
+          }
+        }
+      } catch (e: any) {
+        // Try next candidate model
       }
-      messages.push({ role: "user", content: prompt });
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6500);
-
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${this.groqApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: this.groqModel,
-          messages,
-          response_format: jsonMode ? { type: "json_object" } : undefined,
-          temperature: 0.2,
-          max_tokens: 4096,
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const json: any = await res.json();
-        return json?.choices?.[0]?.message?.content || null;
-      }
-    } catch (e) {
-      console.warn("[AIService] Groq secondary provider error:", e);
     }
     return null;
   }
@@ -247,9 +268,10 @@ export class AIService {
 
     // 2. Try Gemini Models if not in rate-limit cooldown
     if (client && Date.now() >= this.geminiBlockedUntil) {
-      const activeModels = this.geminiModels.slice(0, 2);
+      const activeModels = this.geminiModels;
       const isHeavyTask = actionName.includes("parse") || actionName.includes("audit") || actionName.includes("coach") || actionName.includes("analytics");
       const taskTimeoutMs = isHeavyTask ? 30000 : 15000;
+      let hitQuotaOnAll = true;
 
       for (const modelName of activeModels) {
         try {
@@ -271,6 +293,7 @@ export class AIService {
             continue;
           }
 
+          hitQuotaOnAll = false;
           if (errMsg.includes("AI_TIMEOUT")) {
             console.warn(`[AIService] Call timed out on ${modelName}. Trying next model.`);
             continue;
@@ -284,15 +307,20 @@ export class AIService {
           continue;
         }
       }
+
+      if (hitQuotaOnAll) {
+        // Activate a 1-minute cooldown so subsequent calls don't stall waiting on exhausted Gemini models
+        this.geminiBlockedUntil = Date.now() + 60 * 1000;
+      }
     }
 
-    // 3. Try Secondary Provider (Groq) if configured
+    // 3. Try Secondary High-Speed Provider (Groq / RAHMORA_API_KEY) if configured
     if (this.groqApiKey && options?.rawPrompt) {
       try {
         const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true);
         if (groqText) {
           const parsed = this.safeParseJson<T | null>(groqText, null);
-          if (parsed) {
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
             this.setInCache(cacheKey, parsed);
             return parsed;
           }
@@ -423,7 +451,8 @@ Return JSON:
           improvedBullets: [b1, b2, b3],
           atsKeywordsIncluded: roleInfo.coreSkills.slice(0, 4),
         };
-      }
+      },
+      { rawPrompt: `Rewrite experience for ${position} at ${company}: "${description}" in JSON {rewritten, improvedBullets, atsKeywordsIncluded}` }
     );
   }
 
@@ -474,7 +503,8 @@ Return JSON with:
       },
       () => ({
         summary: roleInfo.sampleSummary || `Results-oriented ${jobTitle} with ${expYears} years of proven success in driving organizational growth, executing strategic initiatives, and optimizing cross-functional performance. Skilled in ${skillsList.slice(0, 3).join(", ") || roleInfo.coreSkills.slice(0, 3).join(", ")} with a dedicated commitment to operational excellence. Recognized for delivering measurable outcomes and fostering collaborative team environments.`,
-      })
+      }),
+      { rawPrompt: `Write a tailored 3-sentence executive summary for ${jobTitle} (${expYears} years exp, skills: ${skillsList.slice(0, 5).join(", ")}) in JSON {summary}` }
     );
   }
 
@@ -517,7 +547,8 @@ Return JSON:
           "Cross-Functional Leadership", "Data Analysis", "Risk Management",
           "Problem Solving", "Stakeholder Communication"
         ],
-      })
+      }),
+      { rawPrompt: `Recommend 12 top ATS keywords and domain skills for "${jobTitle}" in JSON {skills: string[]}` }
     );
   }
 
@@ -571,7 +602,8 @@ Return JSON:
       },
       () => ({
         coverLetter: `Dear ${recipient},\n\nI am writing to express my strong enthusiasm for the ${jobTitle} role at ${company}. With a solid foundation in delivering high-impact solutions and driving operational efficiency, I am eager to contribute to your team's ongoing success.\n\nThroughout my career, I have consistently focused on executing strategic initiatives and solving complex challenges. My background in ${skills || "cross-functional collaboration and project leadership"} aligns directly with the core objectives of ${company}. I take pride in fostering collaborative relationships and delivering measurable results on critical milestones.\n\nI look forward to discussing how my experience and passion can bring tangible value to ${company}. Thank you for your time and consideration.\n\nSincerely,\n${candidateName}`,
-      })
+      }),
+      { rawPrompt: `Write a tailored 3-paragraph executive cover letter for ${candidateName} applying for ${jobTitle} at ${company} (skills: ${skills}). Return JSON {coverLetter: string}` }
     );
   }
 
@@ -622,7 +654,8 @@ Return JSON:
         recipientCompany: company,
         jobTitle: jobTitle,
         coverLetter: `Dear Hiring Team,\n\nI am writing to apply for the ${jobTitle} position at ${company}. With extensive experience in driving project milestones and delivering quality outcomes, I am excited about the opportunity to join your organization.\n\nMy background includes strong capabilities in ${skills || "strategic problem solving and teamwork"}, which enables me to quickly adapt and add immediate value. I am inspired by ${company}'s mission and look forward to the chance to contribute to your growth.\n\nThank you for considering my application.\n\nWarm regards,\n${fullName}`,
-      })
+      }),
+      { rawPrompt: `Auto-draft a tailored cover letter for ${fullName} applying for ${jobTitle} at ${company}. Return JSON {coverLetter, recipientCompany, jobTitle}` }
     );
   }
 
@@ -784,7 +817,11 @@ Return valid JSON with top-level keys: "parsedResume", "auditReport", "extracted
         parsedResume: deterministicResume,
         auditReport: this.generateDefaultAudit(deterministicResume),
         extractedTemplateStyle: deterministicResume.extractedTemplateStyle,
-      })
+      }),
+      {
+        systemPrompt: "You are an ATS resume parser. Return valid JSON containing parsedResume (with personalInfo, summary, experience, education, skills, projects, certifications) and auditReport.",
+        rawPrompt: `Extract full resume details from this document text and return JSON {parsedResume, auditReport}: ${primaryText.slice(0, 3500)}`
+      }
     );
   }
 
@@ -948,7 +985,10 @@ Return JSON:
           "Ensure each role includes at least one quantifiable outcome metric.",
           "Keep summary paragraph concise (under 4 sentences) for quick recruiter scanning.",
         ],
-      })
+      }),
+      {
+        rawPrompt: `Perform ATS scoring for ${jobTitle} (skills: ${skills}, expCount: ${expCount}). Return JSON with overallScore (0-100), atsScore (0-100), kwScore (0-100), sectionsAnalysis (array of {section, score, feedback, status}), grammarCheck (array), suggestions (array of strings).`
+      }
     );
   }
 
@@ -1002,7 +1042,11 @@ Provide crisp, actionable, inspiring advice. Return JSON with:
           "Can you suggest top skills for my industry?",
           "How do I prepare for behavioral interview questions?",
         ],
-      })
+      }),
+      {
+        systemPrompt: `You are RAHMORA AI, an expert Senior Career Strategist and Executive Resume Coach for ${role}. Return JSON with reply (markdown) and suggestions (array of 3 strings).`,
+        rawPrompt: `User question: "${lastMsg}". Please provide expert career and resume guidance tailored to a ${role} in JSON {reply, suggestions}.`
+      }
     );
   }
 
