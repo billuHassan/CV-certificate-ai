@@ -33,20 +33,20 @@ export class AIService {
   private static instance: AIService;
 
   private geminiClient: GoogleGenAI | null = null;
-  private groqApiKey: string = "";
+  private groqApiKeys: string[] = [];
+  private currentKeyIndex: number = 0;
   private geminiModels: string[] = [
-    "gemini-3.8-flash",
-    "gemini-flash-latest",
     "gemini-3.1-flash-lite",
     "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
     "gemini-2.5-pro",
   ];
+  // Strictly use verified working Groq models only (avoid 404s from unavailable models)
   private groqModels: string[] = [
     "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
     "qwen/qwen3.8-27b",
-    "groq/compound-mini",
-    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-20b",
   ];
   private cache: Map<string, CacheEntry<any>> = new Map();
   private cacheTtlMs: number = 60 * 60 * 1000; // 1 hour
@@ -74,6 +74,19 @@ export class AIService {
   }
 
   private initProviders() {
+    // 1. Initialize Dual Groq Keys (Primary Engine)
+    const k1 = (process.env.RAHMORA_API_KEY || process.env.GROQ_API_KEY || "").trim();
+    const k2 = (process.env.RAHMORA2_API_KEY || process.env.GROQ_API_KEY_2 || "").trim();
+    this.groqApiKeys = Array.from(new Set([k1, k2].filter(k => k && k.length > 20)));
+
+    if (this.groqApiKeys.length > 0) {
+      const masked = this.groqApiKeys.map(k => `${k.slice(0, 7)}...${k.slice(-4)}`);
+      console.log(`[AIService] Primary Dual-Key Groq Engine initialized with ${this.groqApiKeys.length} key(s) [${masked.join(", ")}] on verified models: [${this.groqModels.join(", ")}].`);
+    } else {
+      console.warn("[AIService] No Groq API keys detected. Gemini or local generator will act as primary.");
+    }
+
+    // 2. Initialize Gemini (Secondary/Fallback Provider)
     const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
     if (geminiKey && geminiKey !== "undefined") {
       try {
@@ -85,17 +98,10 @@ export class AIService {
             },
           },
         });
-        console.log("[AIService] Gemini provider initialized successfully.");
+        console.log("[AIService] Gemini fallback provider initialized.");
       } catch (err) {
         console.error("[AIService] Gemini initialization error:", err);
       }
-    } else {
-      console.warn("[AIService] No GEMINI_API_KEY detected. Dynamic local generator fallback active.");
-    }
-
-    this.groqApiKey = (process.env.GROQ_API_KEY || process.env.RAHMORA_API_KEY || "").trim();
-    if (this.groqApiKey) {
-      console.log("[AIService] High-speed Groq secondary/failover provider initialized with active API key.");
     }
   }
 
@@ -200,53 +206,68 @@ export class AIService {
     return true;
   }
 
-  // --- Groq Secondary Provider Call ---
+  // --- Groq Primary Dual-Key Provider Call ---
   private async callGroq(prompt: string, systemPrompt?: string, jsonMode: boolean = true): Promise<string | null> {
-    if (!this.groqApiKey) return null;
+    if (this.groqApiKeys.length === 0) return null;
 
-    for (const model of this.groqModels) {
-      try {
-        const messages: any[] = [];
-        if (systemPrompt) {
-          messages.push({ role: "system", content: systemPrompt });
-        }
-        messages.push({ role: "user", content: prompt });
+    // Load-balance between keys with round-robin starting position
+    const keysCount = this.groqApiKeys.length;
+    const startIdx = this.currentKeyIndex % keysCount;
+    this.currentKeyIndex = (this.currentKeyIndex + 1) % keysCount;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8500);
+    const orderedKeys = [
+      ...this.groqApiKeys.slice(startIdx),
+      ...this.groqApiKeys.slice(0, startIdx),
+    ];
 
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${this.groqApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages,
-            response_format: jsonMode ? { type: "json_object" } : undefined,
-            temperature: 0.2,
-            max_tokens: 4096,
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const json: any = await res.json();
-          const content = json?.choices?.[0]?.message?.content || null;
-          if (content) {
-            return content;
+    for (const apiKey of orderedKeys) {
+      for (const model of this.groqModels) {
+        try {
+          const messages: any[] = [];
+          if (systemPrompt) {
+            messages.push({ role: "system", content: systemPrompt });
           }
+          messages.push({ role: "user", content: prompt });
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 9500);
+
+          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages,
+              response_format: jsonMode ? { type: "json_object" } : undefined,
+              temperature: 0.1,
+              max_tokens: 4096,
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const json: any = await res.json();
+            const content = json?.choices?.[0]?.message?.content || null;
+            if (content) {
+              return content;
+            }
+          } else if (res.status === 429) {
+            // Key hit rate limit, break inner model loop and try next key immediately
+            break;
+          }
+        } catch {
+          // Try next model or next key
         }
-      } catch (e: any) {
-        // Try next candidate model
       }
     }
     return null;
   }
 
-  // --- Resilient Execution Engine with Multi-Tier Fallback ---
+  // --- Resilient Execution Engine with Dual-Key Groq as Primary ---
   public async executeWithFallback<T>(
     actionName: string,
     minimizedPayload: any,
@@ -264,9 +285,25 @@ export class AIService {
     }
 
     this.trackRequest();
-    const client = this.getClient();
 
-    // 2. Try Gemini Models if not in rate-limit cooldown
+    // 2. PRIMARY ENGINE: Dual-Key Groq Provider using verified direct models
+    if (this.groqApiKeys.length > 0 && options?.rawPrompt) {
+      try {
+        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true);
+        if (groqText) {
+          const parsed = this.safeParseJson<T | null>(groqText, null);
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+            this.setInCache(cacheKey, parsed as T);
+            return parsed as T;
+          }
+        }
+      } catch {
+        // Continue to secondary options if Groq encounters an issue
+      }
+    }
+
+    // 3. SECONDARY BACKUP: Gemini Models (only if Groq is unconfigured or failed)
+    const client = this.getClient();
     if (client && Date.now() >= this.geminiBlockedUntil) {
       const activeModels = this.geminiModels;
       const isHeavyTask = actionName.includes("parse") || actionName.includes("audit") || actionName.includes("coach") || actionName.includes("analytics");
@@ -289,44 +326,24 @@ export class AIService {
           const status = err?.status || err?.statusCode || 0;
 
           if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-            console.warn(`[AIService] Gemini quota reached on ${modelName}. Trying next available model.`);
+            continue;
+          }
+
+          if (status === 503 || errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("UNAVAILABLE")) {
             continue;
           }
 
           hitQuotaOnAll = false;
-          if (errMsg.includes("AI_TIMEOUT")) {
-            console.warn(`[AIService] Call timed out on ${modelName}. Trying next model.`);
+          if (errMsg.includes("AI_TIMEOUT") || status === 404 || errMsg.includes("not found")) {
             continue;
           }
 
-          if (status === 404 || errMsg.includes("not found")) {
-            continue;
-          }
-
-          console.warn(`[AIService] Gemini error on ${modelName} (${errMsg}). Trying next model.`);
           continue;
         }
       }
 
       if (hitQuotaOnAll) {
-        // Activate a 1-minute cooldown so subsequent calls don't stall waiting on exhausted Gemini models
         this.geminiBlockedUntil = Date.now() + 60 * 1000;
-      }
-    }
-
-    // 3. Try Secondary High-Speed Provider (Groq / RAHMORA_API_KEY) if configured
-    if (this.groqApiKey && options?.rawPrompt) {
-      try {
-        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true);
-        if (groqText) {
-          const parsed = this.safeParseJson<T | null>(groqText, null);
-          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
-            this.setInCache(cacheKey, parsed);
-            return parsed;
-          }
-        }
-      } catch (e) {
-        console.warn("[AIService] Groq parsing error, using local generator:", e);
       }
     }
 
@@ -1075,11 +1092,7 @@ Provide crisp, actionable, inspiring advice. Return JSON with:
       .join("; ");
 
     if (mode === "generate_questions") {
-      return this.executeWithFallback(
-        "interview_generate_questions",
-        { jobTitle, company, domain: roleInfo.domainName },
-        async (client, model) => {
-          const prompt = `You are a Senior Executive Talent Interviewer specializing in ${roleInfo.domainName}.
+      const prompt = `You are a Senior Executive Talent Interviewer specializing in ${roleInfo.domainName}.
 Candidate Profile:
 - Target Role: "${jobTitle}" at "${company}"
 - Domain Field: ${roleInfo.domainName}
@@ -1092,6 +1105,10 @@ Include 2 technical/domain questions, 2 behavioral questions, and 2 HR/alignment
 Return JSON:
 - questions: array of { id, question, category, difficulty, starGuide: { situation, task, action, result }, sampleAnswer, keyPoints }`;
 
+      return this.executeWithFallback(
+        "interview_generate_questions",
+        { jobTitle, company, domain: roleInfo.domainName },
+        async (client, model) => {
           const res = await client.models.generateContent({
             model,
             contents: prompt,
@@ -1148,21 +1165,22 @@ Return JSON:
               keyPoints: ["Company Alignment", "Role Readiness", "Enthusiasm", "Mutual Value"],
             },
           ],
-        })
+        }),
+        { rawPrompt: prompt }
       );
     } else {
       // Evaluate Answer
-      return this.executeWithFallback(
-        "interview_evaluate_answer",
-        { question, userAnswer: (userAnswer || "").slice(0, 300) },
-        async (client, model) => {
-          const prompt = `Evaluate this interview answer for a "${jobTitle}" in the "${roleInfo.domainName}" field:
+      const prompt = `Evaluate this interview answer for a "${jobTitle}" in the "${roleInfo.domainName}" field:
 Question: "${question}"
 Candidate Answer: "${userAnswer}"
 
 Return JSON:
 - evaluation: { confidenceScore, communicationScore, technicalScore, overallScore, verdict, answerAnalysis, strengths, improvementSuggestions, exemplarAnswer, fillerWordsDetected }`;
 
+      return this.executeWithFallback(
+        "interview_evaluate_answer",
+        { question, userAnswer: (userAnswer || "").slice(0, 300) },
+        async (client, model) => {
           const res = await client.models.generateContent({
             model,
             contents: prompt,
@@ -1209,7 +1227,8 @@ Return JSON:
             areasToImprove: evaluation.improvementSuggestions,
             recruiterFeedback: evaluation.answerAnalysis,
           };
-        }
+        },
+        { rawPrompt: prompt }
       );
     }
   }
@@ -1225,11 +1244,7 @@ Return JSON:
     const expCount = (resume.experience || []).length;
     const pastCompanies = (resume.experience || []).map((e: any) => e.company).filter(Boolean).slice(0, 3).join(", ");
 
-    return this.executeWithFallback(
-      "career_recommendation",
-      { role, skills, expCount },
-      async (client, model) => {
-        const prompt = `You are a Global Executive Career Placement Strategist.
+    const prompt = `You are a Global Executive Career Placement Strategist.
 Candidate Background:
 - Current/Target Role: "${role}" (Industry Domain: ${roleInfo.domainName})
 - Documented Skills: ${skills}
@@ -1333,6 +1348,10 @@ Generate comprehensive career recommendations in valid JSON:
   "strategicAdvice": "Focus on driving measurable business outcomes and documenting quantifiable results on your resume."
 }`;
 
+    return this.executeWithFallback(
+      "career_recommendation",
+      { role, skills, expCount },
+      async (client, model) => {
         const res = await client.models.generateContent({
           model,
           contents: prompt,
@@ -1461,7 +1480,8 @@ Generate comprehensive career recommendations in valid JSON:
           skillGaps: ["Advanced Domain Analytics", "Cross-Team Project Leadership"],
           strategicAdvice: "Ensure your resume explicitly quantifies business impact and outcome metrics.",
         };
-      }
+      },
+      { rawPrompt: prompt }
     );
   }
 
@@ -1473,14 +1493,14 @@ Generate comprehensive career recommendations in valid JSON:
     const roleInfo = getRoleDomainInfo(jobTitle);
     const industry = payload.industry || roleInfo.industry;
 
+    const prompt = `Provide 4 high-impact career growth tips, ATS advice, and market trends specifically for a "${jobTitle}" in the "${industry}" / "${roleInfo.domainName}" industry.
+Return JSON with:
+- tips: array of { id, title, description, category, impactLevel }`;
+
     return this.executeWithFallback(
       "career_tips",
       { jobTitle, industry },
       async (client, model) => {
-        const prompt = `Provide 4 high-impact career growth tips, ATS advice, and market trends specifically for a "${jobTitle}" in the "${industry}" / "${roleInfo.domainName}" industry.
-Return JSON with:
-- tips: array of { id, title, description, category, impactLevel }`;
-
         const res = await client.models.generateContent({
           model,
           contents: prompt,
@@ -1523,7 +1543,8 @@ Return JSON with:
             impactLevel: "Medium Impact",
           },
         ],
-      })
+      }),
+      { rawPrompt: prompt }
     );
   }
 
@@ -1574,17 +1595,17 @@ Return JSON with:
     const resume = payload.resume || {};
     const jobTitle = resume.personalInfo?.jobTitle || "Professional";
 
-    return this.executeWithFallback(
-      "auto_apply_changes",
-      { jobTitle, expLength: (resume.experience || []).length },
-      async (client, model) => {
-        const prompt = `Enhance this candidate resume to achieve a 95+ ATS reality score:
+    const prompt = `Enhance this candidate resume to achieve a 95+ ATS reality score:
 Resume: ${JSON.stringify(resume).slice(0, 3000)}
 
 Return JSON:
 - updatedResume: enhanced resume object with polished summary, action-verb bullets, and aligned skills.
 - changesApplied: array of strings describing what was improved.`;
 
+    return this.executeWithFallback(
+      "auto_apply_changes",
+      { jobTitle, expLength: (resume.experience || []).length },
+      async (client, model) => {
         const res = await client.models.generateContent({
           model,
           contents: prompt,
@@ -1612,7 +1633,8 @@ Return JSON:
             "Standardized contact and section header layouts for ATS parsers.",
           ],
         };
-      }
+      },
+      { rawPrompt: prompt }
     );
   }
 
@@ -1623,11 +1645,7 @@ Return JSON:
     const resumeData = payload.resumeData || {};
     const title = resumeData.personalInfo?.jobTitle || "Professional";
 
-    return this.executeWithFallback(
-      "resume_analytics",
-      { title, expCount: (resumeData.experience || []).length, skillsCount: (resumeData.skills || []).length },
-      async (client, model) => {
-        const prompt = `Perform an 8-metric 3D Resume Audit for:
+    const prompt = `Perform an 8-metric 3D Resume Audit for:
 Target Role: "${title}"
 Summary: "${resumeData.summary || "None"}"
 Skills: ${JSON.stringify(resumeData.skills || [])}
@@ -1666,6 +1684,10 @@ Return JSON matching:
   }
 }`;
 
+    return this.executeWithFallback(
+      "resume_analytics",
+      { title, expCount: (resumeData.experience || []).length, skillsCount: (resumeData.skills || []).length },
+      async (client, model) => {
         const res = await client.models.generateContent({
           model,
           contents: prompt,
@@ -1723,7 +1745,8 @@ Return JSON matching:
             }
           }
         };
-      }
+      },
+      { rawPrompt: prompt }
     );
   }
 
@@ -1758,8 +1781,7 @@ Return JSON matching:
           !safePayload.posterImage && !jobText && !safePayload.jobPostingUrl ? "Standard industry opening" : null,
         ].filter(Boolean).join("\n\n");
 
-        contents.push({
-          text: `Analyze this job posting vs candidate resume (${candidateTitle}):
+        const promptText = `Analyze this job posting vs candidate resume (${candidateTitle}):
 ${postingDetails}
 Candidate Skills: ${candidateSkills || "Relevant professional competencies"}
 Candidate Experience: ${JSON.stringify(candidateExp)}
@@ -1776,8 +1798,9 @@ Return JSON:
   "keyRequirements": string[],
   "recommendedResumeAdjustments": string[],
   "alternativeCompaniesInArea": string[]
-}`
-        });
+}`;
+
+        contents.push({ text: promptText });
 
         const res = await client.models.generateContent({
           model,
@@ -1806,6 +1829,15 @@ Return JSON:
           ],
           alternativeCompaniesInArea: ["Leading Technology Corp", "Global Enterprise Solutions", "Strategic Growth Partners", "Apex Innovations"]
         };
+      },
+      safePayload.posterImage ? undefined : {
+        rawPrompt: `Analyze this job posting vs candidate resume (${candidateTitle}):
+Job URL: ${safePayload.jobPostingUrl || "None"}
+Job Requirements: ${jobText || "Standard industry requirements"}
+Candidate Skills: ${candidateSkills || "Relevant competencies"}
+Candidate Experience: ${JSON.stringify(candidateExp)}
+
+Return JSON with: matchScore, jobTitle, companyName, fitSummary, matchedSkills, missingSkills, missingGapsToBridge, keyRequirements, recommendedResumeAdjustments, alternativeCompaniesInArea.`
       }
     );
   }
@@ -1821,11 +1853,7 @@ Return JSON:
     const candidateTitle = safePayload.userResume?.personalInfo?.jobTitle || "Applicant";
     const candidateSkills = this.formatSkillsList(safePayload.userResume?.skills);
 
-    return this.executeWithFallback(
-      "analyze_company_job",
-      { companyNameOrLink, companyLocation, desiredPosition, candidateTitle },
-      async (client, model) => {
-        const prompt = `Analyze target company "${companyNameOrLink}" at "${companyLocation}" for position "${desiredPosition}".
+    const prompt = `Analyze target company "${companyNameOrLink}" at "${companyLocation}" for position "${desiredPosition}".
 Candidate: ${candidateTitle}, Skills: ${candidateSkills || "Relevant competencies"}
 
 Return JSON:
@@ -1844,6 +1872,10 @@ Return JSON:
   "alternativeCompanies": string[]
 }`;
 
+    return this.executeWithFallback(
+      "analyze_company_job",
+      { companyNameOrLink, companyLocation, desiredPosition, candidateTitle },
+      async (client, model) => {
         const res = await client.models.generateContent({
           model,
           contents: prompt,
@@ -1876,7 +1908,8 @@ Return JSON:
           ],
           alternativeCompanies: ["Microsoft", "Google", "Amazon", "Deloitte", "Accenture", "Salesforce"]
         };
-      }
+      },
+      { rawPrompt: prompt }
     );
   }
 
@@ -1887,11 +1920,7 @@ Return JSON:
     const { resume, targetRole, targetCompany, candidateNationality } = payload;
     const role = targetRole || resume.personalInfo?.jobTitle || "Professional";
 
-    return this.executeWithFallback(
-      "resume_coach",
-      { role, expCount: (resume.experience || []).length, nat: candidateNationality },
-      async (client, model) => {
-        const prompt = `You are an elite Executive AI Resume Coach. Analyze resume for "${role}":
+    const prompt = `You are an elite Executive AI Resume Coach. Analyze resume for "${role}":
 Resume: ${JSON.stringify(resume).slice(0, 3000)}
 
 Return JSON matching:
@@ -1932,6 +1961,10 @@ Return JSON matching:
   "interviewPrepTips": string[]
 }`;
 
+    return this.executeWithFallback(
+      "resume_coach",
+      { role, expCount: (resume.experience || []).length, nat: candidateNationality },
+      async (client, model) => {
         const res = await client.models.generateContent({
           model,
           contents: prompt,
@@ -1987,7 +2020,8 @@ Return JSON matching:
             "Review core technical and domain terminology before interviews"
           ]
         };
-      }
+      },
+      { rawPrompt: prompt }
     );
   }
 
@@ -2010,6 +2044,49 @@ Return JSON matching:
       targetJobTitle: role,
       targetCompany: company
     });
+  }
+
+  /**
+   * 21. AI Email Plausibility Verification
+   */
+  public async verifyEmail(email: string) {
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const prompt = `Verify if the email address "${cleanEmail}" is a highly plausible, valid, and authentic personal or professional email address or if it looks like random gibberish, keyboard smash, fake placeholder, or random spam.
+Examples:
+- "bilalhassanmussa@gmail.com" is VALID.
+- "alex.smith@company.com" is VALID.
+- "asdfasdf@asdfasdf.com" is INVALID (Keyboard smash/fake).
+- "test@test.com" is INVALID (Known fake).
+- "scammy_person@scam.com" is INVALID.
+
+Return JSON:
+{
+  "isValid": boolean,
+  "reason": string
+}`;
+
+    return this.executeWithFallback(
+      "verify_email",
+      { email: cleanEmail },
+      async (client, model) => {
+        const res = await client.models.generateContent({
+          model,
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+        return this.safeParseJson(res.text, { isValid: true, reason: "Verified." });
+      },
+      () => {
+        const localPart = cleanEmail.split("@")[0] || "";
+        const isSuspicious = /(?:asdf|qwer|zxcv|12345|test|dummy)/i.test(localPart) ||
+          (localPart.length > 12 && !/[aeiouy]/i.test(localPart));
+        return {
+          isValid: !isSuspicious,
+          reason: isSuspicious ? "Suspicious pattern detected." : "Valid format."
+        };
+      },
+      { rawPrompt: prompt }
+    );
   }
 
   /**

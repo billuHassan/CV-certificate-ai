@@ -857,71 +857,7 @@ app.post("/api/auth/validate-email", async (req, res) => {
     }
 
     // 3. AI email plausibility verification (against gibberish / keyboardsmash, e.g. asdfsdfwerwer@sdfgwer.com)
-    const result = await callGeminiWithFallback(
-      async (modelName) => {
-        if (!ai) {
-          throw new Error("AI client is offline.");
-        }
-        
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: `Verify if the email address "${email}" is a highly plausible, valid, and authentic personal or professional email address or if it looks like random gibberish, keyboard smash, fake placeholder, or random spam.
-          
-          Examples:
-          - "bilalhassanmussa@gmail.com" is VALID.
-          - "alex_smith@company.com" is VALID.
-          - "asdfasdf@asdfasdf.com" is INVALID (Keyboard smash/fake).
-          - "test@test.com" is INVALID (Known fake).
-          - "scammy_person@scam.com" is INVALID.
-          - "jaskdhfjkasdhf@outlook.com" is INVALID (Random gibberish).
-          
-          Return a JSON object conforming exactly to:
-          {
-            "isValid": boolean,
-            "reason": string // elegant brief reason explaining the assessment
-          }`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                isValid: { type: Type.BOOLEAN },
-                reason: { type: Type.STRING }
-              },
-              required: ["isValid", "reason"]
-            }
-          }
-        });
-        
-        return JSON.parse(response.text || "{}");
-      },
-      () => {
-        const localPart = email.split("@")[0];
-        // simple consonants cluster gibberish check
-        const hasVowels = /[aeiouyAEIOUY]/.test(localPart);
-        if (localPart.length > 7 && !hasVowels) {
-          return {
-            isValid: false,
-            reason: "The email prefix contains gibberish vowel-less patterns, indicating a keyboard smash fake account."
-          };
-        }
-        
-        const commonNames = ["john", "jane", "bilal", "mussa", "hassan", "user", "demo", "admin", "contact", "support", "hello", "sales"];
-        const matchesCommon = commonNames.some(name => localPart.toLowerCase().includes(name));
-        
-        if (localPart.length < 3) {
-          return {
-            isValid: false,
-            reason: "The email prefix is too short to be considered a legitimate professional email."
-          };
-        }
-        
-        return {
-          isValid: true,
-          reason: "Email successfully passed standard format and domain reputation filters."
-        };
-      }
-    );
+    const result = await aiService.verifyEmail(email);
 
     res.json(result);
   } catch (error: any) {
@@ -965,7 +901,7 @@ function getGenAIClient(): GoogleGenAI | null {
 
 getGenAIClient();
 
-const PRIMARY_GEMINI_MODEL = "gemini-3.8-flash";
+const PRIMARY_GEMINI_MODEL = "gemini-3.1-flash-lite";
 
 /**
  * Executes a Gemini request using recommended active models with fast fallback.
@@ -981,7 +917,7 @@ async function callGeminiWithFallback<T>(
     return fallbackGenerator();
   }
 
-  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-2.5-flash"];
+  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-2.5-flash", "gemini-flash-latest"];
   const sanitizedPreferred = (preferredModels || []).map(m => 
     (m === "gemini-3.6-flash" || m === "gemini-3.1-pro-preview" || m === "gemini-2.0-flash" || m === "gemini-1.5-flash") 
       ? PRIMARY_GEMINI_MODEL 
@@ -1022,15 +958,18 @@ async function callGeminiWithFallback<T>(
         return fallbackGenerator();
       }
 
-      // Check quota exhaustion (429) -> apply brief 5s cooldown and instantly return fallback
+      // Check quota exhaustion (429) -> apply brief 5s cooldown and try next model
       if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-        geminiBlockedUntil = Date.now() + 5000;
-        return fallbackGenerator();
+        continue;
+      }
+
+      // 503 / High demand spike: immediately try next model without falling back prematurely
+      if (status === 503 || errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("UNAVAILABLE")) {
+        continue;
       }
 
       if (errMsg.includes("GEMINI_TIMEOUT")) {
-        console.warn(`[Gemini API] Request timed out on ${modelName}. Falling back immediately.`);
-        return fallbackGenerator();
+        continue;
       }
 
       // If model not found (404), try next model in list
@@ -1038,8 +977,7 @@ async function callGeminiWithFallback<T>(
         continue;
       }
 
-      console.warn(`[Gemini API] Call error on ${modelName} (${errMsg}). Falling back to dynamic generator.`);
-      break;
+      continue;
     }
   }
 
