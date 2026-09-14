@@ -365,8 +365,9 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
       const reader = new FileReader();
 
       reader.onload = async () => {
+        let fileDataUri = "";
         try {
-          const fileDataUri = reader.result as string;
+          fileDataUri = (reader.result as string) || "";
 
           setLoadingStep("AI Scanning document & parsing Content + Template layers...");
 
@@ -491,41 +492,134 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
           setExtractedStyle(data.extractedTemplateStyle);
           setActiveView("edit");
         } catch (err: any) {
-          console.error(err);
-          const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
-          const fallbackData: ResumeData = {
-            id: `uploaded_${Date.now()}`,
-            title: baseName || "Uploaded Resume",
-            personalInfo: {
-              fullName: baseName && !baseName.toLowerCase().includes("resume") ? baseName : "",
-              jobTitle: "",
-              email: "",
-              phone: "",
-              location: "",
-              website: "",
-              linkedin: "",
-              github: "",
-              profilePhoto: ""
-            },
-            summary: "",
-            experience: [],
-            education: [],
-            projects: [],
-            skills: [],
-            languages: [],
-            certifications: [],
-            references: [],
-            customSections: [],
-            sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references", "customSections"],
-            templateId: "minimal",
-            colorTheme: "#0f766e",
-            fontFamily: "font-sans",
-            spacing: "comfortable",
-            layoutMode: "auto",
-            updatedAt: new Date().toISOString()
-          };
-          setParsedResume(fallbackData);
-          setActiveView("edit");
+          console.warn("Backend parse error, engaging client-side parser fallback:", err);
+          try {
+            const clientResult = await parseDocumentClientSide(file, textContent, fileDataUri);
+            const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+            const clientData: ResumeData = {
+              id: `uploaded_${Date.now()}`,
+              title: clientResult.parsedResume.title || baseName || "Uploaded Resume",
+              personalInfo: {
+                fullName: clientResult.parsedResume.personalInfo.fullName || (baseName && !baseName.toLowerCase().includes("resume") ? baseName : ""),
+                jobTitle: clientResult.parsedResume.personalInfo.jobTitle || "",
+                email: clientResult.parsedResume.personalInfo.email || "",
+                phone: clientResult.parsedResume.personalInfo.phone || "",
+                location: clientResult.parsedResume.personalInfo.location || "",
+                website: clientResult.parsedResume.personalInfo.website || "",
+                linkedin: clientResult.parsedResume.personalInfo.linkedin || "",
+                github: clientResult.parsedResume.personalInfo.github || "",
+                profilePhoto: ""
+              },
+              summary: clientResult.parsedResume.summary || "",
+              experience: (clientResult.parsedResume.experience || []).map((e: any) => ({
+                ...e,
+                id: e.id || crypto.randomUUID(),
+                description: Array.isArray(e.description) ? e.description.join("\n") : (e.description || "")
+              })),
+              education: (clientResult.parsedResume.education || []).map((edu: any) => ({
+                ...edu,
+                id: edu.id || crypto.randomUUID(),
+                description: Array.isArray(edu.description) ? edu.description.join("\n") : (edu.description || "")
+              })),
+              projects: (clientResult.parsedResume.projects || []).map((p: any) => ({
+                ...p,
+                id: p.id || crypto.randomUUID(),
+                description: Array.isArray(p.description) ? p.description.join("\n") : (p.description || "")
+              })),
+              skills: clientResult.parsedResume.skills || [],
+              languages: (clientResult.parsedResume.languages || []).map((l: any) => ({
+                ...l,
+                id: l.id || crypto.randomUUID()
+              })),
+              certifications: (clientResult.parsedResume.certifications || []).map((c: any) => ({
+                ...c,
+                id: c.id || crypto.randomUUID()
+              })),
+              references: (clientResult.parsedResume.references || []).map((r: any) => ({
+                ...r,
+                id: r.id || crypto.randomUUID()
+              })),
+              customSections: (clientResult.parsedResume.customSections || []).map((cs: any) => ({
+                id: cs.id || crypto.randomUUID(),
+                title: cs.title || "Custom Section",
+                items: (cs.items || []).map((item: any) => ({
+                  id: item.id || crypto.randomUUID(),
+                  heading: item.heading || "",
+                  subheading: item.subheading || "",
+                  date: item.date || "",
+                  location: item.location || "",
+                  description: item.description || ""
+                }))
+              })),
+              sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references", "customSections"],
+              templateId: clientResult.extractedTemplateStyle?.templateId || "minimal",
+              colorTheme: clientResult.extractedTemplateStyle?.colorTheme || "#0f766e",
+              fontFamily: clientResult.extractedTemplateStyle?.fontFamily || "font-sans",
+              spacing: "comfortable",
+              layoutMode: "auto",
+              updatedAt: new Date().toISOString()
+            };
+            setParsedResume(clientData);
+            if (clientResult.auditReport) {
+              setAuditReport({
+                overallRealityScore: clientResult.auditReport.overallRealityScore || 85,
+                headlineTitleMismatchDetected: Boolean(clientResult.auditReport.headlineTitleMismatchDetected),
+                titleMismatchExplanation: clientResult.auditReport.titleMismatchExplanation || "Resume content aligned with target professional focus.",
+                strengths: clientResult.auditReport.strengths || [],
+                weaknesses: clientResult.auditReport.weaknesses || [],
+                missingInformation: clientResult.auditReport.missingInformation || [],
+                suggestedImprovements: clientResult.auditReport.suggestedImprovements || [],
+                sections: (clientResult.auditReport.sections || []).map((s: any) => ({
+                  sectionKey: s.sectionKey || "general",
+                  sectionTitle: s.sectionTitle || "General",
+                  score: s.score || 80,
+                  status: s.status || "warning",
+                  deficiencies: s.deficiencies || [],
+                  suggestedChanges: s.suggestedChanges || []
+                }))
+              });
+            }
+            if (clientResult.extractedTemplateStyle) {
+              setExtractedStyle(clientResult.extractedTemplateStyle);
+            }
+            setActiveView("edit");
+          } catch (fallbackErr) {
+            console.error("Client fallback error:", fallbackErr);
+            const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+            const fallbackData: ResumeData = {
+              id: `uploaded_${Date.now()}`,
+              title: baseName || "Uploaded Resume",
+              personalInfo: {
+                fullName: baseName && !baseName.toLowerCase().includes("resume") ? baseName : "",
+                jobTitle: "",
+                email: "",
+                phone: "",
+                location: "",
+                website: "",
+                linkedin: "",
+                github: "",
+                profilePhoto: ""
+              },
+              summary: "",
+              experience: [],
+              education: [],
+              projects: [],
+              skills: [],
+              languages: [],
+              certifications: [],
+              references: [],
+              customSections: [],
+              sectionsOrder: ["summary", "experience", "education", "projects", "skills", "languages", "certifications", "references", "customSections"],
+              templateId: "minimal",
+              colorTheme: "#0f766e",
+              fontFamily: "font-sans",
+              spacing: "comfortable",
+              layoutMode: "auto",
+              updatedAt: new Date().toISOString()
+            };
+            setParsedResume(fallbackData);
+            setActiveView("edit");
+          }
         } finally {
           setLoading(false);
         }

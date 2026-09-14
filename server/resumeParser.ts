@@ -118,70 +118,204 @@ export interface ExtractedResume {
 }
 
 /**
+ * Clean and normalize extracted document text, removing null bytes, non-printable characters, and page artifacts
+ */
+export function cleanExtractedText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\0/g, "")
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Checks if a string is raw binary bytecode or random unreadable stream noise rather than authentic text
+ */
+export function isGibberishText(text: string): boolean {
+  if (!text || text.length < 15) return true;
+  // Detect PDF object markers or compressed streams
+  if (/(?:endstream|\/FlateDecode|\/Catalog|\/Pages|startxref|trailer|xref|\/Length\s+\d+|\/FontDescriptor)/i.test(text)) {
+    return true;
+  }
+  const letters = (text.match(/[a-zA-Z]/g) || []).length;
+  if (letters / text.length < 0.40) return true;
+
+  const sampleWords = text.split(/\s+/).slice(0, 40).filter(w => w.length >= 3);
+  if (sampleWords.length < 4) return true;
+  let wordsWithVowels = 0;
+  for (const w of sampleWords) {
+    if (/[aeiouyAEIOUY]/.test(w)) wordsWithVowels++;
+  }
+  if (wordsWithVowels / sampleWords.length < 0.55) return true;
+
+  return false;
+}
+
+/**
+ * Validates whether a candidate string is an authentic geographical location (City, State / City, Country / Remote)
+ * strictly rejecting random binary tokens, font descriptors, and scrambled stream artifacts like "AI rYH Bzb O,UAC".
+ */
+export function isValidLocation(raw: string): boolean {
+  if (!raw || typeof raw !== "string") return false;
+  const clean = raw.trim().replace(/^[,.\-•*|;:\s]+|[,.\-•*|;:\s]+$/g, "");
+  if (clean.length < 3 || clean.length > 70) return false;
+
+  // Reject PDF / bytecode / binary artifacts
+  if (/(?:endstream|stream|flatedecode|xref|trailer|startxref|\bobj\b|\bCatalog\b|\bPages\b|\bFont\b|\bLength\b|\bFilter\b)/i.test(clean)) {
+    return false;
+  }
+  // Reject email, URL, or domain fragments
+  if (clean.includes("@") || clean.includes("http") || clean.includes("www.") || clean.includes(".com") || clean.includes(".org")) {
+    return false;
+  }
+  // Reject resume section headers or phone patterns
+  if (/\b(?:resume|curriculum|vitae|phone|email|education|experience|skills|projects|page\s+\d)\b/i.test(clean)) {
+    return false;
+  }
+  if (/\d{3,}/.test(clean)) return false;
+
+  // Reject weird mixed lowercase-uppercase clusters typical of font kerning/bytecode (e.g. "rYH", "Bzb", "xYz", "AI rYH")
+  if (/\b[a-z]+[A-Z]{2,}\b|\b[a-z]{1,2}[A-Z][a-z]*[A-Z]\b/.test(clean)) {
+    return false;
+  }
+
+  const parts = clean.split(/[\s,/-]+/).filter(Boolean);
+  if (parts.length === 0 || parts.length > 6) return false;
+
+  // Each word must have reasonable typography (vowels or known standard country/state abbreviations)
+  for (const p of parts) {
+    if (p.length === 1 && !/^[A-Z]$/.test(p)) return false;
+    if (p.length >= 2 && p === p.toUpperCase()) {
+      if (p.length > 4 && !/[AEIOUY]/.test(p)) return false;
+    } else {
+      if (p.length >= 3 && !/[aeiouyAEIOUY]/.test(p)) return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Sanitizes location input, returning clean location or empty string if invalid
+ */
+export function sanitizeLocation(raw: any): string {
+  if (!raw || typeof raw !== "string") return "";
+  const cleaned = cleanTextToken(raw);
+  return isValidLocation(cleaned) ? cleaned : "";
+}
+
+/**
+ * Extracts candidate location strictly from the top contact header area (first 25 lines)
+ */
+export function extractLocationFromHeader(lines: string[], candidateName?: string): string {
+  const headerLines = lines.slice(0, 25);
+  
+  // 1. Explicit labels: Location: ..., Address: ..., Based in: ...
+  for (const line of headerLines) {
+    const labelMatch = line.match(/(?:location|address|based\s+in|residing\s+in|city):\s*([^|\n•,]+(?:,[^|\n•]+)?)/i);
+    if (labelMatch && labelMatch[1]) {
+      const cand = labelMatch[1].trim();
+      if (isValidLocation(cand)) return cand;
+    }
+  }
+
+  // 2. City, State / City, Country in contact lines
+  for (const line of headerLines) {
+    if (candidateName && line.toLowerCase().includes(candidateName.toLowerCase()) && !line.includes("|") && !line.includes(",")) {
+      continue;
+    }
+    const segments = line.split(/[|•·\t]/).map(s => s.trim());
+    for (const seg of segments) {
+      if (seg.includes("@") || seg.includes("http") || /^\+?\d{6,}/.test(seg)) continue;
+      
+      const locMatch = seg.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
+      if (locMatch && isValidLocation(locMatch[0])) {
+        if (!candidateName || !locMatch[0].toLowerCase().includes(candidateName.toLowerCase())) {
+          return locMatch[0].trim();
+        }
+      }
+
+      if (/^(?:remote|hybrid(?:\s*-\s*[A-Za-z\s,]+)?)$/i.test(seg) && isValidLocation(seg)) {
+        return seg;
+      }
+    }
+  }
+
+  return "";
+}
+
+/**
  * Extract raw text from PDF buffer with multiple robust strategies
  */
 export async function parsePdfBuffer(buf: Buffer): Promise<string> {
+  // Strategy 1: High-fidelity Mozilla pdfjs-dist legacy engine (retains exact vertical lines, layout, and fonts)
+  try {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(buf),
+      useSystemFonts: true,
+      disableFontFace: true,
+    });
+    const doc = await loadingTask.promise;
+    let fullText = "";
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      const pageLines: string[] = [];
+      let currentLine = "";
+      let lastY: number | null = null;
+      for (const item of content.items as any[]) {
+        if (!item.str) continue;
+        const y = item.transform ? Math.round(item.transform[5]) : null;
+        if (lastY !== null && y !== null && Math.abs(y - lastY) > 3) {
+          if (currentLine.trim()) pageLines.push(currentLine.trim());
+          currentLine = item.str;
+        } else {
+          currentLine += (currentLine ? " " : "") + item.str;
+        }
+        lastY = y;
+      }
+      if (currentLine.trim()) pageLines.push(currentLine.trim());
+      fullText += pageLines.join("\n") + "\n\n";
+    }
+    const cleaned = cleanExtractedText(fullText);
+    if (cleaned && cleaned.length > 20 && !isGibberishText(cleaned)) {
+      return cleaned;
+    }
+  } catch (pdfjsErr) {
+    console.warn("[parsePdfBuffer] pdfjs-dist legacy extraction:", pdfjsErr);
+  }
+
+  // Strategy 2: pdf-parse v2 class
   try {
     const mod: any = pdfParseModule;
     const PDFParseClass = mod?.PDFParse || mod?.default?.PDFParse;
     if (typeof PDFParseClass === "function") {
-      try {
-        const parser = new PDFParseClass({ data: buf });
-        if (typeof parser.load === "function") {
-          await parser.load();
-        }
-        if (typeof parser.getText === "function") {
-          const textResult = await parser.getText();
-          if (typeof parser.destroy === "function") {
-            try { parser.destroy(); } catch (_) {}
-          }
-          const text = typeof textResult === "string" ? textResult : (textResult?.text || "");
-          if (text && text.trim().length > 0) return text;
-        }
-      } catch (classErr) {
-        console.warn("[PDFParseClass] instance error:", classErr);
+      const parser = new PDFParseClass({ data: buf });
+      const textResult = await parser.getText();
+      try { await parser.destroy(); } catch (_) {}
+      const text = typeof textResult === "string" ? textResult : (textResult?.text || "");
+      const cleaned = cleanExtractedText(text);
+      if (cleaned && cleaned.length > 20 && !isGibberishText(cleaned)) {
+        return cleaned;
       }
     }
 
     const fn: any = typeof mod === "function" ? mod : (typeof mod?.default === "function" ? mod.default : null);
     if (typeof fn === "function") {
-      try {
-        const res = await fn(buf);
-        if (res?.text && res.text.trim().length > 0) return res.text;
-      } catch (fnErr) {
-        console.warn("[pdfParse] function error:", fnErr);
+      const res = await fn(buf);
+      const cleaned = cleanExtractedText(res?.text || "");
+      if (cleaned && cleaned.length > 20 && !isGibberishText(cleaned)) {
+        return cleaned;
       }
     }
-  } catch (err) {
-    console.warn("[parsePdfBuffer] general error:", err);
+  } catch (classErr) {
+    console.warn("[parsePdfBuffer] pdf-parse fallback error:", classErr);
   }
-
-  // Stream text extraction fallback
-  try {
-    const str = buf.toString("latin1");
-    const streamRegex = /BT[\s\S]*?ET/g;
-    const matches = str.match(streamRegex);
-    if (matches && matches.length > 0) {
-      const extracted = matches
-        .map(block => {
-          const textMatches = block.match(/\((.*?)\)|\[(.*?)\]/g);
-          if (textMatches) {
-            return textMatches.map(t => t.replace(/^[(\[]|[)\]]$/g, "")).join(" ");
-          }
-          return "";
-        })
-        .filter(Boolean)
-        .join("\n");
-      if (extracted.trim().length > 10) {
-        return extracted;
-      }
-    }
-
-    const textTokens = str.match(/[A-Za-z0-9@._+-]{2,}/g);
-    if (textTokens && textTokens.length > 20) {
-      return textTokens.join(" ");
-    }
-  } catch (_) {}
 
   return "";
 }
@@ -449,13 +583,6 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
   const githubMatch = cleanText.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i);
   const websiteMatch = cleanText.match(/(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.(?:com|org|net|io|dev|app|me|co|tech|site|online)(?:\/[^\s]*)?)/i);
 
-  // Extract location (City, State / City, Country)
-  let location = "";
-  const locationMatch = cleanText.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
-  if (locationMatch && !locationMatch[0].includes("University") && !locationMatch[0].includes("Company")) {
-    location = locationMatch[0].trim();
-  }
-
   // Determine candidate name and job title from top lines
   let fullName = "";
   let jobTitle = "";
@@ -466,11 +593,11 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
     !l.toLowerCase().includes("curriculum vitae") &&
     !l.toLowerCase().includes("resume") &&
     !l.toLowerCase().includes("page ") &&
+    !l.toLowerCase().startsWith("http") &&
     l.length < 50
   );
 
   if (nonHeaderLines.length > 0) {
-    // Top non-header line is usually Full Name
     const rawName = nonHeaderLines[0].replace(/^#+\s*/, "").trim();
     if (rawName.includes(" | ")) {
       const [n, t] = rawName.split(" | ");
@@ -488,6 +615,9 @@ export function parseResumeTextDeterministically(rawText: string, fileName?: str
       jobTitle = cleanTextToken(nonHeaderLines[1].replace(/^#+\s*/, ""));
     }
   }
+
+  // Extract location strictly from header lines using validated geographical patterns
+  const location = extractLocationFromHeader(lines, fullName);
 
   // 2. Section Segmentation
   const sectionKeywords: { [key: string]: RegExp } = {
@@ -1162,12 +1292,22 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
 
   // Personal Info: prioritize AI extracted details, fall back to deterministic if empty
   if (aiParsed.personalInfo && typeof aiParsed.personalInfo === "object") {
+    const rawAiLoc = aiParsed.personalInfo.location?.trim();
+    const rawDetLoc = deterministic.personalInfo.location?.trim();
+    const cleanLoc = sanitizeLocation(rawAiLoc) || sanitizeLocation(rawDetLoc) || "";
+
+    const rawAiName = cleanTextToken(aiParsed.personalInfo.fullName || "");
+    const rawDetName = cleanTextToken(deterministic.personalInfo.fullName || "");
+    const cleanName = (rawAiName && !rawAiName.toLowerCase().includes("resume") && rawAiName.length > 2)
+      ? rawAiName
+      : (rawDetName && !rawDetName.toLowerCase().includes("resume") ? rawDetName : "");
+
     merged.personalInfo = {
-      fullName: aiParsed.personalInfo.fullName?.trim() || deterministic.personalInfo.fullName || "",
+      fullName: cleanName || deterministic.personalInfo.fullName || "",
       jobTitle: aiParsed.personalInfo.jobTitle?.trim() || deterministic.personalInfo.jobTitle || "",
       email: aiParsed.personalInfo.email?.trim() || deterministic.personalInfo.email || "",
       phone: aiParsed.personalInfo.phone?.trim() || deterministic.personalInfo.phone || "",
-      location: aiParsed.personalInfo.location?.trim() || deterministic.personalInfo.location || "",
+      location: cleanLoc,
       website: aiParsed.personalInfo.website?.trim() || deterministic.personalInfo.website || "",
       linkedin: aiParsed.personalInfo.linkedin?.trim() || deterministic.personalInfo.linkedin || "",
       github: aiParsed.personalInfo.github?.trim() || deterministic.personalInfo.github || "",
@@ -1175,6 +1315,9 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
     };
   }
 
+  if (!merged.personalInfo.location && deterministic.personalInfo.location) {
+    merged.personalInfo.location = sanitizeLocation(deterministic.personalInfo.location);
+  }
   if (!merged.personalInfo.fullName && deterministic.personalInfo.fullName) {
     merged.personalInfo.fullName = deterministic.personalInfo.fullName;
   }
@@ -1193,12 +1336,12 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   if (Array.isArray(aiParsed.experience) && aiParsed.experience.length > 0) {
     merged.experience = aiParsed.experience.map((e: any, idx: number) => ({
       id: e.id || `exp_${idx + 1}`,
-      company: e.company || "",
-      position: e.position || "",
-      startDate: e.startDate || "",
-      endDate: e.endDate || "",
+      company: cleanTextToken(e.company || ""),
+      position: cleanTextToken(e.position || ""),
+      startDate: cleanTextToken(e.startDate || ""),
+      endDate: cleanTextToken(e.endDate || ""),
       current: typeof e.current === "boolean" ? e.current : (e.endDate ? /present|current/i.test(e.endDate) : false),
-      location: e.location || "",
+      location: sanitizeLocation(e.location),
       description: Array.isArray(e.description) ? e.description.join("\n") : (e.description || "")
     })).filter((e: any) => e.company || e.position || e.description);
   } else if (deterministic.experience && deterministic.experience.length > 0) {
@@ -1209,14 +1352,14 @@ export function mergeParsedResume(deterministic: ExtractedResume, aiParsed: any)
   if (Array.isArray(aiParsed.education) && aiParsed.education.length > 0) {
     merged.education = aiParsed.education.map((edu: any, idx: number) => ({
       id: edu.id || `edu_${idx + 1}`,
-      school: edu.school || "",
-      degree: edu.degree || "",
-      fieldOfStudy: edu.fieldOfStudy || "",
-      startDate: edu.startDate || "",
-      endDate: edu.endDate || "",
+      school: cleanTextToken(edu.school || ""),
+      degree: cleanTextToken(edu.degree || ""),
+      fieldOfStudy: cleanTextToken(edu.fieldOfStudy || ""),
+      startDate: cleanTextToken(edu.startDate || ""),
+      endDate: cleanTextToken(edu.endDate || ""),
       current: typeof edu.current === "boolean" ? edu.current : false,
-      location: edu.location || "",
-      gpa: edu.gpa || "",
+      location: sanitizeLocation(edu.location),
+      gpa: cleanTextToken(edu.gpa || ""),
       description: Array.isArray(edu.description) ? edu.description.join("\n") : (edu.description || "")
     })).filter((edu: any) => edu.school || edu.degree || edu.fieldOfStudy);
   } else if (deterministic.education && deterministic.education.length > 0) {

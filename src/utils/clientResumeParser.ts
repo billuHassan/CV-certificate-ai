@@ -193,8 +193,47 @@ export async function extractDocumentTextClientSide(
     }
   }
 
-  // 4. PDF text stream extraction
+  // 4. PDF text extraction
   if (fileName.endsWith(".pdf") || file.type.includes("pdf")) {
+    try {
+      // Strategy A: Mozilla pdfjs-dist in browser
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const loadingTask = pdfjs.getDocument({
+        data: uint8,
+        useSystemFonts: true,
+        disableFontFace: true,
+      });
+      const doc = await loadingTask.promise;
+      let fullText = "";
+      for (let p = 1; p <= doc.numPages; p++) {
+        const page = await doc.getPage(p);
+        const content = await page.getTextContent();
+        const pageLines: string[] = [];
+        let currentLine = "";
+        let lastY: number | null = null;
+        for (const item of content.items as any[]) {
+          if (!item.str) continue;
+          const y = item.transform ? Math.round(item.transform[5]) : null;
+          if (lastY !== null && y !== null && Math.abs(y - lastY) > 3) {
+            if (currentLine.trim()) pageLines.push(currentLine.trim());
+            currentLine = item.str;
+          } else {
+            currentLine += (currentLine ? " " : "") + item.str;
+          }
+          lastY = y;
+        }
+        if (currentLine.trim()) pageLines.push(currentLine.trim());
+        fullText += pageLines.join("\n") + "\n\n";
+      }
+      const cleaned = cleanExtractedText(fullText);
+      if (cleaned && cleaned.length > 20 && !isGibberishText(cleaned)) {
+        return cleaned;
+      }
+    } catch (pdfErr) {
+      console.warn("Client PDF extraction with pdfjs warning:", pdfErr);
+    }
+
+    // Strategy B: Text stream extraction (BT/ET)
     try {
       let rawStr = "";
       const chunkSize = 65536;
@@ -218,30 +257,155 @@ export async function extractDocumentTextClientSide(
             }
           }
         }
-        if (textLines.length > 5) {
-          return textLines.join("\n");
+        const text = cleanExtractedText(textLines.join("\n"));
+        if (text.length > 20 && !isGibberishText(text)) {
+          return text;
         }
       }
-
-      // Direct ASCII text token extraction
-      const tokens = rawStr.match(/[A-Za-z0-9@._+,-]{2,}/g);
-      if (tokens && tokens.length > 30) {
-        return tokens.join(" ");
-      }
-    } catch (pdfErr) {
-      console.warn("Client PDF extraction error:", pdfErr);
+    } catch (pdfErr2) {
+      console.warn("Client PDF text stream warning:", pdfErr2);
     }
   }
 
-  // Fallback: plain ASCII decode
+  // Fallback: plain ASCII decode (only if genuine readable text)
   try {
     const textDecoder = new TextDecoder("utf-8", { fatal: false });
     const decoded = textDecoder.decode(uint8);
-    const cleaned = decoded.replace(/[^\x20-\x7E\n\r\t]/g, " ").replace(/\s{2,}/g, " ");
-    if (cleaned.trim().length > 50) {
+    const cleaned = cleanExtractedText(decoded.replace(/[^\x20-\x7E\n\r\t]/g, " ").replace(/\s{2,}/g, " "));
+    if (cleaned.length > 50 && !isGibberishText(cleaned)) {
       return cleaned;
     }
   } catch (_) {}
+
+  return "";
+}
+
+/**
+ * Clean and normalize extracted document text, removing null bytes, non-printable characters, and page artifacts
+ */
+export function cleanExtractedText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\0/g, "")
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Checks if a string is raw binary bytecode or random unreadable stream noise rather than authentic text
+ */
+export function isGibberishText(text: string): boolean {
+  if (!text || text.length < 15) return true;
+  if (/(?:endstream|\/FlateDecode|\/Catalog|\/Pages|startxref|trailer|xref|\/Length\s+\d+|\/FontDescriptor)/i.test(text)) {
+    return true;
+  }
+  const letters = (text.match(/[a-zA-Z]/g) || []).length;
+  if (letters / text.length < 0.40) return true;
+
+  const sampleWords = text.split(/\s+/).slice(0, 40).filter(w => w.length >= 3);
+  if (sampleWords.length < 4) return true;
+  let wordsWithVowels = 0;
+  for (const w of sampleWords) {
+    if (/[aeiouyAEIOUY]/.test(w)) wordsWithVowels++;
+  }
+  if (wordsWithVowels / sampleWords.length < 0.55) return true;
+
+  return false;
+}
+
+/**
+ * Validates whether a candidate string is an authentic geographical location (City, State / City, Country / Remote)
+ * strictly rejecting random binary tokens, font descriptors, and scrambled stream artifacts like "AI rYH Bzb O,UAC".
+ */
+export function isValidLocation(raw: string): boolean {
+  if (!raw || typeof raw !== "string") return false;
+  const clean = raw.trim().replace(/^[,.\-•*|;:\s]+|[,.\-•*|;:\s]+$/g, "");
+  if (clean.length < 3 || clean.length > 70) return false;
+
+  // Reject PDF / bytecode / binary artifacts
+  if (/(?:endstream|stream|flatedecode|xref|trailer|startxref|\bobj\b|\bCatalog\b|\bPages\b|\bFont\b|\bLength\b|\bFilter\b)/i.test(clean)) {
+    return false;
+  }
+  // Reject email, URL, or domain fragments
+  if (clean.includes("@") || clean.includes("http") || clean.includes("www.") || clean.includes(".com") || clean.includes(".org")) {
+    return false;
+  }
+  // Reject resume section headers or phone patterns
+  if (/\b(?:resume|curriculum|vitae|phone|email|education|experience|skills|projects|page\s+\d)\b/i.test(clean)) {
+    return false;
+  }
+  if (/\d{3,}/.test(clean)) return false;
+
+  // Reject weird mixed lowercase-uppercase clusters typical of font kerning/bytecode (e.g. "rYH", "Bzb", "xYz", "AI rYH")
+  if (/\b[a-z]+[A-Z]{2,}\b|\b[a-z]{1,2}[A-Z][a-z]*[A-Z]\b/.test(clean)) {
+    return false;
+  }
+
+  const parts = clean.split(/[\s,/-]+/).filter(Boolean);
+  if (parts.length === 0 || parts.length > 6) return false;
+
+  // Each word must have reasonable typography (vowels or known standard country/state abbreviations)
+  for (const p of parts) {
+    if (p.length === 1 && !/^[A-Z]$/.test(p)) return false;
+    if (p.length >= 2 && p === p.toUpperCase()) {
+      if (p.length > 4 && !/[AEIOUY]/.test(p)) return false;
+    } else {
+      if (p.length >= 3 && !/[aeiouyAEIOUY]/.test(p)) return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Sanitizes location input, returning clean location or empty string if invalid
+ */
+export function sanitizeLocation(raw: any): string {
+  if (!raw || typeof raw !== "string") return "";
+  const cleaned = cleanTextToken(raw);
+  return isValidLocation(cleaned) ? cleaned : "";
+}
+
+/**
+ * Extracts candidate location strictly from the top contact header area (first 25 lines)
+ */
+export function extractLocationFromHeader(lines: string[], candidateName?: string): string {
+  const headerLines = lines.slice(0, 25);
+  
+  // 1. Explicit labels: Location: ..., Address: ..., Based in: ...
+  for (const line of headerLines) {
+    const labelMatch = line.match(/(?:location|address|based\s+in|residing\s+in|city):\s*([^|\n•,]+(?:,[^|\n•]+)?)/i);
+    if (labelMatch && labelMatch[1]) {
+      const cand = labelMatch[1].trim();
+      if (isValidLocation(cand)) return cand;
+    }
+  }
+
+  // 2. City, State / City, Country in contact lines
+  for (const line of headerLines) {
+    if (candidateName && line.toLowerCase().includes(candidateName.toLowerCase()) && !line.includes("|") && !line.includes(",")) {
+      continue;
+    }
+    const segments = line.split(/[|•·\t]/).map(s => s.trim());
+    for (const seg of segments) {
+      if (seg.includes("@") || seg.includes("http") || /^\+?\d{6,}/.test(seg)) continue;
+      
+      const locMatch = seg.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
+      if (locMatch && isValidLocation(locMatch[0])) {
+        if (!candidateName || !locMatch[0].toLowerCase().includes(candidateName.toLowerCase())) {
+          return locMatch[0].trim();
+        }
+      }
+
+      if (/^(?:remote|hybrid(?:\s*-\s*[A-Za-z\s,]+)?)$/i.test(seg) && isValidLocation(seg)) {
+        return seg;
+      }
+    }
+  }
 
   return "";
 }
@@ -485,12 +649,6 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
   const githubMatch = cleanText.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i);
   const websiteMatch = cleanText.match(/(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.(?:com|org|net|io|dev|app|me|co|tech|site|online)(?:\/[^\s]*)?)/i);
 
-  let location = "";
-  const locationMatch = cleanText.match(/\b([A-Z][a-zA-Z\s.-]+,\s*(?:[A-Z]{2}|[A-Z][a-zA-Z\s]+))\b/);
-  if (locationMatch && !locationMatch[0].includes("University") && !locationMatch[0].includes("Company")) {
-    location = locationMatch[0].trim();
-  }
-
   // Candidate Name & Headline detection
   let fullName = "";
   let jobTitle = "";
@@ -525,6 +683,9 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
   if (!jobTitle) {
     jobTitle = "";
   }
+
+  // Location detection: extracted strictly from header lines with validation
+  const location = extractLocationFromHeader(lines, fullName);
 
   // 2. Section Partitioning
   const sectionKeywords: Record<string, string[]> = {
@@ -1217,7 +1378,7 @@ export function parseResumeClientSide(rawText: string, fileName?: string): Clien
         jobTitle,
         email: emailMatch ? emailMatch[0] : "",
         phone: phoneMatch ? phoneMatch[0] : "",
-        location,
+        location: sanitizeLocation(location),
         website: websiteMatch ? websiteMatch[0] : "",
         linkedin: linkedinMatch ? `https://linkedin.com/in/${linkedinMatch[1]}` : "",
         github: githubMatch ? `https://github.com/${githubMatch[1]}` : "",

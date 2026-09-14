@@ -5,7 +5,9 @@ import {
   ExtractedResume,
   parseResumeTextDeterministically,
   mergeParsedResume,
-  extractDocumentText
+  extractDocumentText,
+  cleanExtractedText,
+  isGibberishText
 } from "./resumeParser";
 
 export interface AIProviderConfig {
@@ -207,7 +209,7 @@ export class AIService {
   }
 
   // --- Groq Primary Dual-Key Provider Call ---
-  private async callGroq(prompt: string, systemPrompt?: string, jsonMode: boolean = true): Promise<string | null> {
+  private async callGroq(prompt: string, systemPrompt?: string, jsonMode: boolean = true, timeoutMs: number = 25000): Promise<string | null> {
     if (this.groqApiKeys.length === 0) return null;
 
     // Load-balance between keys with round-robin starting position
@@ -230,7 +232,7 @@ export class AIService {
           messages.push({ role: "user", content: prompt });
 
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 9500);
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
           const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -243,7 +245,7 @@ export class AIService {
               messages,
               response_format: jsonMode ? { type: "json_object" } : undefined,
               temperature: 0.1,
-              max_tokens: 4096,
+              max_tokens: 8192,
             }),
             signal: controller.signal,
           });
@@ -273,7 +275,13 @@ export class AIService {
     minimizedPayload: any,
     geminiCall: (client: GoogleGenAI, modelName: string) => Promise<T>,
     fallbackGenerator: () => T,
-    options?: { systemPrompt?: string; rawPrompt?: string; skipCache?: boolean }
+    options?: {
+      systemPrompt?: string;
+      rawPrompt?: string;
+      skipCache?: boolean;
+      timeoutMs?: number;
+      postProcessor?: (rawAiResult: any) => T;
+    }
   ): Promise<T> {
     // 1. Check in-memory cache
     const cacheKey = this.hashKey(actionName, minimizedPayload);
@@ -289,16 +297,17 @@ export class AIService {
     // 2. PRIMARY ENGINE: Dual-Key Groq Provider using verified direct models
     if (this.groqApiKeys.length > 0 && options?.rawPrompt) {
       try {
-        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true);
+        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true, options.timeoutMs || 25000);
         if (groqText) {
-          const parsed = this.safeParseJson<T | null>(groqText, null);
+          const parsed = this.safeParseJson<any>(groqText, null);
           if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
-            this.setInCache(cacheKey, parsed as T);
-            return parsed as T;
+            const finalResult = options.postProcessor ? options.postProcessor(parsed) : (parsed as T);
+            this.setInCache(cacheKey, finalResult);
+            return finalResult;
           }
         }
-      } catch {
-        // Continue to secondary options if Groq encounters an issue
+      } catch (groqErr) {
+        console.warn(`[AIService] Groq failed for ${actionName}, checking alternatives:`, groqErr);
       }
     }
 
@@ -701,29 +710,16 @@ Return JSON:
     }
 
     const textSources = [extractedDocumentText, resumeText].filter(Boolean);
-    const combinedText = textSources.join("\n\n---\n\n").trim();
-    const primaryText = extractedDocumentText || resumeText || "";
+    const combinedText = cleanExtractedText(textSources.join("\n\n---\n\n").trim());
+    let primaryText = cleanExtractedText(extractedDocumentText || resumeText || "");
+    if (isGibberishText(primaryText)) {
+      primaryText = "";
+    }
 
     // Step B: Deterministic parse baseline - 100% faithful to actual text
     const deterministicResume = parseResumeTextDeterministically(primaryText || combinedText, fileName);
 
-    return this.executeWithFallback(
-      "parse_and_audit_resume",
-      { textLength: combinedText.length, sampleText: combinedText.slice(0, 300), hasFile: Boolean(base64Data) },
-      async (client, model) => {
-        const contents: any[] = [];
-
-        // When PDF or image is uploaded, pass base64 inlineData directly for native visual & OCR document parsing
-        if (base64Data && (mimeType === "application/pdf" || mimeType.startsWith("image/"))) {
-          contents.push({
-            inlineData: {
-              mimeType: mimeType,
-              data: base64Data,
-            },
-          });
-        }
-
-        const prompt = `You are an Expert ATS Resume & Career Document Parser.
+    const extractionPrompt = `You are an Expert ATS Resume & Career Document Parser.
 CRITICAL ACCURACY MANDATE:
 1. TRUTHFUL, EXACT EXTRACTION ONLY:
    Extract the REAL candidate's actual information from the uploaded document file and/or text.
@@ -810,7 +806,23 @@ ${combinedText ? `--- EXTRACTED TEXT FROM DOCUMENT ---\n${combinedText.slice(0, 
 
 Return valid JSON with top-level keys: "parsedResume", "auditReport", "extractedTemplateStyle".`;
 
-        contents.push({ text: prompt });
+    return this.executeWithFallback(
+      "parse_and_audit_resume",
+      { textLength: combinedText.length, sampleText: combinedText.slice(0, 300), hasFile: Boolean(base64Data) },
+      async (client, model) => {
+        const contents: any[] = [];
+
+        // When PDF or image is uploaded, pass base64 inlineData directly for native visual & OCR document parsing
+        if (base64Data && (mimeType === "application/pdf" || mimeType.startsWith("image/"))) {
+          contents.push({
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data,
+            },
+          });
+        }
+
+        contents.push({ text: extractionPrompt });
 
         const res = await client.models.generateContent({
           model,
@@ -836,8 +848,17 @@ Return valid JSON with top-level keys: "parsedResume", "auditReport", "extracted
         extractedTemplateStyle: deterministicResume.extractedTemplateStyle,
       }),
       {
-        systemPrompt: "You are an ATS resume parser. Return valid JSON containing parsedResume (with personalInfo, summary, experience, education, skills, projects, certifications) and auditReport.",
-        rawPrompt: `Extract full resume details from this document text and return JSON {parsedResume, auditReport}: ${primaryText.slice(0, 3500)}`
+        systemPrompt: "You are an Expert ATS Resume & Career Document Parser. Output strictly valid JSON with top-level keys: parsedResume, auditReport, extractedTemplateStyle.",
+        rawPrompt: extractionPrompt,
+        timeoutMs: 28000,
+        postProcessor: (rawAiJson: any) => {
+          const mergedResume = mergeParsedResume(deterministicResume, rawAiJson?.parsedResume);
+          return {
+            parsedResume: mergedResume,
+            auditReport: rawAiJson?.auditReport || this.generateDefaultAudit(mergedResume),
+            extractedTemplateStyle: rawAiJson?.extractedTemplateStyle || deterministicResume.extractedTemplateStyle,
+          };
+        }
       }
     );
   }
