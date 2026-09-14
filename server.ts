@@ -165,9 +165,9 @@ function addServerEvent(event: string) {
   }
 }
 
-// Standard health check for Cloud Run, Docker, and deployment verifications
-app.get(["/api/health", "/health"], (req, res) => {
-  res.json({ status: "ok", environment: process.env.NODE_ENV || "development", timestamp: Date.now() });
+// Standard health check for Cloud Run, Docker, Vercel, and deployment verifications
+app.get(["/api/health", "/health", "/api", "/api/"], (req, res) => {
+  res.json({ status: "ok", service: "CV Craft AI API", environment: process.env.NODE_ENV || "development", timestamp: Date.now() });
 });
 
 // Stats recording middleware
@@ -1817,7 +1817,12 @@ async function startServer() {
 }
 
 // Only start standalone HTTP server if running as standalone process (not inside Vercel serverless function or AWS Lambda)
-const isServerless = Boolean(process.env.VERCEL) || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+const isImportedAsHandler = typeof process.argv[1] === "string" && (
+  process.argv[1].includes("/api/") ||
+  process.argv[1].includes("\\api\\") ||
+  (!process.argv[1].endsWith("server.ts") && !process.argv[1].endsWith("server.cjs"))
+);
+const isServerless = Boolean(process.env.VERCEL) || Boolean(process.env.VERCEL_ENV) || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) || Boolean(process.env.LAMBDA_TASK_ROOT) || isImportedAsHandler;
 
 if (!isServerless) {
   startServer();
