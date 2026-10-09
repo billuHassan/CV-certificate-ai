@@ -1,5 +1,4 @@
 // env-init.ts
-process.env.GCP_METADATA_HOST = "127.0.0.1";
 delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
 delete process.env.GOOGLE_GCLOUD_ADC_PATH;
 delete process.env.K_SERVICE;
@@ -1588,14 +1587,13 @@ var AIService = class _AIService {
     this.geminiClient = null;
     this.groqApiKeys = [];
     this.currentKeyIndex = 0;
+    this.primaryGeminiModel = "gemini-3.8-flash";
     this.geminiModels = [
-      "gemini-3.1-flash-lite",
-      "gemini-2.5-flash",
-      "gemini-flash-latest",
       "gemini-3.8-flash",
-      "gemini-2.5-pro"
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest"
     ];
-    // Strictly use verified working Groq models only (avoid 404s from unavailable models)
+    // Strictly use verified working Groq models only as secondary failover (avoid 404s)
     this.groqModels = [
       "openai/gpt-oss-120b",
       "qwen/qwen3.8-27b",
@@ -1623,34 +1621,35 @@ var AIService = class _AIService {
     return _AIService.instance;
   }
   initProviders() {
-    const k1 = (process.env.RAHMORA_API_KEY || process.env.GROQ_API_KEY || "").trim();
-    const k2 = (process.env.RAHMORA2_API_KEY || process.env.GROQ_API_KEY_2 || "").trim();
-    this.groqApiKeys = Array.from(new Set([k1, k2].filter((k) => k && k.length > 20)));
-    if (this.groqApiKeys.length > 0) {
-      const masked = this.groqApiKeys.map((k) => `${k.slice(0, 7)}...${k.slice(-4)}`);
-      console.log(`[AIService] Primary Dual-Key Groq Engine initialized with ${this.groqApiKeys.length} key(s) [${masked.join(", ")}] on verified models: [${this.groqModels.join(", ")}].`);
-    } else {
-      console.warn("[AIService] No Groq API keys detected. Gemini or local generator will act as primary.");
-    }
-    const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
-    if (geminiKey && geminiKey !== "undefined") {
+    const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY || "").trim();
+    if (geminiKey && geminiKey !== "undefined" && geminiKey.length > 5) {
       try {
         this.geminiClient = new GoogleGenAI({
           apiKey: geminiKey,
           httpOptions: {
             headers: {
-              "User-Agent": "aistudio-cvcraft"
+              "User-Agent": "aistudio-build"
             }
           }
         });
-        console.log("[AIService] Gemini fallback provider initialized.");
+        const masked = `${geminiKey.slice(0, 5)}...${geminiKey.slice(-4)}`;
+        console.log(`[AIService] Flagship Google Gemini Provider initialized (${masked}) with primary model: ${this.primaryGeminiModel}.`);
       } catch (err) {
         console.error("[AIService] Gemini initialization error:", err);
       }
+    } else {
+      console.log("[AIService] Operating in resilient auto-fallback mode. Add GEMINI_API_KEY to activate full AI model power.");
+    }
+    const k1 = (process.env.GROQ_API_KEY || process.env.RAHMORA_API_KEY || "").trim();
+    const k2 = (process.env.GROQ_API_KEY_2 || process.env.RAHMORA2_API_KEY || "").trim();
+    this.groqApiKeys = Array.from(new Set([k1, k2].filter((k) => k && k.length > 20)));
+    if (this.groqApiKeys.length > 0) {
+      console.log(`[AIService] Secondary failover engine configured with ${this.groqApiKeys.length} key(s).`);
     }
   }
   getClient() {
-    if (!this.geminiClient) {
+    const currentKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY || "").trim();
+    if (!this.geminiClient && currentKey && currentKey.length > 5) {
       this.initProviders();
     }
     return this.geminiClient;
@@ -1782,7 +1781,7 @@ var AIService = class _AIService {
     }
     return null;
   }
-  // --- Resilient Execution Engine with Dual-Key Groq as Primary ---
+  // --- Resilient Execution Engine with Google Gemini as Flagship Primary ---
   async executeWithFallback(actionName, minimizedPayload, geminiCall, fallbackGenerator, options) {
     const cacheKey = this.hashKey(actionName, minimizedPayload);
     if (!options?.skipCache) {
@@ -1792,27 +1791,11 @@ var AIService = class _AIService {
       }
     }
     this.trackRequest();
-    if (this.groqApiKeys.length > 0 && options?.rawPrompt) {
-      try {
-        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true, options.timeoutMs || 25e3);
-        if (groqText) {
-          const parsed = this.safeParseJson(groqText, null);
-          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
-            const finalResult = options.postProcessor ? options.postProcessor(parsed) : parsed;
-            this.setInCache(cacheKey, finalResult);
-            return finalResult;
-          }
-        }
-      } catch (groqErr) {
-        console.warn(`[AIService] Groq failed for ${actionName}, checking alternatives:`, groqErr);
-      }
-    }
     const client = this.getClient();
     if (client && Date.now() >= this.geminiBlockedUntil) {
       const activeModels = this.geminiModels;
-      const isHeavyTask = actionName.includes("parse") || actionName.includes("audit") || actionName.includes("coach") || actionName.includes("analytics");
-      const taskTimeoutMs = isHeavyTask ? 3e4 : 15e3;
-      let hitQuotaOnAll = true;
+      const isHeavyTask = actionName.includes("parse") || actionName.includes("audit") || actionName.includes("coach") || actionName.includes("analytics") || actionName.includes("image");
+      const taskTimeoutMs = options?.timeoutMs || (isHeavyTask ? 35e3 : 2e4);
       for (const modelName of activeModels) {
         try {
           const timeoutPromise = new Promise(
@@ -1826,21 +1809,39 @@ var AIService = class _AIService {
         } catch (err) {
           const errMsg = err?.message || String(err || "");
           const status = err?.status || err?.statusCode || 0;
+          if (status === 401 || status === 403 || errMsg.includes("API_KEY_INVALID") || errMsg.includes("PERMISSION_DENIED")) {
+            console.warn(`[AIService] Gemini authorization notice (${status}). Checking failover options.`);
+            this.geminiBlockedUntil = Date.now() + 15e3;
+            break;
+          }
           if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+            console.warn(`[AIService] Gemini quota reached on ${modelName}, trying fallback model...`);
             continue;
           }
           if (status === 503 || errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("UNAVAILABLE")) {
             continue;
           }
-          hitQuotaOnAll = false;
           if (errMsg.includes("AI_TIMEOUT") || status === 404 || errMsg.includes("not found")) {
             continue;
           }
+          console.warn(`[AIService] Gemini notice on ${modelName} for ${actionName}:`, errMsg);
           continue;
         }
       }
-      if (hitQuotaOnAll) {
-        this.geminiBlockedUntil = Date.now() + 60 * 1e3;
+    }
+    if (this.groqApiKeys.length > 0 && options?.rawPrompt) {
+      try {
+        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true, options.timeoutMs || 2e4);
+        if (groqText) {
+          const parsed = this.safeParseJson(groqText, null);
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+            const finalResult = options.postProcessor ? options.postProcessor(parsed) : parsed;
+            this.setInCache(cacheKey, finalResult);
+            return finalResult;
+          }
+        }
+      } catch (groqErr) {
+        console.warn(`[AIService] Groq failover failed for ${actionName}:`, groqErr);
       }
     }
     try {
@@ -3698,18 +3699,21 @@ app.post("/api/admin/stats", (req, res) => {
 });
 app.get("/api/diagnostic", (req, res) => {
   const adminKey = req.headers["x-admin-key"] || req.query.adminKey;
+  const geminiExists = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY);
   if (!adminKey && req.headers["authorization"] !== "Bearer bilalhassanmussa") {
     return res.json({
       status: "healthy",
       service: "CVCraft AI Core Engine",
-      aiConfigured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)
+      aiConfigured: geminiExists,
+      aiProvider: "Google Gemini 3.8 Flash (Primary)"
     });
   }
   res.json({
     status: "healthy",
-    geminiConfigured: !!process.env.GEMINI_API_KEY,
-    googleApiKeyExists: !!process.env.GOOGLE_API_KEY,
-    aiConfigured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    geminiConfigured: geminiExists,
+    primaryModel: "gemini-3.8-flash",
+    fallbackModel: "gemini-3.1-flash-lite",
+    aiConfigured: geminiExists,
     nodeEnv: process.env.NODE_ENV || "production"
   });
 });
@@ -4219,18 +4223,18 @@ app.post("/api/auth/validate-email", async (req, res) => {
     res.status(500).json({ error: error?.message || "Failed to validate email" });
   }
 });
-var geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+var geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY;
 var ai = null;
 var lastGeminiErrorDetails = null;
 var geminiIsBlocked = false;
 var geminiBlockedUntil = 0;
 function getGenAIClient() {
   if (ai) return ai;
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (key && key !== "undefined" && key.trim() !== "") {
+  const key = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY || "").trim();
+  if (key && key !== "undefined" && key.length > 5) {
     try {
       ai = new GoogleGenAI2({
-        apiKey: key.trim(),
+        apiKey: key,
         httpOptions: {
           headers: {
             "User-Agent": "aistudio-build"
@@ -4245,13 +4249,13 @@ function getGenAIClient() {
   return ai;
 }
 getGenAIClient();
-var PRIMARY_GEMINI_MODEL = "gemini-3.1-flash-lite";
+var PRIMARY_GEMINI_MODEL = "gemini-3.8-flash";
 async function callGeminiWithFallback(fn, fallbackGenerator, preferredModels) {
   const client = getGenAIClient();
   if (geminiIsBlocked || !client || Date.now() < geminiBlockedUntil) {
     return fallbackGenerator();
   }
-  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-2.5-flash", "gemini-flash-latest"];
+  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-3.1-flash-lite", "gemini-flash-latest"];
   const sanitizedPreferred = (preferredModels || []).map(
     (m) => m === "gemini-3.6-flash" || m === "gemini-3.1-pro-preview" || m === "gemini-2.0-flash" || m === "gemini-1.5-flash" ? PRIMARY_GEMINI_MODEL : m
   );
@@ -4259,7 +4263,7 @@ async function callGeminiWithFallback(fn, fallbackGenerator, preferredModels) {
   for (const modelName of modelsToTry) {
     try {
       const timeoutPromise = new Promise(
-        (_, reject) => setTimeout(() => reject(new Error("GEMINI_TIMEOUT")), 6500)
+        (_, reject) => setTimeout(() => reject(new Error("GEMINI_TIMEOUT")), 25e3)
       );
       const result = await Promise.race([fn(modelName), timeoutPromise]);
       return result;

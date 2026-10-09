@@ -37,14 +37,13 @@ export class AIService {
   private geminiClient: GoogleGenAI | null = null;
   private groqApiKeys: string[] = [];
   private currentKeyIndex: number = 0;
+  private primaryGeminiModel: string = "gemini-3.8-flash";
   private geminiModels: string[] = [
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
     "gemini-3.8-flash",
-    "gemini-2.5-pro",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
   ];
-  // Strictly use verified working Groq models only (avoid 404s from unavailable models)
+  // Strictly use verified working Groq models only as secondary failover (avoid 404s)
   private groqModels: string[] = [
     "openai/gpt-oss-120b",
     "qwen/qwen3.8-27b",
@@ -76,39 +75,54 @@ export class AIService {
   }
 
   private initProviders() {
-    // 1. Initialize Dual Groq Keys (Primary Engine)
-    const k1 = (process.env.RAHMORA_API_KEY || process.env.GROQ_API_KEY || "").trim();
-    const k2 = (process.env.RAHMORA2_API_KEY || process.env.GROQ_API_KEY_2 || "").trim();
-    this.groqApiKeys = Array.from(new Set([k1, k2].filter(k => k && k.length > 20)));
+    // 1. Initialize Google Gemini as Flagship Primary Engine
+    const geminiKey = (
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.AI_STUDIO_API_KEY ||
+      process.env.VITE_GEMINI_API_KEY ||
+      ""
+    ).trim();
 
-    if (this.groqApiKeys.length > 0) {
-      const masked = this.groqApiKeys.map(k => `${k.slice(0, 7)}...${k.slice(-4)}`);
-      console.log(`[AIService] Primary Dual-Key Groq Engine initialized with ${this.groqApiKeys.length} key(s) [${masked.join(", ")}] on verified models: [${this.groqModels.join(", ")}].`);
-    } else {
-      console.warn("[AIService] No Groq API keys detected. Gemini or local generator will act as primary.");
-    }
-
-    // 2. Initialize Gemini (Secondary/Fallback Provider)
-    const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
-    if (geminiKey && geminiKey !== "undefined") {
+    if (geminiKey && geminiKey !== "undefined" && geminiKey.length > 5) {
       try {
         this.geminiClient = new GoogleGenAI({
           apiKey: geminiKey,
           httpOptions: {
             headers: {
-              "User-Agent": "aistudio-cvcraft",
+              "User-Agent": "aistudio-build",
             },
           },
         });
-        console.log("[AIService] Gemini fallback provider initialized.");
+        const masked = `${geminiKey.slice(0, 5)}...${geminiKey.slice(-4)}`;
+        console.log(`[AIService] Flagship Google Gemini Provider initialized (${masked}) with primary model: ${this.primaryGeminiModel}.`);
       } catch (err) {
         console.error("[AIService] Gemini initialization error:", err);
       }
+    } else {
+      console.log("[AIService] Operating in resilient auto-fallback mode. Add GEMINI_API_KEY to activate full AI model power.");
+    }
+
+    // 2. Initialize Secondary Failover Provider (Dual-Key Groq)
+    const k1 = (process.env.GROQ_API_KEY || process.env.RAHMORA_API_KEY || "").trim();
+    const k2 = (process.env.GROQ_API_KEY_2 || process.env.RAHMORA2_API_KEY || "").trim();
+    this.groqApiKeys = Array.from(new Set([k1, k2].filter(k => k && k.length > 20)));
+
+    if (this.groqApiKeys.length > 0) {
+      console.log(`[AIService] Secondary failover engine configured with ${this.groqApiKeys.length} key(s).`);
     }
   }
 
   private getClient(): GoogleGenAI | null {
-    if (!this.geminiClient) {
+    const currentKey = (
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.AI_STUDIO_API_KEY ||
+      process.env.VITE_GEMINI_API_KEY ||
+      ""
+    ).trim();
+
+    if (!this.geminiClient && currentKey && currentKey.length > 5) {
       this.initProviders();
     }
     return this.geminiClient;
@@ -269,7 +283,7 @@ export class AIService {
     return null;
   }
 
-  // --- Resilient Execution Engine with Dual-Key Groq as Primary ---
+  // --- Resilient Execution Engine with Google Gemini as Flagship Primary ---
   public async executeWithFallback<T>(
     actionName: string,
     minimizedPayload: any,
@@ -294,30 +308,12 @@ export class AIService {
 
     this.trackRequest();
 
-    // 2. PRIMARY ENGINE: Dual-Key Groq Provider using verified direct models
-    if (this.groqApiKeys.length > 0 && options?.rawPrompt) {
-      try {
-        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true, options.timeoutMs || 25000);
-        if (groqText) {
-          const parsed = this.safeParseJson<any>(groqText, null);
-          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
-            const finalResult = options.postProcessor ? options.postProcessor(parsed) : (parsed as T);
-            this.setInCache(cacheKey, finalResult);
-            return finalResult;
-          }
-        }
-      } catch (groqErr) {
-        console.warn(`[AIService] Groq failed for ${actionName}, checking alternatives:`, groqErr);
-      }
-    }
-
-    // 3. SECONDARY BACKUP: Gemini Models (only if Groq is unconfigured or failed)
+    // 2. PRIMARY ENGINE: Google Gemini (@google/genai)
     const client = this.getClient();
     if (client && Date.now() >= this.geminiBlockedUntil) {
       const activeModels = this.geminiModels;
-      const isHeavyTask = actionName.includes("parse") || actionName.includes("audit") || actionName.includes("coach") || actionName.includes("analytics");
-      const taskTimeoutMs = isHeavyTask ? 30000 : 15000;
-      let hitQuotaOnAll = true;
+      const isHeavyTask = actionName.includes("parse") || actionName.includes("audit") || actionName.includes("coach") || actionName.includes("analytics") || actionName.includes("image");
+      const taskTimeoutMs = options?.timeoutMs || (isHeavyTask ? 35000 : 20000);
 
       for (const modelName of activeModels) {
         try {
@@ -334,25 +330,48 @@ export class AIService {
           const errMsg = err?.message || String(err || "");
           const status = err?.status || err?.statusCode || 0;
 
+          // 401/403: Invalid key or blocked
+          if (status === 401 || status === 403 || errMsg.includes("API_KEY_INVALID") || errMsg.includes("PERMISSION_DENIED")) {
+            console.warn(`[AIService] Gemini authorization notice (${status}). Checking failover options.`);
+            this.geminiBlockedUntil = Date.now() + 15000;
+            break;
+          }
+
+          // 429: Quota exceeded -> try next model (e.g. gemini-3.1-flash-lite)
           if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+            console.warn(`[AIService] Gemini quota reached on ${modelName}, trying fallback model...`);
             continue;
           }
 
+          // 503 / High demand -> try next model
           if (status === 503 || errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("UNAVAILABLE")) {
             continue;
           }
 
-          hitQuotaOnAll = false;
           if (errMsg.includes("AI_TIMEOUT") || status === 404 || errMsg.includes("not found")) {
             continue;
           }
 
+          console.warn(`[AIService] Gemini notice on ${modelName} for ${actionName}:`, errMsg);
           continue;
         }
       }
+    }
 
-      if (hitQuotaOnAll) {
-        this.geminiBlockedUntil = Date.now() + 60 * 1000;
+    // 3. SECONDARY FAILOVER: Groq Provider (if Gemini was unavailable or exceeded quota)
+    if (this.groqApiKeys.length > 0 && options?.rawPrompt) {
+      try {
+        const groqText = await this.callGroq(options.rawPrompt, options.systemPrompt, true, options.timeoutMs || 20000);
+        if (groqText) {
+          const parsed = this.safeParseJson<any>(groqText, null);
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+            const finalResult = options.postProcessor ? options.postProcessor(parsed) : (parsed as T);
+            this.setInCache(cacheKey, finalResult);
+            return finalResult;
+          }
+        }
+      } catch (groqErr) {
+        console.warn(`[AIService] Groq failover failed for ${actionName}:`, groqErr);
       }
     }
 

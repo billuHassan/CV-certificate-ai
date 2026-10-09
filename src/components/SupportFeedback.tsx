@@ -4,7 +4,7 @@ import {
   ThumbsUp, CheckCircle, RefreshCw, Paperclip, Trash2, Image, Video, 
   Eye, X, Users, ArrowRight, HelpCircle, Search, ChevronDown, 
   ChevronUp, BookOpen, Brain, FileText, Zap, Shield, Sparkle,
-  Sliders, Award, Laptop, CheckCheck, Lightbulb, ExternalLink
+  Sliders, Award, Laptop, CheckCheck, Lightbulb, ExternalLink, Bot
 } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -234,8 +234,81 @@ export default function SupportFeedback({ user, onOpenDirectMessages, onNavigate
     return () => unsub();
   }, []);
 
-  // Navigation Tab State: "faq" | "chat" | "reviews"
-  const [activeTab, setActiveTab] = useState<"faq" | "chat" | "reviews">("faq");
+  // Navigation Tab State: "faq" | "ai-bot" | "chat" | "reviews"
+  const [activeTab, setActiveTab] = useState<"faq" | "ai-bot" | "chat" | "reviews">("faq");
+
+  // AI Help Chatbot States
+  const [aiBotMessages, setAiBotMessages] = useState<Array<{ role: "user" | "assistant"; content: string; suggestions?: string[] }>>([
+    {
+      role: "assistant",
+      content: `Hello ${user?.displayName || "there"}! 👋 I am your automated **CVCraft AI Help & Support Assistant** powered by Google Gemini.
+
+I can guide you immediately on any question or tool:
+- 📄 **Resume Studio & ATS**: How to create, customize templates, and achieve 95+ ATS reality scores.
+- 📊 **3D Resume Analytics**: Understanding the 8 core hiring dimensions and employability breakdown.
+- ✉️ **Cover Letter Automation**: Tailoring high-converting cover letters to job descriptions.
+- 🎯 **Coach Intelligence & Interviews**: Using our AI Career Coach and STAR interview simulator.
+- 💎 **Elite Membership & Direct Transfers**: PayPal checkout, Touch 'n Go eWallet, and receipt audits.
+
+How can I help you today?`,
+      suggestions: [
+        "How does 3D Resume Analytics work?",
+        "How do I achieve a 95+ ATS score?",
+        "How do I export my resume to PDF?",
+        "How do I use Cover Letter Automation?",
+        "How do I upgrade with PayPal or Touch 'n Go?"
+      ]
+    }
+  ]);
+  const [aiBotInput, setAiBotInput] = useState("");
+  const [aiBotLoading, setAiBotLoading] = useState(false);
+  const aiBotMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleSendAiBotMessage = async (textToSend?: string) => {
+    const text = (textToSend || aiBotInput).trim();
+    if (!text || aiBotLoading) return;
+    setAiBotInput("");
+    const userMsg = { role: "user" as const, content: text };
+    const updated = [...aiBotMessages, userMsg];
+    setAiBotMessages(updated);
+    setAiBotLoading(true);
+
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: updated.map(m => ({ role: m.role, content: m.content })),
+          resumeContext: "Platform Help & Knowledge Assistance for CVCraft / Rahmora users. The user is asking about resume building, ATS scoring, 3D analytics, cover letter generation, interview preparation, career coach, settings, payments, or troubleshooting. Provide concise, friendly, formatted answers with bullet points and clear instructions."
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiBotMessages(prev => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.reply || "I am ready to help you. What else would you like to know?",
+            suggestions: data.suggestions || []
+          }
+        ]);
+      } else {
+        throw new Error("AI service error");
+      }
+    } catch {
+      setAiBotMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "I'm here to help! You can check our Knowledge Base FAQ tab for detailed step-by-step guides on every feature, or chat directly with our Lead Administrator in the Live Admin Support Chat tab.",
+          suggestions: ["Check Knowledge Base FAQ", "Open Live Admin Support Chat"]
+        }
+      ]);
+    } finally {
+      setAiBotLoading(false);
+      setTimeout(() => aiBotMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  };
 
   // FAQ Search & Filter States
   const [faqSearchQuery, setFaqSearchQuery] = useState("");
@@ -543,6 +616,21 @@ export default function SupportFeedback({ user, onOpenDirectMessages, onNavigate
           </button>
 
           <button
+            onClick={() => setActiveTab("ai-bot")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
+              activeTab === "ai-bot"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
+                : "bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800"
+            }`}
+          >
+            <Bot className="h-4 w-4 text-sky-400" />
+            AI Help Assistant
+            <span className="text-[10px] px-1.5 py-0.2 bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-full font-mono font-bold">
+              Gemini
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab("chat")}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
               activeTab === "chat"
@@ -805,6 +893,140 @@ export default function SupportFeedback({ user, onOpenDirectMessages, onNavigate
               <MessageSquare className="h-4 w-4" /> Message Support Representative
             </button>
           </div>
+        </div>
+      )}
+
+      {/* TAB: AUTOMATED AI HELP & KNOWLEDGE CHATBOT */}
+      {activeTab === "ai-bot" && (
+        <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col h-[650px] relative overflow-hidden animate-fade-in">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-xl">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                  CVCraft Automated AI Help Assistant
+                  <span className="text-[10px] px-2 py-0.5 bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-full font-mono font-bold">
+                    Powered by Google Gemini 3.8
+                  </span>
+                </h4>
+                <span className="text-[10px] text-slate-400">
+                  Instant 24/7 automated answers for resume formatting, ATS scoring, 3D analytics, cover letters, and payments
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab("chat")}
+              className="text-[11px] px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition flex items-center gap-1.5 shrink-0 hidden sm:flex"
+            >
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+              Contact Human Admin
+            </button>
+          </div>
+
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1 scrollbar-thin">
+            {aiBotMessages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} space-y-1`}
+              >
+                <div
+                  className={`max-w-[88%] sm:max-w-[78%] p-4 rounded-2xl text-xs sm:text-sm leading-relaxed space-y-2 shadow-md ${
+                    msg.role === "user"
+                      ? "bg-indigo-600 text-white rounded-br-none"
+                      : "bg-slate-950 border border-slate-800 text-slate-200 rounded-bl-none"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono opacity-80 border-b border-white/10 pb-1 mb-1">
+                    {msg.role === "user" ? (
+                      <span className="font-bold">You</span>
+                    ) : (
+                      <span className="font-bold flex items-center gap-1 text-sky-400">
+                        <Sparkles className="h-3 w-3" /> Rahmora AI Assistant
+                      </span>
+                    )}
+                  </div>
+                  <div className="whitespace-pre-wrap leading-relaxed space-y-2">
+                    {msg.content}
+                  </div>
+
+                  {/* Suggestion Chips */}
+                  {msg.suggestions && msg.suggestions.length > 0 && (
+                    <div className="pt-2 border-t border-white/10 flex flex-wrap gap-1.5">
+                      {msg.suggestions.map((sug, sIdx) => (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onClick={() => handleSendAiBotMessage(sug)}
+                          disabled={aiBotLoading}
+                          className="text-[11px] px-2.5 py-1 bg-slate-900/80 hover:bg-indigo-600/40 text-sky-300 hover:text-white border border-sky-500/30 rounded-lg transition text-left cursor-pointer disabled:opacity-50"
+                        >
+                          💡 {sug}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {aiBotLoading && (
+              <div className="flex items-center gap-2 p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-sky-400 w-fit">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <span>Thinking and analyzing answer with Gemini 3.8 Flash...</span>
+              </div>
+            )}
+            <div ref={aiBotMessagesEndRef} />
+          </div>
+
+          {/* Quick Starter Prompts Row */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 shrink-0">
+            {[
+              "How do I achieve a 95+ ATS score?",
+              "What is 3D Resume Analytics?",
+              "How do I export PDF without layout shift?",
+              "How does Cover Letter Automation work?",
+              "How to verify payments with PayPal / TNG?"
+            ].map((quick, qIdx) => (
+              <button
+                key={qIdx}
+                type="button"
+                onClick={() => handleSendAiBotMessage(quick)}
+                disabled={aiBotLoading}
+                className="text-[10px] px-2.5 py-1 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 rounded-lg whitespace-nowrap transition cursor-pointer shrink-0 disabled:opacity-40"
+              >
+                {quick}
+              </button>
+            ))}
+          </div>
+
+          {/* Input Bar */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendAiBotMessage();
+            }}
+            className="flex items-center gap-2 pt-2 border-t border-slate-800 shrink-0"
+          >
+            <input
+              type="text"
+              value={aiBotInput}
+              onChange={(e) => setAiBotInput(e.target.value)}
+              placeholder="Ask any question about using CVCraft, ATS rules, templates, or features..."
+              disabled={aiBotLoading}
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
+            />
+            <button
+              type="submit"
+              disabled={aiBotLoading || !aiBotInput.trim()}
+              className="px-4 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-600/20 transition flex items-center gap-1.5 disabled:opacity-40 cursor-pointer shrink-0"
+            >
+              {aiBotLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <span>Send</span>
+            </button>
+          </form>
         </div>
       )}
 

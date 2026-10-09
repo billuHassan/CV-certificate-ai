@@ -249,20 +249,28 @@ app.post("/api/admin/stats", (req, res) => {
 // Diagnostic endpoint to check environment setup securely (sanitized status only)
 app.get("/api/diagnostic", (req, res) => {
   const adminKey = req.headers["x-admin-key"] || req.query.adminKey;
+  const geminiExists = !!(
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.AI_STUDIO_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY
+  );
   if (!adminKey && req.headers["authorization"] !== "Bearer bilalhassanmussa") {
     // Return minimal safe health status for public probes
     return res.json({
       status: "healthy",
       service: "CVCraft AI Core Engine",
-      aiConfigured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)
+      aiConfigured: geminiExists,
+      aiProvider: "Google Gemini 3.8 Flash (Primary)"
     });
   }
 
   res.json({
     status: "healthy",
-    geminiConfigured: !!process.env.GEMINI_API_KEY,
-    googleApiKeyExists: !!process.env.GOOGLE_API_KEY,
-    aiConfigured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    geminiConfigured: geminiExists,
+    primaryModel: "gemini-3.8-flash",
+    fallbackModel: "gemini-3.1-flash-lite",
+    aiConfigured: geminiExists,
     nodeEnv: process.env.NODE_ENV || "production"
   });
 });
@@ -872,7 +880,7 @@ app.post("/api/auth/validate-email", async (req, res) => {
 // we override and clear the GCP metadata environment variables.
 // Environment overrides are handled in env-init.ts to ensure they execute before any imports.
 
-const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
 let lastGeminiErrorDetails: any = null;
 let geminiIsBlocked = false;
@@ -880,11 +888,17 @@ let geminiBlockedUntil = 0;
 
 function getGenAIClient(): GoogleGenAI | null {
   if (ai) return ai;
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (key && key !== "undefined" && key.trim() !== "") {
+  const key = (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.AI_STUDIO_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    ""
+  ).trim();
+  if (key && key !== "undefined" && key.length > 5) {
     try {
       ai = new GoogleGenAI({
-        apiKey: key.trim(),
+        apiKey: key,
         httpOptions: {
           headers: {
             "User-Agent": "aistudio-build",
@@ -901,7 +915,7 @@ function getGenAIClient(): GoogleGenAI | null {
 
 getGenAIClient();
 
-const PRIMARY_GEMINI_MODEL = "gemini-3.1-flash-lite";
+const PRIMARY_GEMINI_MODEL = "gemini-3.8-flash";
 
 /**
  * Executes a Gemini request using recommended active models with fast fallback.
@@ -917,7 +931,7 @@ async function callGeminiWithFallback<T>(
     return fallbackGenerator();
   }
 
-  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-2.5-flash", "gemini-flash-latest"];
+  const defaultModels = [PRIMARY_GEMINI_MODEL, "gemini-3.1-flash-lite", "gemini-flash-latest"];
   const sanitizedPreferred = (preferredModels || []).map(m => 
     (m === "gemini-3.6-flash" || m === "gemini-3.1-pro-preview" || m === "gemini-2.0-flash" || m === "gemini-1.5-flash") 
       ? PRIMARY_GEMINI_MODEL 
@@ -929,9 +943,9 @@ async function callGeminiWithFallback<T>(
 
   for (const modelName of modelsToTry) {
     try {
-      // Impose a strict 6.5s timeout on API calls to prevent UI hang
+      // Impose a resilient 25s timeout on API calls to prevent UI hang while allowing rich output
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("GEMINI_TIMEOUT")), 6500)
+        setTimeout(() => reject(new Error("GEMINI_TIMEOUT")), 25000)
       );
 
       const result = await Promise.race([fn(modelName), timeoutPromise]);
