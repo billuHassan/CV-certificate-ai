@@ -21,7 +21,7 @@
     "lucide-react": "^0.546.0",
     "mammoth": "^1.12.0",
     "motion": "^12.23.24",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.0.16",
     "pdf-parse": "^2.4.5",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
@@ -40,6 +40,14 @@
     "vite": "^6.2.3"
   },
   "overrides": {
+    "@grpc/grpc-js": "^1.14.6",
+    "nodemailer": "^10.0.16",
+    "@fastify/busboy": "^3.2.2",
+    "proxy-addr": "^2.0.8",
+    "source-map-js": "^1.2.2",
+    "brace-expansion": "^2.1.7",
+    "sprintf-js": "^1.1.3",
+    "argparse": "^2.0.1",
     "uuid": "^11.1.1",
     "nanoid": "^3.3.18",
     "browserslist": "^4.28.9",
