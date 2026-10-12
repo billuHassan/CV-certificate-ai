@@ -9,6 +9,7 @@ import {
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { ThemeDefinition } from "./Settings";
 import { BannerAd } from "./AdSystem";
+import PDFPreviewModal from "./PDFPreviewModal";
 
 interface DashboardProps {
   user: UserSession;
@@ -53,6 +54,7 @@ export default function Dashboard({
   const [newLetterRole, setNewLetterRole] = useState("");
 
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "resume" | "letter"; title: string } | null>(null);
+  const [previewingResume, setPreviewingResume] = useState<ResumeData | null>(null);
   const tipsScrollRef = useRef<HTMLDivElement>(null);
 
   // Dynamic AI Career Tips State
@@ -685,6 +687,13 @@ export default function Dashboard({
 
                 <div className="flex items-center gap-1 shrink-0">
                   <button
+                    onClick={() => setPreviewingResume(res)}
+                    className="p-1.5 btn-3d-slate text-indigo-400 hover:text-indigo-300 rounded-lg transition"
+                    title="PDF Preview & Download"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => onSelectResume(res.id)}
                     className="p-1.5 btn-3d-slate text-slate-300 hover:text-white rounded-lg transition"
                     title="Edit Resume"
@@ -1027,6 +1036,16 @@ export default function Dashboard({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Real-Time PDF Preview Modal */}
+      {previewingResume && (
+        <PDFPreviewModal
+          isOpen={!!previewingResume}
+          onClose={() => setPreviewingResume(null)}
+          resume={previewingResume}
+          isPremium={user.isPremium}
+        />
       )}
     </motion.div>
   );

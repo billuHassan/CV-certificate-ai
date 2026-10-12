@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import {
   User, Briefcase, GraduationCap, Code, FolderGit, Languages, Award, Users, AlignLeft,
   Plus, Trash2, ArrowUp, ArrowDown, Settings, Sliders, Palette, Type as FontIcon, Sparkles,
-  Download, Printer, ChevronDown, ChevronUp, Image, AlertCircle, Sparkle, Copy, RefreshCw, Layout
+  Download, Printer, ChevronDown, ChevronUp, Image, AlertCircle, Sparkle, Copy, RefreshCw, Layout, Eye
 } from "lucide-react";
 import { ResumeData, WorkExperience, Education, Project, Language, Certification, Reference, UserSession } from "../types";
 import { compressImage } from "../lib/imageUtils";
 import ResumeTemplates from "./ResumeTemplates";
+import PDFPreviewModal from "./PDFPreviewModal";
+import TemplateSelector from "./TemplateSelector";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 import { getRoleDomainInfo } from "../utils/roleAnalyzer";
 
@@ -36,6 +38,7 @@ export default function ResumeBuilder({
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [templateFilter, setTemplateFilter] = useState<"all" | "free" | "premium">("all");
   const [templateSearch, setTemplateSearch] = useState("");
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   // Auto-save changes
   useEffect(() => {
@@ -753,22 +756,29 @@ export default function ResumeBuilder({
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={handleDownloadDOCX}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/10"
-            title="Download editable Microsoft Word DOCX file"
+            onClick={() => setShowPdfPreview(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+            title="Open real-time PDF Preview modal with live pagination, zoom, and download"
           >
-            <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download </span>DOCX
+            <Eye className="h-3.5 w-3.5" /> <span>PDF Preview</span>
           </button>
           <button
-            onClick={handlePrint}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/10"
-            title="Open browser PDF print dialog"
+            onClick={() => setShowPdfPreview(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition border border-slate-700"
+            title="Download PDF or customize export options"
           >
-            <Printer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download </span>PDF
+            <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download </span>PDF
+          </button>
+          <button
+            onClick={handleDownloadDOCX}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
+            title="Download editable Microsoft Word DOCX file"
+          >
+            <Download className="h-3.5 w-3.5" /> DOCX
           </button>
           <button
             onClick={handleDownloadHTML}
-            className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
+            className="hidden md:flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
             title="Download fully styled offline HTML file"
           >
             HTML
@@ -1779,60 +1789,15 @@ export default function ResumeBuilder({
 
             {activeTab === "design" && (
               <div className="space-y-6 p-1">
-                {/* 1. Template Picker */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <Sliders className="h-4 w-4 text-indigo-400" /> Pick Structural Template
-                  </h4>
-
-                  {/* Search bar */}
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="Search 20 premium templates..."
-                      value={templateSearch}
-                      onChange={(e) => setTemplateSearch(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
-                    />
-                  </div>
-
-                  {/* Scrollable Templates List */}
-                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-800">
-                    {templatesList
-                      .filter((tpl) => {
-                        if (templateSearch.trim()) {
-                          const query = templateSearch.toLowerCase();
-                          return tpl.name.toLowerCase().includes(query) || tpl.desc.toLowerCase().includes(query);
-                        }
-                        return true;
-                      })
-                      .map((tpl) => (
-                        <button
-                          key={tpl.id}
-                          onClick={() => {
-                            setResume((prev) => ({ ...prev, templateId: tpl.id }));
-                          }}
-                          className={`w-full text-left p-3 rounded-xl border transition relative overflow-hidden group ${
-                            resume.templateId === tpl.id
-                              ? "bg-indigo-600/10 border-indigo-500 shadow-md"
-                              : "bg-slate-900/50 border-slate-800 hover:bg-slate-900 hover:border-slate-700"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between pr-12">
-                            <span className="text-xs font-bold text-white group-hover:text-indigo-400 transition flex items-center gap-1.5">
-                              {tpl.name}
-                            </span>
-                            {resume.templateId === tpl.id && (
-                              <span className="text-[9px] font-mono tracking-widest text-indigo-400 bg-indigo-950 border border-indigo-900 px-1.5 py-0.5 rounded uppercase font-semibold">
-                                Selected
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{tpl.desc}</p>
-                        </button>
-                      ))}
-                  </div>
-                </div>
+                {/* 1. Template Selector Component */}
+                <TemplateSelector
+                  selectedTemplateId={resume.templateId}
+                  onSelectTemplate={(tplId) => {
+                    setResume((prev) => ({ ...prev, templateId: tplId }));
+                  }}
+                  variant="full"
+                  isPremium={isPremium}
+                />
 
                 {/* 2. Color Theme */}
                 <div className="space-y-3 border-t border-slate-800 pt-5">
@@ -2025,6 +1990,18 @@ export default function ResumeBuilder({
         <div className={`flex-1 overflow-y-auto bg-slate-900/90 p-3 sm:p-6 lg:p-8 flex flex-col items-center border-l border-slate-850 print:p-0 print:border-none ${
           mobileMode === "preview" ? "flex" : "hidden lg:flex"
         }`}>
+          {/* Quick Layout Theme Selector Component Bar - Live Visual Updates */}
+          <div className="w-full max-w-[850px] mb-3 no-print">
+            <TemplateSelector
+              selectedTemplateId={resume.templateId}
+              onSelectTemplate={(tplId) => {
+                setResume((prev) => ({ ...prev, templateId: tplId }));
+              }}
+              variant="quick-bar"
+              isPremium={isPremium}
+            />
+          </div>
+
           {/* Zoom scale controller bar */}
           <div className="mb-3 flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl shadow-lg no-print self-center sm:self-end">
             <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider mr-1">Scale:</span>
@@ -2044,6 +2021,14 @@ export default function ResumeBuilder({
                 {z.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setShowPdfPreview(true)}
+              className="ml-auto flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-md transition shadow-sm"
+              title="Open full PDF Preview modal"
+            >
+              <Eye className="h-3.5 w-3.5" /> Full PDF Preview
+            </button>
           </div>
 
           <div className="w-full overflow-x-auto flex justify-center pb-8">
@@ -2061,6 +2046,14 @@ export default function ResumeBuilder({
           </div>
         </div>
       </div>
+
+      {/* Real-Time PDF Preview Modal */}
+      <PDFPreviewModal
+        isOpen={showPdfPreview}
+        onClose={() => setShowPdfPreview(false)}
+        resume={resume}
+        isPremium={isPremium}
+      />
     </div>
   );
 }

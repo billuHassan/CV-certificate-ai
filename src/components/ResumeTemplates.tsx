@@ -105,7 +105,7 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
       styleCategory = "banner";
     } else if (serifTemplates.includes(templateId) || customTpl?.layoutStyle === "cream") {
       styleCategory = "cream";
-    } else if (["munich", "oslo", "teal_grid", "aurora", "swiss", "canva_minimal_slate", "canva_monochrome_chic"].includes(templateId) || customTpl?.layoutStyle === "modern-card") {
+    } else if (["modern", "munich", "oslo", "teal_grid", "aurora", "swiss", "canva_minimal_slate", "canva_monochrome_chic"].includes(templateId) || customTpl?.layoutStyle === "modern-card") {
       styleCategory = "modern-card";
     }
 
@@ -209,6 +209,18 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
 
   // Section heading element with high aesthetic differences
   const SectionHeader = ({ title }: { title: string }) => {
+    if (templateId === "modern") {
+      return (
+        <div className="flex items-center gap-3 mb-3.5 pb-1 border-b-2 font-sans" style={{ borderColor: `${colorTheme}33` }}>
+          <div className="h-4 w-1.5 rounded-full" style={{ backgroundColor: colorTheme }} />
+          <h3 className="text-xs font-bold uppercase tracking-wider font-sans" style={{ color: colorTheme }}>
+            {title}
+          </h3>
+          <div className="grow h-[1px] bg-slate-200" />
+        </div>
+      );
+    }
+
     if (templateId === "canva_modern_emerald") {
       return (
         <div className="flex items-center gap-2 mb-3.5 border-b-2 border-emerald-600/30 pb-1.5">
@@ -725,6 +737,42 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
   // Header layouts with high design distinctions
   const renderHeader = () => {
     const hasPhoto = !!personalInfo.profilePhoto;
+
+    // Modern Contemporary
+    if (templateId === "modern") {
+      return (
+        <div className="mb-6 pb-5 border-b-2 border-slate-200/80 font-sans relative">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {hasPhoto && (
+                <img
+                  src={personalInfo.profilePhoto}
+                  alt={personalInfo.fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-20 w-20 rounded-2xl object-cover ring-2 ring-slate-200 shadow-md"
+                />
+              )}
+              <div>
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-sans" style={{ color: colorTheme }}>
+                  {personalInfo.fullName || "Your Full Name"}
+                </h1>
+                <p className="text-sm font-semibold tracking-wide text-slate-600 mt-0.5">
+                  {personalInfo.jobTitle || "Professional Title"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px] text-slate-600 max-w-md">
+              {personalInfo.email && <div className="flex items-center gap-1.5 bg-slate-100/90 px-2.5 py-1 rounded-full"><Mail className="h-3 w-3" style={{ color: colorTheme }} /> {personalInfo.email}</div>}
+              {personalInfo.phone && <div className="flex items-center gap-1.5 bg-slate-100/90 px-2.5 py-1 rounded-full"><Phone className="h-3 w-3" style={{ color: colorTheme }} /> {personalInfo.phone}</div>}
+              {personalInfo.location && <div className="flex items-center gap-1.5 bg-slate-100/90 px-2.5 py-1 rounded-full"><MapPin className="h-3 w-3" style={{ color: colorTheme }} /> {personalInfo.location}</div>}
+              {personalInfo.website && <div className="flex items-center gap-1.5 bg-slate-100/90 px-2.5 py-1 rounded-full"><Globe className="h-3 w-3" style={{ color: colorTheme }} /> {personalInfo.website}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1.5 bg-slate-100/90 px-2.5 py-1 rounded-full"><Linkedin className="h-3 w-3" style={{ color: colorTheme }} /> {personalInfo.linkedin}</div>}
+              {personalInfo.github && <div className="flex items-center gap-1.5 bg-slate-100/90 px-2.5 py-1 rounded-full"><Github className="h-3 w-3" style={{ color: colorTheme }} /> {personalInfo.github}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     // Canva Modern Emerald
     if (templateId === "canva_modern_emerald") {
