@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain, Zap } from "lucide-react";
+import {
+  Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff,
+  ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain, Zap, Copy, Check, ExternalLink
+} from "lucide-react";
 import RahmoraLogo, { RahmoraGlitterBadge } from "./RahmoraLogo";
 import { auth, db } from "../lib/firebase";
 import {
@@ -32,6 +35,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   // Check redirect result on mount (for mobile/redirect flows) & listen to live auth state changes
   useEffect(() => {
@@ -1191,7 +1195,76 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           </div>
         )}
 
-        {error && (
+        {error && (error.includes("Unauthorized Domain") || error.includes("unauthorized-domain")) ? (
+          <div className="mb-5 p-4 bg-amber-950/40 border border-amber-500/50 rounded-2xl space-y-3.5 text-xs text-amber-100 shadow-xl shadow-amber-950/40 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="font-bold text-amber-200 text-sm">
+                  Firebase Authorized Domain Required
+                </div>
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  Google OAuth blocks sign-ins from domains not registered in your Firebase project.
+                </p>
+              </div>
+            </div>
+
+            {/* Current Domain Box with One-Click Copy */}
+            <div className="p-2.5 bg-slate-950/90 rounded-xl border border-amber-700/50 flex items-center justify-between gap-2">
+              <span className="font-mono text-[11px] text-amber-300 truncate select-all">
+                {window.location.hostname}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.hostname);
+                  setCopiedDomain(true);
+                  setTimeout(() => setCopiedDomain(false), 2500);
+                }}
+                className="px-2.5 py-1 bg-amber-900/60 hover:bg-amber-800 text-amber-200 rounded-lg text-[10px] font-bold border border-amber-700/60 flex items-center gap-1 shrink-0 transition cursor-pointer"
+              >
+                {copiedDomain ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                <span>{copiedDomain ? "Copied!" : "Copy Domain"}</span>
+              </button>
+            </div>
+
+            {/* 3-Step Walkthrough */}
+            <div className="text-[11px] text-amber-300/90 space-y-1.5 bg-amber-950/30 p-3 rounded-xl border border-amber-900/40">
+              <div className="font-semibold text-amber-200">How to authorize this domain (15 seconds):</div>
+              <div className="space-y-1 text-slate-300 pl-1">
+                <div>1. Open <strong className="text-white">Firebase Console</strong> &rarr; Project: <code className="text-amber-300 font-mono">rahmora-37199</code></div>
+                <div>2. Go to <strong className="text-white">Authentication</strong> &rarr; <strong className="text-white">Settings</strong> tab &rarr; <strong className="text-white">Authorized domains</strong></div>
+                <div>3. Click <strong className="text-white">Add domain</strong>, paste <code className="text-amber-300 font-mono">{window.location.hostname}</code>, and click <strong className="text-white">Save</strong>.</div>
+              </div>
+            </div>
+
+            {/* Direct Console Link and Immediate Guest Bypass */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <a
+                href="https://console.firebase.google.com/project/rahmora-37199/authentication/settings"
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow transition"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>Open Firebase Settings</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  onAuthSuccess({
+                    email: "guest@cvcraft.ai",
+                    displayName: "Guest Explorer"
+                  });
+                }}
+                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Enter as Guest (No Wait)</span>
+              </button>
+            </div>
+          </div>
+        ) : error ? (
           <div className="mb-5 p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-xl space-y-2 text-xs text-rose-200">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5" />
@@ -1215,7 +1288,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               </div>
             )}
           </div>
-        )}
+        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
