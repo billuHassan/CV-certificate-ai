@@ -3362,10 +3362,11 @@ Return JSON:
    * 18. Comprehensive AI Resume Coach
    */
   async resumeCoach(payload) {
-    const { resume, targetRole, targetCompany, candidateNationality } = payload;
-    const role = targetRole || resume.personalInfo?.jobTitle || "Professional";
+    const { resume = {}, resumeSummary = "", targetRole, targetCompany, candidateNationality } = payload || {};
+    const role = targetRole || resume && resume.personalInfo?.jobTitle || "Professional";
+    const resumeStr = resume && typeof resume === "object" && Object.keys(resume).length > 0 ? JSON.stringify(resume).slice(0, 3e3) : resumeSummary || "Standard Professional Profile";
     const prompt = `You are an elite Executive AI Resume Coach. Analyze resume for "${role}":
-Resume: ${JSON.stringify(resume).slice(0, 3e3)}
+Resume: ${resumeStr}
 
 Return JSON matching:
 {

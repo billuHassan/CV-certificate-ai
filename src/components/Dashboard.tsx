@@ -4,7 +4,8 @@ import {
   Plus, FileText, Sparkles, Award, Trash2, Edit2, Copy, BarChart2, Check,
   ExternalLink, User, Settings as SettingsIcon, Layout, Eye, BookOpen, AlertCircle,
   FileSearch, Building2, Upload, Brain, ChevronLeft, ChevronRight, TrendingUp, Zap,
-  Target, ShieldCheck, ArrowUpRight, CheckCircle2, RefreshCw, Filter, Compass, Briefcase, UserCheck, X, Users
+  Target, ShieldCheck, ArrowUpRight, CheckCircle2, RefreshCw, Filter, Compass, Briefcase, UserCheck, X, Users,
+  Linkedin
 } from "lucide-react";
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { ThemeDefinition } from "./Settings";
@@ -26,6 +27,7 @@ interface DashboardProps {
   onSelectView: (view: "resumes" | "letters" | "score" | "settings" | "resume-coach" | any) => void;
   onUpgrade: () => void;
   onOpenUploadModal?: () => void;
+  onOpenLinkedInModal?: () => void;
 }
 
 export default function Dashboard({
@@ -43,6 +45,7 @@ export default function Dashboard({
   onSelectView,
   onUpgrade,
   onOpenUploadModal,
+  onOpenLinkedInModal,
 }: DashboardProps) {
   const [showCreateResumeModal, setShowCreateResumeModal] = useState(false);
   const [newResumeTitle, setNewResumeTitle] = useState("");
@@ -355,7 +358,28 @@ export default function Dashboard({
       </motion.div>
 
       {/* Streamlined 3D Quick Action Row (No duplication of sidebar items) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Action 0: Import from LinkedIn Profile URL */}
+        <button
+          onClick={() => onOpenLinkedInModal?.()}
+          className="card-3d p-5 rounded-2xl text-left transition group relative overflow-hidden"
+        >
+          <div className="flex justify-between items-start mb-3">
+            <div className="h-11 w-11 rounded-xl bg-[#0A66C2] flex items-center justify-center text-white shadow-lg shadow-[#0A66C2]/30">
+              <Linkedin className="h-5 w-5" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-blue-300 bg-blue-950 border border-blue-700/60 px-2 py-0.5 rounded uppercase font-bold">
+              URL SYNC
+            </span>
+          </div>
+          <h3 className={`text-sm font-bold ${textPrimary} group-hover:text-blue-400 transition font-display flex items-center gap-1.5`}>
+            Import from LinkedIn
+          </h3>
+          <p className={`text-xs ${textSecondary} mt-1 leading-relaxed`}>
+            Paste your public LinkedIn profile URL to auto-populate resume sections with AI.
+          </p>
+        </button>
+
         {/* Action 1: Upload & Scan Existing Resume */}
         <button
           onClick={() => onOpenUploadModal?.()}

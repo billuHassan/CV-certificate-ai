@@ -25,6 +25,7 @@ import DirectMessages from "./components/DirectMessages";
 import AIChat from "./components/AIChat";
 import SkillArena from "./components/SkillArena";
 import UploadResumeModal from "./components/UploadResumeModal";
+import LinkedInImportModal, { ParsedLinkedInProfile } from "./components/LinkedInImportModal";
 import RahmoraLogo from "./components/RahmoraLogo";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut, getRedirectResult } from "firebase/auth";
@@ -230,6 +231,7 @@ export default function App() {
   };
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isLinkedInModalOpen, setIsLinkedInModalOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Load persistence states and Firebase Auth listener
@@ -966,6 +968,30 @@ export default function App() {
     }
     setSelectedResumeId(scannedResume.id);
     setCurrentView("resume-editor");
+  };
+
+  const handleImportLinkedInProfileToNewResume = async (parsedProfile: ParsedLinkedInProfile) => {
+    if (!user) return;
+    const newResume: ResumeData = {
+      ...SAMPLE_RESUME,
+      id: crypto.randomUUID(),
+      title: `${parsedProfile.personalInfo.fullName || "Candidate"} - ${parsedProfile.personalInfo.jobTitle || "Resume"}`.trim(),
+      personalInfo: {
+        ...SAMPLE_RESUME.personalInfo,
+        ...parsedProfile.personalInfo,
+      },
+      summary: parsedProfile.summary || "",
+      experience: parsedProfile.experience || [],
+      education: parsedProfile.education || [],
+      skills: parsedProfile.skills || [],
+      certifications: parsedProfile.certifications || [],
+      projects: parsedProfile.projects || [],
+      languages: parsedProfile.languages || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await handleImportScannedResume(newResume);
   };
 
   const handleSaveActiveResume = async (updated: ResumeData) => {
@@ -2157,6 +2183,7 @@ export default function App() {
             onSelectView={setCurrentView}
             onUpgrade={handleUpgradeElite}
             onOpenUploadModal={() => setIsUploadModalOpen(true)}
+            onOpenLinkedInModal={() => setIsLinkedInModalOpen(true)}
           />
         )}
 
@@ -2339,6 +2366,15 @@ export default function App() {
         onImportToBuilder={(scannedResume) => {
           handleImportScannedResume(scannedResume);
           setIsUploadModalOpen(false);
+        }}
+      />
+
+      <LinkedInImportModal
+        isOpen={isLinkedInModalOpen}
+        onClose={() => setIsLinkedInModalOpen(false)}
+        onImportProfile={(parsedProfile) => {
+          handleImportLinkedInProfileToNewResume(parsedProfile);
+          setIsLinkedInModalOpen(false);
         }}
       />
 

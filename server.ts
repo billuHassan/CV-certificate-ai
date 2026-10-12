@@ -1660,6 +1660,25 @@ app.all(["/api/ai/audit-resume-content", "/api/audit-resume-content"], async (re
   }
 });
 
+// 6.11 AI Fetch & Parse Public Profile Data from LinkedIn URL
+app.all(["/api/ai/parse-linkedin-profile", "/api/parse-linkedin-profile"], async (req, res) => {
+  if (req.method === "GET") {
+    return res.json({ status: "ok", endpoint: "/api/ai/parse-linkedin-profile" });
+  }
+  try {
+    const { url, rawText } = req.body || {};
+    if (!url && !rawText) {
+      return res.status(400).json({ error: "Please provide a valid LinkedIn profile URL or profile text to import." });
+    }
+    serverStats.totalRequests++;
+    const result = await aiService.parseLinkedInProfile({ url: url || "", rawText: rawText || "" });
+    res.json(result);
+  } catch (error: any) {
+    console.error("AI LinkedIn Profile Parser Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to fetch and parse LinkedIn profile." });
+  }
+});
+
 // 7. Interview preparation guide
 app.post("/api/ai/interview-prep", async (req, res) => {
   try {
