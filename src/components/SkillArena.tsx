@@ -548,10 +548,42 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 text-slate-100 font-sans pb-16 no-print">
-      
+      {/* Mockup Studio Window Chrome Bar (matching Slide 4 design) */}
+      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+            Rahmora Live Suite &bull; Daily Skill Arena &amp; Brain Games
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            Daily Quizzes &amp; Wordle
+          </span>
+          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
+            Global Competency XP &bull; Live Ranks
+          </span>
+        </div>
+      </div>
+
+      {onBackToDashboard && (
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onBackToDashboard}
+            className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white transition bg-slate-900/90 hover:bg-slate-800 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer shadow-xs"
+          >
+            <ChevronLeft className="h-4 w-4" /> Back to Dashboard
+          </button>
+        </div>
+      )}
+
       {/* Top Banner & Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2">
@@ -562,8 +594,8 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
               <div>
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-display flex items-center gap-2">
                   Daily Cognitive Skills Arena
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-bold">
-                    Live Rankings & Streaks
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold">
+                    Live Rankings &amp; Streaks
                   </span>
                 </h1>
                 <p className="text-xs text-slate-400">

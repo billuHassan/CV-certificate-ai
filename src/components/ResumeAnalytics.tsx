@@ -160,15 +160,36 @@ export default function ResumeAnalytics({
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 text-slate-100">
-      
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 text-slate-100">
+      {/* Mockup Studio Window Chrome Bar (matching Slide 3 design) */}
+      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+            Rahmora Live Suite &bull; AI Resume Coach &amp; 3D Analytics
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-pink-300 bg-pink-500/10 border border-pink-500/30 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse shrink-0" />
+            8-Metric Live Audit
+          </span>
+          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
+            Radar Skill Alignment &bull; Recruiter Pass Probability
+          </span>
+        </div>
+      </div>
+
       {/* 3D Dashboard Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div className="flex items-center gap-3">
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="p-2.5 rounded-xl bg-slate-900 text-slate-400 hover:text-white border border-slate-800 transition"
+              className="p-2.5 rounded-xl bg-slate-900/90 text-slate-400 hover:text-white border border-slate-800 transition cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>

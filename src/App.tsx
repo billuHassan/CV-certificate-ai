@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles, FileText, Activity, Settings as SettingsIcon, LogOut, LayoutDashboard,
   Award, RefreshCw, BarChart2, Bell, Shield, Mail, Phone, MapPin, User, ChevronRight, Menu, X, Compass, MessageSquare,
-  Brain, FileSearch, Building2, Users, HelpCircle
+  Brain, FileSearch, Building2, Users, HelpCircle, Plus, Upload, ShieldCheck
 } from "lucide-react";
 import { UserSession, ResumeData, CoverLetterData, ScoreReport } from "./types";
 import Onboarding from "./components/Onboarding";
@@ -18,14 +18,12 @@ import InterviewIntelligence from "./components/InterviewIntelligence";
 import ResumeAnalytics from "./components/ResumeAnalytics";
 import Settings, { THEMES, WORLD_LANGUAGES } from "./components/Settings";
 import { setLanguageCookie, clearLanguageCookie } from "./lib/languageUtils";
-import { BannerAd, PremiumModal } from "./components/AdSystem";
 import AdminPanel from "./components/AdminPanel";
 import SupportFeedback from "./components/SupportFeedback";
 import DirectMessages from "./components/DirectMessages";
 import AIChat from "./components/AIChat";
 import SkillArena from "./components/SkillArena";
 import UploadResumeModal from "./components/UploadResumeModal";
-import LinkedInImportModal, { ParsedLinkedInProfile } from "./components/LinkedInImportModal";
 import RahmoraLogo from "./components/RahmoraLogo";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut, getRedirectResult } from "firebase/auth";
@@ -229,9 +227,21 @@ export default function App() {
       localStorage.setItem("rahmora_app_font", fontId);
     }
   };
-  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+
+  const cycleTheme = () => {
+    const currentIndex = THEMES.findIndex((t) => t.id === currentTheme);
+    const nextTheme = THEMES[(currentIndex + 1) % THEMES.length];
+    handleThemeChange(nextTheme.id);
+  };
+
+  const cycleFont = () => {
+    const fonts = ["jakarta", "outfit", "playfair", "syne", "cinzel", "inter", "grotesk"];
+    const currentIdx = fonts.indexOf(appFont);
+    const nextFont = fonts[(currentIdx + 1) % fonts.length];
+    handleFontChange(nextFont);
+  };
+
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isLinkedInModalOpen, setIsLinkedInModalOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Load persistence states and Firebase Auth listener
@@ -470,7 +480,7 @@ export default function App() {
               uid: "guest-explorer-session",
               email: "guest@cvcraft.ai",
               displayName: "Guest Explorer",
-              isPremium: false,
+              isPremium: true,
               isGuest: true,
               creationsCount: 0,
               adViews: 0,
@@ -637,7 +647,7 @@ export default function App() {
       uid: fUser ? fUser.uid : (isGuestUser ? "guest-explorer-session" : "local-user-session"),
       email: resolvedEmail,
       displayName: resolvedDisplayName,
-      isPremium: !isGuestUser,
+      isPremium: true,
       isGuest: isGuestUser,
       creationsCount: 0,
       adViews: 0,
@@ -750,7 +760,10 @@ export default function App() {
   };
 
   const handleUpgradeElite = () => {
-    setIsPremiumModalOpen(true);
+    // Current version has all premium features unlocked permanently
+    if (user && !user.isPremium) {
+      setUser({ ...user, isPremium: true });
+    }
   };
 
   const handleUpdateUser = async (updatedUser: UserSession) => {
@@ -968,30 +981,6 @@ export default function App() {
     }
     setSelectedResumeId(scannedResume.id);
     setCurrentView("resume-editor");
-  };
-
-  const handleImportLinkedInProfileToNewResume = async (parsedProfile: ParsedLinkedInProfile) => {
-    if (!user) return;
-    const newResume: ResumeData = {
-      ...SAMPLE_RESUME,
-      id: crypto.randomUUID(),
-      title: `${parsedProfile.personalInfo.fullName || "Candidate"} - ${parsedProfile.personalInfo.jobTitle || "Resume"}`.trim(),
-      personalInfo: {
-        ...SAMPLE_RESUME.personalInfo,
-        ...parsedProfile.personalInfo,
-      },
-      summary: parsedProfile.summary || "",
-      experience: parsedProfile.experience || [],
-      education: parsedProfile.education || [],
-      skills: parsedProfile.skills || [],
-      certifications: parsedProfile.certifications || [],
-      projects: parsedProfile.projects || [],
-      languages: parsedProfile.languages || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    await handleImportScannedResume(newResume);
   };
 
   const handleSaveActiveResume = async (updated: ResumeData) => {
@@ -1635,8 +1624,24 @@ export default function App() {
               </nav>
             </div>
 
-            {/* Bottom User status details */}
-            <div className="mt-6 pt-4 border-t border-slate-700/50 space-y-3">
+            {/* Bottom User status details & Workspace status */}
+            <div className="mt-4 pt-3 border-t border-slate-700/50 space-y-3">
+              {activeResume && (
+                <div className={`p-2.5 rounded-xl border ${
+                  activeThemeObj.isDark ? "bg-slate-900/80 border-slate-800" : "bg-slate-100 border-slate-200"
+                } space-y-1.5`}>
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-indigo-400 font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Active Resume
+                    </span>
+                    <span className="text-emerald-400 font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30">
+                      {Math.min(99, Math.max(72, 70 + (activeResume.skills?.length || 0) * 3 + (activeResume.experience?.length || 0) * 4))}% ATS
+                    </span>
+                  </div>
+                  <div className="text-xs font-bold truncate text-slate-200">{activeResume.title}</div>
+                </div>
+              )}
+
               <div className="flex items-center gap-3">
                 {user.profilePhoto ? (
                   <img src={user.profilePhoto} alt="Profile" className="h-8 w-8 rounded-full object-cover border border-slate-700 shrink-0" />
@@ -1663,50 +1668,29 @@ export default function App() {
       )}
 
       {/* Desktop / Large Tablet Docked Sidebar Navigation (md:) */}
-      <aside className={`hidden md:flex w-64 lg:w-72 ${activeThemeObj.sidebarClass} border-r p-5 flex-col justify-between shrink-0 no-print transition-colors duration-300 relative z-10 sticky top-0 h-screen overflow-y-auto ${activeThemeObj.textClass}`}>
-        {/* Top Brand & Mode Color Selector */}
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <RahmoraLogo size="md" lightTheme={!activeThemeObj.isDark} />
-          </div>
-
-          {/* Theme Mode & Font Mode Quick Switcher Widget */}
-          <div className={`p-3 rounded-2xl ${activeThemeObj.cardClass} border ${activeThemeObj.borderClass} space-y-2.5 shadow-lg`}>
-            <div className="flex items-center justify-between text-[11px] font-bold tracking-wider uppercase opacity-80">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Theme & Font Mode
-              </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800/80 border border-slate-700 font-mono font-semibold">
-                {activeThemeObj.icon} {activeThemeObj.elementName.split(" ")[0]}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+      <aside className={`hidden md:flex w-64 lg:w-70 ${activeThemeObj.sidebarClass} border-r ${activeThemeObj.borderClass} px-3.5 py-3 flex-col justify-between shrink-0 no-print transition-colors duration-300 relative z-10 sticky top-0 h-screen overflow-y-auto scrollbar-none ${activeThemeObj.textClass}`}>
+        {/* Top Brand & Mode Controls */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
+            <RahmoraLogo size="sm" lightTheme={!activeThemeObj.isDark} />
+            <div className="flex items-center gap-1.5">
               {/* Theme Cycle Selector Button */}
               <button
                 type="button"
-                onClick={() => {
-                  const currentIndex = THEMES.findIndex((t) => t.id === currentTheme);
-                  const nextTheme = THEMES[(currentIndex + 1) % THEMES.length];
-                  setCurrentTheme(nextTheme.id);
-                  localStorage.setItem("cvcraft_theme", nextTheme.id);
-                }}
-                className={`p-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
+                onClick={cycleTheme}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
                   activeThemeObj.isDark
                     ? "bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 text-slate-200"
                     : "bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800"
                 }`}
-                title="Click to cycle theme color element"
+                title={`Theme: ${activeThemeObj.name}. Click to switch theme element.`}
               >
-                <div className="flex items-center gap-1.5 truncate">
-                  <span className="text-sm">{activeThemeObj.icon}</span>
-                  <span className="truncate font-bold text-[11px]">{activeThemeObj.name.split(" ")[0]}</span>
-                </div>
+                <span className="text-xs">{activeThemeObj.icon}</span>
                 <div className="flex items-center -space-x-1 shrink-0">
                   {activeThemeObj.dotColors.map((color, i) => (
                     <span
                       key={i}
-                      className="w-2.5 h-2.5 rounded-full border border-black/40 shadow-sm"
+                      className="w-2 h-2 rounded-full border border-black/40 shadow-xs"
                       style={{ backgroundColor: color }}
                     />
                   ))}
@@ -1716,446 +1700,498 @@ export default function App() {
               {/* Font Mode Selector Button */}
               <button
                 type="button"
-                onClick={() => {
-                  const fonts = ["jakarta", "outfit", "playfair", "syne", "cinzel", "inter", "grotesk"];
-                  const currentIdx = fonts.indexOf(appFont);
-                  const nextFont = fonts[(currentIdx + 1) % fonts.length];
-                  handleFontChange(nextFont);
-                }}
-                className={`p-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
+                onClick={cycleFont}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
                   activeThemeObj.isDark
                     ? "bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 text-slate-200"
                     : "bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800"
                 }`}
-                title="Click to switch app font style"
+                title={`Font: ${appFont}. Click to switch typography.`}
               >
-                <span className="text-[11px] font-bold capitalize truncate">Aa {appFont}</span>
-                <RefreshCw className="w-3 h-3 text-slate-400 shrink-0" />
+                <span>Aa</span>
               </button>
             </div>
           </div>
 
           {/* Navigation Items Organized by Section */}
-          <nav className="space-y-4">
-            {/* SECTION 1: CORE WORKSPACE */}
-            <div className="space-y-1">
-              <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
-                Core Workspace
+          <nav className="space-y-2">
+            {/* SECTION 1: WORKSPACE */}
+            <div>
+              <div className="px-2.5 text-[9px] font-mono font-bold tracking-widest uppercase text-slate-400/70 mb-0.5">
+                Workspace
               </div>
+              <div className="space-y-0.5">
+                {/* Dashboard */}
+                <button
+                  onClick={() => setCurrentView("dashboard")}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "dashboard"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                    currentView === "dashboard"
+                      ? "bg-white/20 text-white shadow-inner"
+                      : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
+                  }`}>
+                    <LayoutDashboard className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="font-bold truncate">Dashboard</span>
+                </button>
 
-              {/* Dashboard */}
-              <button
-                onClick={() => {
-                  setCurrentView("dashboard");
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "dashboard"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                  currentView === "dashboard"
-                    ? "bg-white/20 text-white shadow-inner"
-                    : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
-                }`}>
-                  <LayoutDashboard className="h-4 w-4" />
-                </div>
-                <span className="font-bold">Dashboard</span>
-              </button>
-
-              {/* Resume Builder */}
-              <button
-                onClick={() => {
-                  const firstRes = resumes[0];
-                  if (firstRes) {
-                    setSelectedResumeId(firstRes.id);
-                    setCurrentView("resume-editor");
-                  } else {
-                    alert("Please create a resume first from the dashboard!");
-                  }
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "resume-editor"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
+                {/* Resume Builder */}
+                <button
+                  onClick={() => {
+                    const firstRes = resumes[0];
+                    if (firstRes) {
+                      setSelectedResumeId(firstRes.id);
+                      setCurrentView("resume-editor");
+                    } else {
+                      alert("Please create a resume first from the dashboard!");
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
                     currentView === "resume-editor"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-teal-500/15 border border-teal-500/30 text-teal-400"
-                  }`}>
-                    <FileText className="h-4 w-4" />
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "resume-editor"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-teal-500/15 border border-teal-500/30 text-teal-400"
+                    }`}>
+                      <FileText className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-bold truncate">Resume Builder</span>
                   </div>
-                  <span className="font-bold">Resume Builder</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "resume-editor" ? "bg-white/20 text-white border-white/30" : "bg-teal-500/15 text-teal-300 border-teal-500/30"
-                }`}>
-                  Studio
-                </span>
-              </button>
-
-              {/* Cover Letters */}
-              <button
-                onClick={() => {
-                  const firstLet = letters[0];
-                  if (firstLet) {
-                    setSelectedLetterId(firstLet.id);
-                    setCurrentView("letter-editor");
-                  } else {
-                    handleCreateLetter(
-                      activeResume ? `Cover Letter - ${activeResume.title}` : "Cover Letter - Draft",
-                      "Target Company",
-                      activeResume?.personalInfo?.jobTitle || "Target Role"
-                    );
-                  }
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "letter-editor"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                  currentView === "letter-editor"
-                    ? "bg-white/20 text-white shadow-inner"
-                    : "bg-amber-500/15 border border-amber-500/30 text-amber-400"
-                }`}>
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <span className="font-bold">Cover Letters</span>
-              </button>
-
-              {/* 3D Resume Analytics */}
-              <button
-                onClick={() => {
-                  if (resumes.length > 0) {
-                    if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
-                    setCurrentView("resume-analytics");
-                  } else {
-                    alert("Please create or scan a resume first to view 3D analytics!");
-                  }
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "resume-analytics"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "resume-analytics"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-pink-500/15 border border-pink-500/30 text-pink-400"
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                    currentView === "resume-editor" ? "bg-white/20 text-white border-white/30" : "bg-teal-500/15 text-teal-300 border-teal-500/30"
                   }`}>
-                    <BarChart2 className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">3D Analytics</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "resume-analytics" ? "bg-white/20 text-white border-white/30" : "bg-pink-500/15 text-pink-300 border-pink-500/30"
-                }`}>
-                  8-Metric
-                </span>
-              </button>
-            </div>
+                    Studio
+                  </span>
+                </button>
 
-            {/* SECTION 2: AI CAREER INTELLIGENCE */}
-            <div className="space-y-1 pt-1">
-              <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
-                AI Career Intelligence
-              </div>
-
-              {/* AI Resume Coach */}
-              <button
-                onClick={() => {
-                  if (resumes.length > 0) {
-                    if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
-                    setCurrentView("resume-coach");
-                  } else {
-                    alert("Please create or scan a resume first from the dashboard!");
-                  }
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "resume-coach"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "resume-coach"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-                  }`}>
-                    <Sparkles className="h-4 w-4 animate-pulse" />
-                  </div>
-                  <span className="font-bold">AI Resume Coach</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "resume-coach" ? "bg-white/20 text-white border-white/30" : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                }`}>
-                  Live
-                </span>
-              </button>
-
-              {/* Interview Intelligence */}
-              <button
-                onClick={() => {
-                  setCurrentView("interview-intelligence");
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "interview-intelligence"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "interview-intelligence"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-purple-500/15 border border-purple-500/30 text-purple-400"
-                  }`}>
-                    <Brain className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">Interview AI</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "interview-intelligence" ? "bg-white/20 text-white border-white/30" : "bg-purple-500/15 text-purple-300 border-purple-500/30"
-                }`}>
-                  Sim
-                </span>
-              </button>
-
-              {/* Job Intelligence */}
-              <button
-                onClick={() => {
-                  setCurrentView("job-intelligence");
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "job-intelligence"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "job-intelligence"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-sky-500/15 border border-sky-500/30 text-sky-400"
-                  }`}>
-                    <FileSearch className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">Job Intelligence</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "job-intelligence" ? "bg-white/20 text-white border-white/30" : "bg-sky-500/15 text-sky-300 border-sky-500/30"
-                }`}>
-                  10 Alts
-                </span>
-              </button>
-
-              {/* AI Career Chat */}
-              <button
-                onClick={() => {
-                  setCurrentView("ai-chat");
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "ai-chat"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "ai-chat"
+                {/* Cover Letters */}
+                <button
+                  onClick={() => {
+                    const firstLet = letters[0];
+                    if (firstLet) {
+                      setSelectedLetterId(firstLet.id);
+                      setCurrentView("letter-editor");
+                    } else {
+                      handleCreateLetter(
+                        activeResume ? `Cover Letter - ${activeResume.title}` : "Cover Letter - Draft",
+                        "Target Company",
+                        activeResume?.personalInfo?.jobTitle || "Target Role"
+                      );
+                    }
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "letter-editor"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                    currentView === "letter-editor"
                       ? "bg-white/20 text-white shadow-inner"
                       : "bg-amber-500/15 border border-amber-500/30 text-amber-400"
                   }`}>
-                    <MessageSquare className="h-4 w-4" />
+                    <Sparkles className="h-3.5 w-3.5" />
                   </div>
-                  <span className="font-bold">AI Career Chat</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "ai-chat" ? "bg-white/20 text-white border-white/30" : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                }`}>
-                  Ask AI
-                </span>
-              </button>
-            </div>
+                  <span className="font-bold truncate">Cover Letters</span>
+                </button>
 
-            {/* SECTION 3: COMMUNITY & ARENA */}
-            <div className="space-y-1 pt-1">
-              <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
-                Community & Arena
-              </div>
-
-              {/* Direct Messages */}
-              <button
-                onClick={() => {
-                  setCurrentView("direct-messages");
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "direct-messages"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "direct-messages"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
-                  }`}>
-                    <Users className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">Direct Messages</span>
-                </div>
-                {directUnreadCount > 0 && (
-                  <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-bounce">
-                    {directUnreadCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Daily Skill Arena */}
-              <button
-                onClick={() => {
-                  setCurrentView("skill-arena");
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "skill-arena"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "skill-arena"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
-                  }`}>
-                    <Brain className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">Daily Skill Arena</span>
-                </div>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
-                  currentView === "skill-arena" ? "bg-white/20 text-white border-white/30" : "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                }`}>
-                  Games
-                </span>
-              </button>
-            </div>
-
-            {/* SECTION 4: SYSTEM & PREFERENCES */}
-            <div className="space-y-1 pt-1">
-              <div className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase text-slate-400/80 mb-1">
-                System & Support
-              </div>
-
-              {/* Settings */}
-              <button
-                onClick={() => {
-                  setCurrentView("settings");
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "settings"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                  currentView === "settings"
-                    ? "bg-white/20 text-white shadow-inner"
-                    : "bg-slate-500/15 border border-slate-500/30 text-slate-400"
-                }`}>
-                  <SettingsIcon className="h-4 w-4" />
-                </div>
-                <span className="font-bold">Settings & Export</span>
-              </button>
-
-              {/* Support & Reviews */}
-              <button
-                onClick={() => {
-                  setCurrentView("support");
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group ${
-                  currentView === "support"
-                    ? activeThemeObj.navActiveBg
-                    : `${activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"}`
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg transition-transform group-hover:scale-110 ${
-                    currentView === "support"
-                      ? "bg-white/20 text-white shadow-inner"
-                      : "bg-blue-500/15 border border-blue-500/30 text-blue-400"
-                  }`}>
-                    <HelpCircle className="h-4 w-4" />
-                  </div>
-                  <span className="font-bold">Help, FAQ & Support</span>
-                </div>
-                {userUnreadCount > 0 && (
-                  <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px] animate-bounce shadow-md">
-                    {userUnreadCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Admin Panel */}
-              {user.email === "bilalhassanmussa@gmail.com" && (
+                {/* 3D Resume Analytics */}
                 <button
                   onClick={() => {
-                    setCurrentView("admin");
+                    if (resumes.length > 0) {
+                      if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
+                      setCurrentView("resume-analytics");
+                    } else {
+                      alert("Please create or scan a resume first to view 3D analytics!");
+                    }
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide border transition group ${
-                    currentView === "admin" 
-                      ? "bg-rose-950 text-rose-200 border-rose-500/40 shadow-lg" 
-                      : "bg-rose-950/20 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border-rose-900/30"
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "resume-analytics"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-400">
-                      <Shield className="h-4 w-4" />
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "resume-analytics"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-pink-500/15 border border-pink-500/30 text-pink-400"
+                    }`}>
+                      <BarChart2 className="h-3.5 w-3.5" />
                     </div>
-                    <span className="font-bold">Admin Panel</span>
+                    <span className="font-bold truncate">3D Analytics</span>
                   </div>
-                  {adminUnreadCount > 0 && (
-                    <span className="bg-rose-500 text-white font-mono font-bold text-[9px] h-4.5 px-1.5 rounded-full flex items-center justify-center min-w-[18px]">
-                      {adminUnreadCount}
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                    currentView === "resume-analytics" ? "bg-white/20 text-white border-white/30" : "bg-pink-500/15 text-pink-300 border-pink-500/30"
+                  }`}>
+                    8-Metric
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* SECTION 2: AI INTELLIGENCE */}
+            <div className="pt-0.5">
+              <div className="px-2.5 text-[9px] font-mono font-bold tracking-widest uppercase text-slate-400/70 mb-0.5">
+                AI Intelligence
+              </div>
+              <div className="space-y-0.5">
+                {/* AI Resume Coach */}
+                <button
+                  onClick={() => {
+                    if (resumes.length > 0) {
+                      if (!selectedResumeId) setSelectedResumeId(resumes[0].id);
+                      setCurrentView("resume-coach");
+                    } else {
+                      alert("Please create or scan a resume first from the dashboard!");
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "resume-coach"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "resume-coach"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                    }`}>
+                      <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                    </div>
+                    <span className="font-bold truncate">AI Resume Coach</span>
+                  </div>
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                    currentView === "resume-coach" ? "bg-white/20 text-white border-white/30" : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                  }`}>
+                    Live
+                  </span>
+                </button>
+
+                {/* Interview Intelligence */}
+                <button
+                  onClick={() => setCurrentView("interview-intelligence")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "interview-intelligence"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "interview-intelligence"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-purple-500/15 border border-purple-500/30 text-purple-400"
+                    }`}>
+                      <Brain className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-bold truncate">Interview AI</span>
+                  </div>
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                    currentView === "interview-intelligence" ? "bg-white/20 text-white border-white/30" : "bg-purple-500/15 text-purple-300 border-purple-500/30"
+                  }`}>
+                    Sim
+                  </span>
+                </button>
+
+                {/* Job Intelligence */}
+                <button
+                  onClick={() => setCurrentView("job-intelligence")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "job-intelligence"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "job-intelligence"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-sky-500/15 border border-sky-500/30 text-sky-400"
+                    }`}>
+                      <FileSearch className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-bold truncate">Job Intelligence</span>
+                  </div>
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                    currentView === "job-intelligence" ? "bg-white/20 text-white border-white/30" : "bg-sky-500/15 text-sky-300 border-sky-500/30"
+                  }`}>
+                    10 Alts
+                  </span>
+                </button>
+
+                {/* AI Career Chat */}
+                <button
+                  onClick={() => setCurrentView("ai-chat")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "ai-chat"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "ai-chat"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-amber-500/15 border border-amber-500/30 text-amber-400"
+                    }`}>
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-bold truncate">AI Career Chat</span>
+                  </div>
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                    currentView === "ai-chat" ? "bg-white/20 text-white border-white/30" : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                  }`}>
+                    Ask AI
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* SECTION 3: COMMUNITY & SYSTEM */}
+            <div className="pt-0.5">
+              <div className="px-2.5 text-[9px] font-mono font-bold tracking-widest uppercase text-slate-400/70 mb-0.5">
+                Community & System
+              </div>
+              <div className="space-y-0.5">
+                {/* Direct Messages */}
+                <button
+                  onClick={() => setCurrentView("direct-messages")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "direct-messages"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "direct-messages"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
+                    }`}>
+                      <Users className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-bold truncate">Direct Messages</span>
+                  </div>
+                  {directUnreadCount > 0 && (
+                    <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4 px-1 rounded-full flex items-center justify-center min-w-[16px] animate-bounce">
+                      {directUnreadCount}
                     </span>
                   )}
                 </button>
-              )}
+
+                {/* Daily Skill Arena */}
+                <button
+                  onClick={() => setCurrentView("skill-arena")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "skill-arena"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "skill-arena"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-indigo-500/15 border border-indigo-500/30 text-indigo-400"
+                    }`}>
+                      <Brain className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-bold truncate">Daily Skill Arena</span>
+                  </div>
+                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                    currentView === "skill-arena" ? "bg-white/20 text-white border-white/30" : "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+                  }`}>
+                    Games
+                  </span>
+                </button>
+
+                {/* Settings */}
+                <button
+                  onClick={() => setCurrentView("settings")}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "settings"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                    currentView === "settings"
+                      ? "bg-white/20 text-white shadow-inner"
+                      : "bg-slate-500/15 border border-slate-500/30 text-slate-400"
+                  }`}>
+                    <SettingsIcon className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="font-bold truncate">Settings & Export</span>
+                </button>
+
+                {/* Support & Reviews */}
+                <button
+                  onClick={() => setCurrentView("support")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition group cursor-pointer ${
+                    currentView === "support"
+                      ? activeThemeObj.navActiveBg
+                      : activeThemeObj.isDark ? "text-slate-300 hover:text-white hover:bg-slate-800/60" : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`p-1 rounded-md transition-transform group-hover:scale-105 ${
+                      currentView === "support"
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-blue-500/15 border border-blue-500/30 text-blue-400"
+                    }`}>
+                      <HelpCircle className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-bold truncate">Help & Support</span>
+                  </div>
+                  {userUnreadCount > 0 && (
+                    <span className="bg-indigo-500 text-white font-mono font-bold text-[9px] h-4 px-1 rounded-full flex items-center justify-center min-w-[16px] animate-bounce shadow-xs">
+                      {userUnreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Admin Panel */}
+                {user.email === "bilalhassanmussa@gmail.com" && (
+                  <button
+                    onClick={() => setCurrentView("admin")}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide border transition group cursor-pointer ${
+                      currentView === "admin" 
+                        ? "bg-rose-950 text-rose-200 border-rose-500/40 shadow-xs" 
+                        : "bg-rose-950/20 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border-rose-900/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1 rounded-md bg-rose-500/20 border border-rose-500/30 text-rose-400">
+                        <Shield className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="font-bold truncate">Admin Panel</span>
+                    </div>
+                    {adminUnreadCount > 0 && (
+                      <span className="bg-rose-500 text-white font-mono font-bold text-[9px] h-4 px-1 rounded-full flex items-center justify-center min-w-[16px]">
+                        {adminUnreadCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </nav>
         </div>
 
-        {/* Bottom User status details */}
-        <div className="mt-6 pt-5 border-t border-slate-700/50 space-y-3.5">
-          <div className="flex items-center gap-3">
-            {user.profilePhoto ? (
-              <img src={user.profilePhoto} alt="Profile" className="h-8.5 w-8.5 rounded-full object-cover border border-slate-700 shrink-0 shadow-md" />
-            ) : (
-              <div className="h-8.5 w-8.5 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30 text-xs shrink-0 shadow-md">
-                {user.displayName.charAt(0).toUpperCase()}
+        {/* Lower Sidebar: Active Workspace Overview, AI Status & User Profile */}
+        <div className="mt-auto pt-2.5 space-y-2 border-t border-slate-700/60 shrink-0">
+          {/* Active Resume & ATS Health Overview Card (gracefully fills the lower section) */}
+          {activeResume ? (
+            <div className={`p-2.5 rounded-xl border ${
+              activeThemeObj.isDark ? "bg-slate-900/80 border-slate-800" : "bg-slate-100 border-slate-200"
+            } space-y-2 transition shadow-xs group`}>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1 truncate">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span className="truncate">Active Resume</span>
+                </span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                  {Math.min(99, Math.max(72, 70 + (activeResume.skills?.length || 0) * 3 + (activeResume.experience?.length || 0) * 4))}% ATS
+                </span>
               </div>
-            )}
-            <div className="truncate flex-1">
-              <span className={`text-xs font-bold block truncate ${activeThemeObj.textHeading}`}>{user.displayName}</span>
-              <span className={`text-[10px] block truncate ${activeThemeObj.textMuted}`}>{user.email}</span>
+
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedResumeId(activeResume.id);
+                    setCurrentView("resume-editor");
+                  }}
+                  className="text-xs font-bold truncate text-slate-200 hover:text-indigo-300 transition text-left cursor-pointer flex-1"
+                  title="Open this resume in editor"
+                >
+                  {activeResume.title}
+                </button>
+              </div>
+
+              <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-emerald-500 via-teal-400 to-indigo-500 h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(99, Math.max(72, 70 + (activeResume.skills?.length || 0) * 3 + (activeResume.experience?.length || 0) * 4))}%`
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/50">
+                <span className="font-medium">
+                  {resumes.length} {resumes.length === 1 ? "Resume" : "Resumes"} • {letters.length} {letters.length === 1 ? "Letter" : "Letters"}
+                </span>
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 cursor-pointer transition text-[10px]"
+                  title="Upload / Scan PDF Resume"
+                >
+                  <Upload className="h-3 w-3" /> Scan
+                </button>
+              </div>
             </div>
+          ) : (
+            <div className={`p-2.5 rounded-xl border ${
+              activeThemeObj.isDark ? "bg-slate-900/80 border-slate-800" : "bg-slate-100 border-slate-200"
+            } space-y-1.5 text-center`}>
+              <div className="text-[11px] font-bold text-slate-300">Ready to build?</div>
+              <p className="text-[10px] text-slate-400">Create your first ATS-optimized CV</p>
+              <button
+                onClick={() => handleCreateResume("My Executive Resume", "minimal")}
+                className="w-full py-1.5 px-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> New Resume
+              </button>
+            </div>
+          )}
+
+          {/* AI Systems & Cloud Sync Live Status */}
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/70 text-[10px] text-slate-300">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span>AI Cloud Synced</span>
+            </span>
+            <span className="font-mono text-emerald-400 font-bold uppercase text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20">
+              Active
+            </span>
           </div>
 
-          <button
-            onClick={handleSignOut}
-            className="w-full py-2 bg-slate-900/80 hover:bg-slate-800 rounded-xl text-xs font-semibold text-rose-400 border border-rose-900/30 transition flex items-center justify-center gap-1.5 shadow-sm"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sign Out
-          </button>
+          {/* Bottom User status details */}
+          <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              {user.profilePhoto ? (
+                <img src={user.profilePhoto} alt="Profile" className="h-7 w-7 rounded-full object-cover border border-slate-700 shrink-0 shadow-xs" />
+              ) : (
+                <div className="h-7 w-7 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/30 text-xs shrink-0 shadow-xs">
+                  {user.displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="truncate min-w-0">
+                <span className={`text-xs font-bold block truncate leading-tight ${activeThemeObj.textHeading}`}>{user.displayName}</span>
+                <span className={`text-[10px] block truncate leading-tight ${activeThemeObj.textMuted}`}>{user.email}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSignOut}
+              className="p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg border border-transparent hover:border-rose-500/20 transition shrink-0 cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -2183,7 +2219,6 @@ export default function App() {
             onSelectView={setCurrentView}
             onUpgrade={handleUpgradeElite}
             onOpenUploadModal={() => setIsUploadModalOpen(true)}
-            onOpenLinkedInModal={() => setIsLinkedInModalOpen(true)}
           />
         )}
 
@@ -2256,6 +2291,25 @@ export default function App() {
 
         {currentView === "score" && (
           <div className="max-w-4xl mx-auto p-4 sm:p-8 space-y-6">
+            {/* Mockup Studio Window Chrome Bar (matching Slideshow suite design) */}
+            <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+                <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+                  Rahmora Live Suite &bull; Resume ATS Screening &amp; Compatibility
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  ATS 98% Match
+                </span>
+              </div>
+            </div>
+
             <h2 className="text-xl font-bold text-white font-display">Resume ATS Compatibility</h2>
             
             {resumes.length > 0 && (
@@ -2347,34 +2401,12 @@ export default function App() {
         )}
       </main>
 
-      <PremiumModal
-        isOpen={isPremiumModalOpen}
-        onClose={() => setIsPremiumModalOpen(false)}
-        onSuccess={() => {
-          if (user) {
-            const updated = { ...user, isPremium: true };
-            setUser(updated);
-            localStorage.setItem("cvcraft_user", JSON.stringify(updated));
-            alert("Congratulations! You have successfully upgraded to CVCraft AI Elite Premium! Enjoy unlimited features.");
-          }
-        }}
-      />
-
       <UploadResumeModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onImportToBuilder={(scannedResume) => {
           handleImportScannedResume(scannedResume);
           setIsUploadModalOpen(false);
-        }}
-      />
-
-      <LinkedInImportModal
-        isOpen={isLinkedInModalOpen}
-        onClose={() => setIsLinkedInModalOpen(false)}
-        onImportProfile={(parsedProfile) => {
-          handleImportLinkedInProfileToNewResume(parsedProfile);
-          setIsLinkedInModalOpen(false);
         }}
       />
 

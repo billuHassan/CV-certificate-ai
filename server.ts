@@ -2,6 +2,7 @@ import "./env-init";
 import express from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import dotenv from "dotenv";
 import os from "os";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -1678,6 +1679,7 @@ app.all(["/api/ai/parse-linkedin-profile", "/api/parse-linkedin-profile"], async
     res.status(500).json({ error: error?.message || "Failed to fetch and parse LinkedIn profile." });
   }
 });
+
 
 // 7. Interview preparation guide
 app.post("/api/ai/interview-prep", async (req, res) => {

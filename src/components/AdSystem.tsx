@@ -11,54 +11,20 @@ let triggerInterstitialGlobal: ((onClose?: () => void) => void) | null = null;
 let triggerRewardedGlobal: ((onRewardSuccess: () => void) => void) | null = null;
 
 export const triggerInterstitial = (onClose?: () => void) => {
-  if (triggerInterstitialGlobal) {
-    triggerInterstitialGlobal(onClose);
-  } else {
-    onClose?.();
-  }
+  onClose?.();
 };
 
 export const triggerRewarded = (onRewardSuccess: () => void) => {
-  if (triggerRewardedGlobal) {
-    triggerRewardedGlobal(onRewardSuccess);
-  } else {
-    // If ad system is not mounted yet, just grant reward
-    onRewardSuccess();
-  }
+  onRewardSuccess();
 };
 
-export function AdProvider({ children, isPremium, onUpgrade }: { children: React.ReactNode; isPremium: boolean; onUpgrade: () => void }) {
-  const [showInterstitial, setShowInterstitial] = useState(false);
-  const [showRewarded, setShowRewarded] = useState(false);
-  const [interstitialTimer, setInterstitialTimer] = useState(5);
-  const [rewardedTimer, setRewardedTimer] = useState(8);
-  const [activeAd, setActiveAd] = useState<{ title: string; brand: string; description: string; cta: string } | null>(null);
-  
-  const [onCloseCallback, setOnCloseCallback] = useState<(() => void) | null>(null);
-  const [onRewardCallback, setOnRewardCallback] = useState<(() => void) | null>(null);
-
-  const adCampaigns = [
-    { brand: "HostGator", title: "Launch Your Portfolio Today", description: "Get 60% off high-speed cloud hosting with free SSL & domain registration.", cta: "Claim Offer" },
-    { brand: "Figma Pro", title: "Collaborate in Real-Time", description: "Design, prototype, and gather client feedback with professional design tools.", cta: "Start Free Trial" },
-    { brand: "Coursera", title: "Get Certified by Google", description: "Learn data science, digital marketing, or project management from world-class industry experts.", cta: "Enroll Now" },
-    { brand: "NordVPN", title: "Encrypt Your Internet Flow", description: "Secure your online identity and browse safely from public Wi-Fi networks.", cta: "Protect My Connection" },
-  ];
-
+export function AdProvider({ children }: { children: React.ReactNode; isPremium?: boolean; onUpgrade?: () => void }) {
   useEffect(() => {
     triggerInterstitialGlobal = (onClose?: () => void) => {
-      if (isPremium) {
-        onClose?.();
-        return;
-      }
-      const randomAd = adCampaigns[Math.floor(Math.random() * adCampaigns.length)];
-      setActiveAd(randomAd);
-      setOnCloseCallback(() => onClose || null);
-      setInterstitialTimer(5);
-      setShowInterstitial(true);
+      onClose?.();
     };
 
     triggerRewardedGlobal = (onRewardSuccess: () => void) => {
-      // Execute the AI action immediately so user features are fast and responsive
       onRewardSuccess();
     };
 
@@ -66,188 +32,9 @@ export function AdProvider({ children, isPremium, onUpgrade }: { children: React
       triggerInterstitialGlobal = null;
       triggerRewardedGlobal = null;
     };
-  }, [isPremium]);
+  }, []);
 
-  // Interstitial Countdown
-  useEffect(() => {
-    let interval: any;
-    if (showInterstitial && interstitialTimer > 0) {
-      interval = setInterval(() => {
-        setInterstitialTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [showInterstitial, interstitialTimer]);
-
-  // Rewarded Countdown
-  useEffect(() => {
-    let interval: any;
-    if (showRewarded && rewardedTimer > 0) {
-      interval = setInterval(() => {
-        setRewardedTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [showRewarded, rewardedTimer]);
-
-  const closeInterstitial = () => {
-    setShowInterstitial(false);
-    if (onCloseCallback) {
-      onCloseCallback();
-    }
-  };
-
-  const closeRewarded = () => {
-    if (rewardedTimer > 0) {
-      // User is trying to close before reward time is reached
-      if (!confirm("Are you sure you want to close? You will lose your premium unlock reward!")) {
-        return;
-      }
-      setShowRewarded(false);
-    } else {
-      setShowRewarded(false);
-      if (onRewardCallback) {
-        onRewardCallback();
-      }
-    }
-  };
-
-  return (
-    <div className="relative min-h-screen">
-      {children}
-
-      {/* --- INTERSTITIAL AD MODAL --- */}
-      {showInterstitial && activeAd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md no-print">
-          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 p-8 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <span className="text-xs font-mono tracking-widest text-emerald-400 bg-emerald-950 px-2 py-1 rounded">
-                SPONSORED ADVERTISEMENT
-              </span>
-              {interstitialTimer > 0 ? (
-                <span className="text-xs font-mono text-slate-400">
-                  Close in {interstitialTimer}s
-                </span>
-              ) : (
-                <button
-                  onClick={closeInterstitial}
-                  className="rounded-full bg-slate-800 p-1 text-slate-300 hover:bg-slate-700 hover:text-white transition"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-
-            {/* Ad Content */}
-            <div className="my-8 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 mb-4">
-                <Sparkles className="h-8 w-8 animate-pulse" />
-              </div>
-              <h3 className="text-2xl font-bold tracking-tight text-white mb-2 font-display">
-                {activeAd.title}
-              </h3>
-              <p className="text-sm font-mono text-emerald-400 mb-4 uppercase tracking-wide">
-                by {activeAd.brand}
-              </p>
-              <p className="text-slate-400 text-sm max-w-sm mx-auto mb-8">
-                {activeAd.description}
-              </p>
-
-              <div className="flex flex-col gap-3">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert(`Redirecting you to ${activeAd.brand}...`);
-                  }}
-                  className="inline-flex w-full justify-center items-center rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/15"
-                >
-                  {activeAd.cta}
-                </a>
-                <button
-                  onClick={onUpgrade}
-                  className="text-xs text-slate-400 hover:text-white transition underline"
-                >
-                  Go Premium to permanently remove advertisements
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- REWARDED AD MODAL --- */}
-      {showRewarded && activeAd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md no-print">
-          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 p-8 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono tracking-widest text-amber-400 bg-amber-950 px-2 py-1 rounded">
-                  WATCH AD TO UNLOCK
-                </span>
-              </div>
-              <span className="text-xs font-mono text-slate-400">
-                {rewardedTimer > 0 ? (
-                  `Reward unlocking in ${rewardedTimer}s`
-                ) : (
-                  <span className="text-amber-400 flex items-center gap-1 font-semibold">
-                    <Star className="h-4 w-4 fill-amber-400" /> Reward Ready!
-                  </span>
-                )}
-              </span>
-            </div>
-
-            {/* Video Simulator Container */}
-            <div className="my-6 rounded-xl border border-slate-800 bg-slate-950/80 p-6 text-center">
-              <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 mb-4 border border-amber-500/30">
-                <RefreshCw className="h-10 w-10 animate-spin" />
-                <span className="absolute text-xs font-bold font-mono">{rewardedTimer > 0 ? rewardedTimer : "✔"}</span>
-              </div>
-              <div className="space-y-1 mb-4">
-                <h4 className="text-lg font-bold text-white font-display">{activeAd.brand} Presents</h4>
-                <p className="text-sm text-slate-300 font-medium">{activeAd.title}</p>
-                <p className="text-xs text-slate-400 max-w-xs mx-auto">{activeAd.description}</p>
-              </div>
-              <div className="flex justify-center gap-2">
-                <button
-                  onClick={() => alert("Visiting sponsor site...")}
-                  className="text-xs px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
-                >
-                  Visit Sponsor
-                </button>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={closeRewarded}
-                disabled={rewardedTimer > 0}
-                className={`w-full py-3 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 ${
-                  rewardedTimer > 0
-                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                    : "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/10"
-                }`}
-              >
-                {rewardedTimer > 0 ? `Unlocks in ${rewardedTimer}s...` : "Claim My Unlock Reward"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowRewarded(false);
-                  onUpgrade();
-                }}
-                className="text-xs text-slate-400 hover:text-white transition underline"
-              >
-                Upgrade to Premium for immediate access without Ads
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <>{children}</>;
 }
 
 // --- BANNER AD COMPONENT ---

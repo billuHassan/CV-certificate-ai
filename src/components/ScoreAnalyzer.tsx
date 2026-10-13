@@ -94,10 +94,29 @@ export default function ScoreAnalyzer({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl no-print relative overflow-hidden">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl no-print relative overflow-hidden space-y-5">
       {/* Visual background accents */}
       <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-500/5 blur-3xl rounded-full" />
       
+      {/* Mockup Studio Window Chrome Bar (matching Slideshow suite design) */}
+      <div className="px-4 py-2 bg-slate-950/90 border border-slate-800 rounded-xl flex items-center justify-between gap-3 text-xs shadow-inner no-print">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+            Rahmora Live Suite &bull; ATS Diagnostic Score Analyzer
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            ATS Compatibility Audit
+          </span>
+        </div>
+      </div>
+
       <div className="relative flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-indigo-400">

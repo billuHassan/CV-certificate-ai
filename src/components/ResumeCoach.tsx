@@ -330,17 +330,39 @@ export default function ResumeCoach({
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+      {/* Mockup Studio Window Chrome Bar (matching Slide 3 design) */}
+      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+            Rahmora Live Suite &bull; AI Resume Coach &amp; 3D Analytics
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-pink-300 bg-pink-500/10 border border-pink-500/30 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse shrink-0" />
+            8-Metric Live Audit
+          </span>
+          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
+            Radar Skill Alignment &bull; Callback Probability
+          </span>
+        </div>
+      </div>
+
       {/* Top Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
         <button
           onClick={onBackToDashboard}
-          className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition bg-slate-900 px-3 py-2 rounded-lg border border-slate-800"
+          className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white transition bg-slate-900/90 hover:bg-slate-800 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer shadow-xs"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Dashboard
         </button>
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-full">
-            <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse" /> AI Resume Coach & Market Strategist
+          <span className="flex items-center gap-1.5 text-xs font-bold bg-pink-500/10 text-pink-400 border border-pink-500/20 px-3 py-1.5 rounded-xl">
+            <Sparkles className="h-3.5 w-3.5 text-pink-400 animate-pulse" /> AI Resume Coach &amp; Market Strategist
           </span>
         </div>
       </div>

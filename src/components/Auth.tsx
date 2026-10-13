@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
   Sparkles, Mail, Lock, User, ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff,
-  ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain, Zap, Copy, Check, ExternalLink
+  ArrowLeft, CheckCircle2, Cpu, FileText, Building2, Brain, Zap, Copy, Check, ExternalLink,
+  ChevronLeft, ChevronRight, Play, Pause, Gamepad2, BarChart2
 } from "lucide-react";
 import RahmoraLogo, { RahmoraGlitterBadge } from "./RahmoraLogo";
 import { auth, db } from "../lib/firebase";
@@ -20,6 +21,249 @@ import {
   browserSessionPersistence
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+
+interface ShowcaseSlide {
+  id: string;
+  title: string;
+  category: string;
+  tag: string;
+  badgeColor: string;
+  description: string;
+  image: string;
+  features: string[];
+  accentColor: string;
+  borderGlow: string;
+}
+
+const SHOWCASE_SLIDES: ShowcaseSlide[] = [
+  {
+    id: "resume-builder",
+    title: "Executive ATS Resume Studio",
+    category: "Resume Builder",
+    tag: "ATS 98% Match",
+    badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+    description: "Design executive-ready CVs with 12+ recruiter-tested layouts, real-time PDF/Word export, live zoom, and instant metric quantification.",
+    image: "/src/assets/images/service_resume_builder_1791877147177.jpg",
+    features: ["12+ Pro Templates", "Live PDF & Word Export", "Real-Time ATS Parsing"],
+    accentColor: "text-emerald-400",
+    borderGlow: "border-emerald-500/40 shadow-emerald-500/10",
+  },
+  {
+    id: "cover-letters",
+    title: "AI Grounded Cover Letter Generator",
+    category: "Cover Letters",
+    tag: "Target Role Matched",
+    badgeColor: "bg-teal-500/20 text-teal-300 border-teal-500/40",
+    description: "Auto-generate tailored, highly persuasive cover letters referencing target company facts, job requirements, and your accomplishments.",
+    image: "/src/assets/images/service_cover_letter_1791877148445.jpg",
+    features: ["Company-Grounded AI", "Tone & Narrative Adjuster", "Instant One-Click Export"],
+    accentColor: "text-teal-400",
+    borderGlow: "border-teal-500/40 shadow-teal-500/10",
+  },
+  {
+    id: "career-coach",
+    title: "AI Resume Coach & 3D Analytics",
+    category: "Career Coach",
+    tag: "8-Metric Live Audit",
+    badgeColor: "bg-pink-500/20 text-pink-300 border-pink-500/40",
+    description: "Interactive multi-dimensional audit analyzing ATS keyword density, formatting hygiene, impact metrics, and recruiter callback probability.",
+    image: "/src/assets/images/service_career_coach_1791877147945.jpg",
+    features: ["Radar Skill Alignment", "Recruiter Pass Probability", "Actionable Gap Fixes"],
+    accentColor: "text-pink-400",
+    borderGlow: "border-pink-500/40 shadow-pink-500/10",
+  },
+  {
+    id: "skill-arena",
+    title: "Daily Skill Arena & Brain Games",
+    category: "Career Games",
+    tag: "Daily Quizzes & Wordle",
+    badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+    description: "Sharpen cognitive readiness with daily games: Coding Quizzes, Career Lexicon Wordle, Speed Typing tests, and logic puzzles with global leaderboards.",
+    image: "/src/assets/images/service_skill_games_1791877150021.jpg",
+    features: ["Coding Quiz & Trivia", "Daily Lexicon Wordle", "Global Competency XP"],
+    accentColor: "text-amber-400",
+    borderGlow: "border-amber-500/40 shadow-amber-500/10",
+  },
+  {
+    id: "interview-ai",
+    title: "Interview AI Intelligence Simulator",
+    category: "Interview Simulator",
+    tag: "Real-time AI Feedback",
+    badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+    description: "Rehearse high-pressure behavioral and technical interviews with AI persona interviewers, voice speech capture, and instant STAR scorecards.",
+    image: "/src/assets/images/service_interview_ai_1791877150027.jpg",
+    features: ["Interactive AI Persona", "STAR Method Scorecard", "Real-time Strengths Analysis"],
+    accentColor: "text-purple-400",
+    borderGlow: "border-purple-500/40 shadow-purple-500/10",
+  },
+];
+
+function ServiceShowcaseSlideshow() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % SHOWCASE_SLIDES.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [isPaused]);
+
+  const activeSlide = SHOWCASE_SLIDES[currentIndex];
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev === 0 ? SHOWCASE_SLIDES.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % SHOWCASE_SLIDES.length);
+  };
+
+  return (
+    <div
+      className="w-full max-w-4xl mx-auto space-y-3.5 pt-1"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* Category Navigation Pills */}
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+        {SHOWCASE_SLIDES.map((slide, idx) => {
+          const isActive = idx === currentIndex;
+          return (
+            <button
+              key={slide.id}
+              type="button"
+              onClick={() => setCurrentIndex(idx)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+                isActive
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-105 border border-indigo-400/50"
+                  : "bg-slate-900/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800"
+              }`}
+            >
+              <span className="truncate">{slide.category}</span>
+              {isActive && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Slide Card Frame */}
+      <div className={`card-3d rounded-2xl overflow-hidden border ${activeSlide.borderGlow} bg-slate-950 shadow-2xl transition-all duration-300 relative group`}>
+        {/* Mockup Top Window Bar */}
+        <div className="px-4 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+            <span className="ml-2 font-mono text-[11px] text-slate-400 font-bold truncate">
+              Rahmora Live Suite &bull; {activeSlide.title}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${activeSlide.badgeColor}`}>
+              {activeSlide.tag}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsPaused(!isPaused)}
+              className="text-[10px] text-slate-400 hover:text-slate-200 transition p-1 rounded hover:bg-slate-800 cursor-pointer"
+              title={isPaused ? "Auto-play" : "Pause slideshow"}
+            >
+              {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Real Screenshot Preview Stage */}
+        <div className="relative aspect-video w-full overflow-hidden bg-slate-950">
+          <img
+            key={activeSlide.image}
+            src={activeSlide.image}
+            alt={activeSlide.title}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.01]"
+          />
+
+          {/* Navigation Arrows */}
+          <button
+            type="button"
+            onClick={handlePrev}
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-slate-950/70 hover:bg-slate-900 text-white border border-slate-700/80 backdrop-blur-md transition opacity-80 group-hover:opacity-100 hover:scale-110 cursor-pointer shadow-lg z-10"
+            title="Previous service"
+            aria-label="Previous slide"
+          >
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleNext}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-slate-950/70 hover:bg-slate-900 text-white border border-slate-700/80 backdrop-blur-md transition opacity-80 group-hover:opacity-100 hover:scale-110 cursor-pointer shadow-lg z-10"
+            title="Next service"
+            aria-label="Next slide"
+          >
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+
+          {/* Bottom Gradient Overlay with Detail Card */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent p-4 sm:p-5 pt-8 text-left pointer-events-none">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+              <div className="space-y-1 max-w-xl">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-bold text-white font-display">
+                    {activeSlide.title}
+                  </h3>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${activeSlide.badgeColor}`}>
+                    {activeSlide.tag}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">
+                  {activeSlide.description}
+                </p>
+              </div>
+
+              {/* Feature Chips */}
+              <div className="flex flex-wrap sm:flex-col gap-1.5 shrink-0 text-[10px] text-slate-300">
+                {activeSlide.features.map((feat, fIdx) => (
+                  <span key={fIdx} className="flex items-center gap-1 bg-slate-900/80 border border-slate-800/80 px-2 py-0.5 rounded-lg text-slate-200">
+                    <CheckCircle2 className={`w-3 h-3 ${activeSlide.accentColor}`} /> {feat}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Slide Progress / Indicators Bar */}
+        <div className="px-4 py-2 bg-slate-900/90 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5">
+            {SHOWCASE_SLIDES.map((_, dotIdx) => (
+              <button
+                key={dotIdx}
+                type="button"
+                onClick={() => setCurrentIndex(dotIdx)}
+                className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  dotIdx === currentIndex
+                    ? "w-8 bg-indigo-500 shadow-xs shadow-indigo-500/50"
+                    : "w-2 bg-slate-700 hover:bg-slate-600"
+                }`}
+                title={`Go to slide ${dotIdx + 1}`}
+                aria-label={`Slide ${dotIdx + 1}`}
+              />
+            ))}
+          </div>
+
+          <span className="font-mono text-[10px] text-slate-400">
+            {currentIndex + 1} / {SHOWCASE_SLIDES.length} &bull; {activeSlide.category}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface AuthProps {
   onAuthSuccess: (user: { email: string; displayName: string }) => void;
@@ -90,7 +334,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         console.warn("Redirect auth check:", rErr);
       });
 
-    return () => unsub();
+    return () => {
+      unsub();
+    };
   }, [onAuthSuccess]);
 
   // Email verification flow states
@@ -736,38 +982,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             </p>
           </div>
 
-          {/* Feature Pillars Grid with Natural 3D Coloured Icon Plates */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-left">
-            <div className="card-3d rounded-2xl p-5 transition group border border-slate-700/80 bg-slate-900/90 shadow-xl">
-              <div className="icon-plate-3d icon-plate-indigo h-11 w-11 mb-3.5">
-                <FileText className="h-5 w-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-1 font-display tracking-wide">Resume Builder</h3>
-              <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                Clean formatting, custom palettes, and instant export options in PDF, Word & HTML.
-              </p>
-            </div>
-
-            <div className="card-3d rounded-2xl p-5 transition group border border-slate-700/80 bg-slate-900/90 shadow-xl">
-              <div className="icon-plate-3d icon-plate-sky h-11 w-11 mb-3.5">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-1 font-display tracking-wide">Job Intelligence</h3>
-              <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                Discover matching employers and tailor applications to specific target roles.
-              </p>
-            </div>
-
-            <div className="card-3d rounded-2xl p-5 transition group border border-slate-700/80 bg-slate-900/90 shadow-xl">
-              <div className="icon-plate-3d icon-plate-emerald h-11 w-11 mb-3.5">
-                <Brain className="h-5 w-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-1 font-display tracking-wide">ATS & Career AI</h3>
-              <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                Scan keyword gaps and optimize your bullet points for top recruiter screening.
-              </p>
-            </div>
-          </div>
+          {/* Live Interactive Real Example Pictures Slideshow */}
+          <ServiceShowcaseSlideshow />
 
           {/* Primary Action Row with 3D Tactile Buttons */}
           <div className="pt-3 flex flex-col items-center justify-center gap-3">
@@ -1448,13 +1664,14 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           <div className="h-[1px] bg-slate-800 w-full" />
         </div>
 
-        {/* Google Sign In Area */}
-        <div className="mb-6">
+        {/* Social Sign In Stack */}
+        <div className="mb-6 space-y-2.5">
+          {/* Google Sign In Button */}
           <button
             type="button"
             disabled={loading}
             onClick={handleGoogleSignInClick}
-            className="w-full py-3.5 px-4 rounded-xl btn-3d-slate hover:border-slate-600 disabled:opacity-50 text-slate-100 text-sm font-bold transition flex items-center justify-center gap-3 shadow-md"
+            className="w-full py-3 px-4 rounded-xl btn-3d-slate hover:border-slate-600 disabled:opacity-50 text-slate-100 text-sm font-bold transition flex items-center justify-center gap-3 shadow-md"
           >
             <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
               <path

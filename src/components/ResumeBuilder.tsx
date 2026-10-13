@@ -3,14 +3,13 @@ import {
   User, Briefcase, GraduationCap, Code, FolderGit, Languages, Award, Users, AlignLeft,
   Plus, Trash2, ArrowUp, ArrowDown, Settings, Sliders, Palette, Type as FontIcon, Sparkles,
   Download, Printer, ChevronDown, ChevronUp, Image, AlertCircle, Sparkle, Copy, RefreshCw, Layout, Eye,
-  Linkedin, CheckCircle2
+  Linkedin, CheckCircle2, ShieldCheck, ArrowLeft
 } from "lucide-react";
 import { ResumeData, WorkExperience, Education, Project, Language, Certification, Reference, UserSession } from "../types";
 import { compressImage } from "../lib/imageUtils";
 import ResumeTemplates from "./ResumeTemplates";
 import PDFPreviewModal from "./PDFPreviewModal";
 import TemplateSelector from "./TemplateSelector";
-import LinkedInImportModal, { ParsedLinkedInProfile } from "./LinkedInImportModal";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 import { getRoleDomainInfo } from "../utils/roleAnalyzer";
 
@@ -41,120 +40,6 @@ export default function ResumeBuilder({
   const [templateFilter, setTemplateFilter] = useState<"all" | "free" | "premium">("all");
   const [templateSearch, setTemplateSearch] = useState("");
   const [showPdfPreview, setShowPdfPreview] = useState(false);
-  const [showLinkedInImport, setShowLinkedInImport] = useState(false);
-  const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
-
-  const handleImportProfile = (
-    profile: ParsedLinkedInProfile,
-    mode: "replace" | "merge",
-    selectedSections: Record<string, boolean>
-  ) => {
-    setResume((prev) => {
-      const updated: ResumeData = { ...prev };
-
-      if (selectedSections.personalInfo && profile.personalInfo) {
-        if (mode === "replace") {
-          updated.personalInfo = {
-            ...prev.personalInfo,
-            fullName: profile.personalInfo.fullName || prev.personalInfo.fullName,
-            jobTitle: profile.personalInfo.jobTitle || prev.personalInfo.jobTitle,
-            email: profile.personalInfo.email || prev.personalInfo.email,
-            phone: profile.personalInfo.phone || prev.personalInfo.phone,
-            location: profile.personalInfo.location || prev.personalInfo.location,
-            website: profile.personalInfo.website || prev.personalInfo.website,
-            linkedin: profile.personalInfo.linkedin || prev.personalInfo.linkedin,
-            github: profile.personalInfo.github || prev.personalInfo.github,
-            profilePhoto: profile.personalInfo.profilePhoto || prev.personalInfo.profilePhoto,
-          };
-          if (!prev.title || prev.title.toLowerCase().includes("untitled") || prev.title.toLowerCase().includes("resume")) {
-            updated.title = `${profile.personalInfo.fullName} - ${profile.personalInfo.jobTitle}`;
-          }
-        } else {
-          updated.personalInfo = {
-            ...prev.personalInfo,
-            fullName: prev.personalInfo.fullName || profile.personalInfo.fullName,
-            jobTitle: prev.personalInfo.jobTitle || profile.personalInfo.jobTitle,
-            email: prev.personalInfo.email || profile.personalInfo.email,
-            phone: prev.personalInfo.phone || profile.personalInfo.phone,
-            location: prev.personalInfo.location || profile.personalInfo.location,
-            website: prev.personalInfo.website || profile.personalInfo.website,
-            linkedin: profile.personalInfo.linkedin || prev.personalInfo.linkedin,
-            github: prev.personalInfo.github || profile.personalInfo.github,
-            profilePhoto: prev.personalInfo.profilePhoto || profile.personalInfo.profilePhoto,
-          };
-        }
-      }
-
-      if (selectedSections.summary && profile.summary) {
-        if (mode === "replace" || !prev.summary) {
-          updated.summary = profile.summary;
-        } else {
-          updated.summary = `${prev.summary}\n\n${profile.summary}`;
-        }
-      }
-
-      if (selectedSections.experience && profile.experience && profile.experience.length > 0) {
-        if (mode === "replace") {
-          updated.experience = profile.experience;
-        } else {
-          const existingKeys = new Set(prev.experience.map((e) => `${(e.company || "").toLowerCase()}-${(e.position || "").toLowerCase()}`));
-          const newExps = profile.experience.filter((e) => !existingKeys.has(`${(e.company || "").toLowerCase()}-${(e.position || "").toLowerCase()}`));
-          updated.experience = [...prev.experience, ...newExps];
-        }
-      }
-
-      if (selectedSections.education && profile.education && profile.education.length > 0) {
-        if (mode === "replace") {
-          updated.education = profile.education;
-        } else {
-          const existingSchools = new Set(prev.education.map((e) => (e.school || "").toLowerCase()));
-          const newEdus = profile.education.filter((e) => !existingSchools.has((e.school || "").toLowerCase()));
-          updated.education = [...prev.education, ...newEdus];
-        }
-      }
-
-      if (selectedSections.skills && profile.skills && profile.skills.length > 0) {
-        if (mode === "replace") {
-          updated.skills = profile.skills;
-        } else {
-          const existingSkills = new Set(prev.skills.map((s) => s.toLowerCase()));
-          const addedSkills = profile.skills.filter((s) => !existingSkills.has(s.toLowerCase()));
-          updated.skills = [...prev.skills, ...addedSkills];
-        }
-      }
-
-      if (selectedSections.certifications && profile.certifications && profile.certifications.length > 0) {
-        if (mode === "replace") {
-          updated.certifications = profile.certifications;
-        } else {
-          updated.certifications = [...(prev.certifications || []), ...profile.certifications];
-        }
-      }
-
-      if (selectedSections.projects && profile.projects && profile.projects.length > 0) {
-        if (mode === "replace") {
-          updated.projects = profile.projects;
-        } else {
-          updated.projects = [...(prev.projects || []), ...profile.projects];
-        }
-      }
-
-      if (selectedSections.languages && profile.languages && profile.languages.length > 0) {
-        if (mode === "replace") {
-          updated.languages = profile.languages;
-        } else {
-          updated.languages = [...(prev.languages || []), ...profile.languages];
-        }
-      }
-
-      updated.updatedAt = new Date().toISOString();
-      return updated;
-    });
-
-    setImportSuccessMessage("Successfully imported and populated resume from LinkedIn!");
-    setTimeout(() => setImportSuccessMessage(null), 4500);
-  };
-
   // Auto-save changes
   useEffect(() => {
     onSave(resume);
@@ -218,13 +103,6 @@ export default function ResumeBuilder({
   };
 
   const handleAiRewriteExperience = async (id: string, exp: WorkExperience) => {
-    if (user?.isGuest) {
-      if (confirm("✨ AI Bullet Optimization is available with a free account! Would you like to sign up or log in for 100% free access?")) {
-        onUpgrade();
-      }
-      return;
-    }
-
     if (!exp.description) {
       alert("Please write a draft description first before asking AI to optimize it.");
       return;
@@ -344,13 +222,6 @@ export default function ResumeBuilder({
   };
 
   const handleAiSuggestSkills = async () => {
-    if (user?.isGuest) {
-      if (confirm("✨ AI Skill Recommendations are available with a free account! Would you like to sign up or log in for 100% free access?")) {
-        onUpgrade();
-      }
-      return;
-    }
-
     if (!resume.personalInfo.jobTitle) {
       alert("Missing Job Title: Please enter your Target Job Title under Personal Information so AI knows which skills to suggest.");
       return;
@@ -492,13 +363,6 @@ export default function ResumeBuilder({
   const [isScanningPhoto, setIsScanningPhoto] = useState(false);
 
   const handleScanPaperResumePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (user?.isGuest) {
-      if (confirm("✨ AI Document & Photo OCR Scanning is available with a free account! Would you like to sign up or log in for 100% free access?")) {
-        onUpgrade();
-      }
-      return;
-    }
-
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -548,13 +412,6 @@ export default function ResumeBuilder({
   };
 
   const handleAiGenerateSummary = async () => {
-    if (user?.isGuest) {
-      if (confirm("✨ AI Executive Summary Generation is available with a free account! Would you like to sign up or log in for 100% free access?")) {
-        onUpgrade();
-      }
-      return;
-    }
-
     if (!resume.personalInfo.jobTitle) {
       alert("Missing Job Title: Please enter your Target Job Title under Personal Information so AI can write a tailored executive summary.");
       return;
@@ -831,20 +688,42 @@ export default function ResumeBuilder({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
+      {/* Mockup Studio Window Chrome Bar (matching Slide 1 design) */}
+      <div className="px-4 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-3 text-xs shrink-0 no-print">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+            Rahmora Live Suite &bull; Executive ATS Resume Studio
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            ATS 98% Match
+          </span>
+          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
+            Real-Time PDF/Word Export
+          </span>
+        </div>
+      </div>
+
       {/* Top action header */}
-      <div className="bg-slate-900 border-b border-slate-800 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">
+      <div className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">
         <div className="flex items-center justify-between sm:justify-start gap-3">
           <div className="flex items-center gap-2">
             <button
               onClick={onBackToDashboard}
-              className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition shrink-0"
+              className="text-xs px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition shrink-0 border border-slate-700/60 font-medium flex items-center gap-1.5 cursor-pointer"
             >
-              Dashboard
+              <ArrowLeft className="h-3.5 w-3.5" /> Dashboard
             </button>
             <div className="h-4 w-[1px] bg-slate-800 hidden sm:block" />
-            <h2 className="text-xs sm:text-sm font-bold text-white font-display truncate max-w-[160px] sm:max-w-xs">
-              <span className="hidden sm:inline">Editing: </span>
-              <span className="text-indigo-400">{resume.title || "Untitled Resume"}</span>
+            <h2 className="text-xs sm:text-sm font-bold text-white font-display truncate max-w-[160px] sm:max-w-xs flex items-center gap-2">
+              <span className="hidden sm:inline text-slate-400 font-normal">Editing:</span>
+              <span className="text-emerald-400 font-semibold">{resume.title || "Untitled Resume"}</span>
             </h2>
           </div>
 
@@ -871,36 +750,29 @@ export default function ResumeBuilder({
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setShowLinkedInImport(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-xs font-bold rounded-lg transition shadow-md shadow-[#0A66C2]/20 active:scale-95 cursor-pointer"
-            title="Fetch and parse public profile data directly from a LinkedIn profile URL"
-          >
-            <Linkedin className="h-3.5 w-3.5" /> <span>Import LinkedIn</span>
-          </button>
-          <button
             onClick={() => setShowPdfPreview(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
             title="Open real-time PDF Preview modal with live pagination, zoom, and download"
           >
             <Eye className="h-3.5 w-3.5" /> <span>PDF Preview</span>
           </button>
           <button
             onClick={() => setShowPdfPreview(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition border border-slate-700"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition border border-slate-700 cursor-pointer"
             title="Download PDF or customize export options"
           >
-            <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download </span>PDF
+            <Download className="h-3.5 w-3.5 text-emerald-400" /> <span className="hidden sm:inline">Download </span>PDF
           </button>
           <button
             onClick={handleDownloadDOCX}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700 cursor-pointer"
             title="Download editable Microsoft Word DOCX file"
           >
-            <Download className="h-3.5 w-3.5" /> DOCX
+            <Download className="h-3.5 w-3.5 text-teal-400" /> DOCX
           </button>
           <button
             onClick={handleDownloadHTML}
-            className="hidden md:flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700"
+            className="hidden md:flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition border border-slate-700 cursor-pointer"
             title="Download fully styled offline HTML file"
           >
             HTML
@@ -946,32 +818,6 @@ export default function ResumeBuilder({
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {activeTab === "edit" && (
               <div className="space-y-3">
-                
-                {/* LinkedIn Auto-Populate Banner */}
-                <div className="p-3 bg-gradient-to-r from-[#0A66C2]/20 via-blue-900/15 to-slate-900/40 rounded-xl border border-[#0A66C2]/40 flex items-center justify-between gap-3 shadow-md shadow-[#0A66C2]/5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-[#0A66C2] flex items-center justify-center text-white shrink-0 shadow-sm">
-                      <Linkedin className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>Auto-Fill from LinkedIn</span>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-[#0A66C2]/30 text-blue-300 font-semibold border border-[#0A66C2]/30">URL Sync</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        Extract work experience, education, skills & summary
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowLinkedInImport(true)}
-                    className="px-3 py-1.5 bg-[#0A66C2] hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <span>Import</span>
-                    <Sparkles className="h-3 w-3" />
-                  </button>
-                </div>
 
                 {/* 1. PERSONAL INFORMATION */}
                 <div className="border border-slate-800 rounded-xl bg-slate-900/40 overflow-hidden">
@@ -1093,18 +939,7 @@ export default function ResumeBuilder({
                           />
                         </div>
                         <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[11px] font-medium text-slate-400">LinkedIn</label>
-                            <button
-                              type="button"
-                              onClick={() => setShowLinkedInImport(true)}
-                              className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
-                              title="Fetch and parse public profile data directly from this LinkedIn URL"
-                            >
-                              <Sparkles className="h-2.5 w-2.5" />
-                              <span>{resume.personalInfo.linkedin ? "Fetch Profile" : "Auto-Fill"}</span>
-                            </button>
-                          </div>
+                          <label className="text-[11px] font-medium text-slate-400">LinkedIn</label>
                           <input
                             type="text"
                             value={resume.personalInfo.linkedin}
@@ -1943,6 +1778,46 @@ export default function ResumeBuilder({
                     </div>
                   )}
                 </div>
+
+                {/* Section Completeness & ATS Health Checklist Card (fills the lower editor gracefully) */}
+                <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-2.5 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      ATS Content Completeness
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      {[
+                        Boolean(resume.personalInfo.fullName && resume.personalInfo.email),
+                        Boolean(resume.summary && resume.summary.length > 20),
+                        (resume.experience?.length || 0) > 0,
+                        (resume.education?.length || 0) > 0,
+                        (resume.skills?.length || 0) >= 3,
+                      ].filter(Boolean).length} / 5 Sections Ready
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                    <div className={`flex items-center gap-1.5 ${resume.personalInfo.fullName ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      <CheckCircle2 className="w-3 h-3" /> Personal Info
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${resume.summary ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      <CheckCircle2 className="w-3 h-3" /> Summary
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${(resume.experience?.length || 0) > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      <CheckCircle2 className="w-3 h-3" /> Experience ({(resume.experience?.length || 0)})
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${(resume.education?.length || 0) > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      <CheckCircle2 className="w-3 h-3" /> Education ({(resume.education?.length || 0)})
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${(resume.skills?.length || 0) >= 3 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      <CheckCircle2 className="w-3 h-3" /> Skills ({(resume.skills?.length || 0)})
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${(resume.projects?.length || 0) > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      <CheckCircle2 className="w-3 h-3" /> Projects ({(resume.projects?.length || 0)})
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -2213,23 +2088,6 @@ export default function ResumeBuilder({
         resume={resume}
         isPremium={isPremium}
       />
-
-      {/* LinkedIn Profile Auto-Populate Modal */}
-      <LinkedInImportModal
-        isOpen={showLinkedInImport}
-        onClose={() => setShowLinkedInImport(false)}
-        onImportProfile={handleImportProfile}
-        currentResume={resume}
-        initialUrl={resume.personalInfo.linkedin}
-      />
-
-      {/* Success Notification Toast */}
-      {importSuccessMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs font-bold animate-in slide-in-from-bottom-5 duration-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-white" />
-          <span>{importSuccessMessage}</span>
-        </div>
-      )}
     </div>
   );
 }

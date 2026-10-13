@@ -300,19 +300,42 @@ export default function CoverLetterBuilder({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
+      {/* Mockup Studio Window Chrome Bar (matching Slide 2 design) */}
+      <div className="px-4 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-3 text-xs shrink-0 no-print">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+            Rahmora Live Suite &bull; AI Grounded Cover Letter Generator
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-teal-300 bg-teal-500/10 border border-teal-500/30 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse shrink-0" />
+            Target Role Matched
+          </span>
+          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
+            Company-Grounded AI &bull; Instant Export
+          </span>
+        </div>
+      </div>
+
       {/* Top action header */}
-      <div className="bg-slate-900 border-b border-slate-800 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">
+      <div className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">
         <div className="flex items-center justify-between sm:justify-start gap-3">
           <div className="flex items-center gap-2">
             <button
               onClick={onBackToDashboard}
-              className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition flex items-center gap-1 shrink-0"
+              className="text-xs px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition flex items-center gap-1.5 shrink-0 border border-slate-700/60 font-medium cursor-pointer"
             >
               <ChevronLeft className="h-3.5 w-3.5" /> Dashboard
             </button>
             <div className="h-4 w-[1px] bg-slate-800 hidden sm:block" />
-            <h2 className="text-xs sm:text-sm font-bold text-white font-display truncate max-w-[160px] sm:max-w-xs">
-              <span className="text-indigo-400">{letter.title || "Untitled Cover Letter"}</span>
+            <h2 className="text-xs sm:text-sm font-bold text-white font-display truncate max-w-[160px] sm:max-w-xs flex items-center gap-2">
+              <span className="hidden sm:inline text-slate-400 font-normal">Target:</span>
+              <span className="text-teal-400 font-semibold">{letter.recipientCompany || "Executive Recruiter"} &bull; {letter.jobTitle || "Role"}</span>
             </h2>
           </div>
 
@@ -321,7 +344,7 @@ export default function CoverLetterBuilder({
             <button
               onClick={() => setMobileMode("edit")}
               className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
-                mobileMode === "edit" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                mobileMode === "edit" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"
               }`}
             >
               Editor
@@ -329,7 +352,7 @@ export default function CoverLetterBuilder({
             <button
               onClick={() => setMobileMode("preview")}
               className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
-                mobileMode === "preview" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                mobileMode === "preview" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"
               }`}
             >
               Preview

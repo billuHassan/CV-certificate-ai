@@ -569,13 +569,34 @@ export default function Settings({
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6 no-print">
+      {/* Mockup Studio Window Chrome Bar (matching Slideshow suite design) */}
+      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
+          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+            Rahmora Live Suite &bull; Platform Settings &amp; Workspace Control
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse shrink-0" />
+            Workspace Config
+          </span>
+          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
+            Cloud Preferences &bull; Themes &bull; Typography
+          </span>
+        </div>
+      </div>
       
       {/* Title */}
       <div className="flex items-center gap-2.5 border-b border-slate-800 pb-4">
         <SettingsIcon className="h-6 w-6 text-indigo-400 animate-spin-slow" />
         <div>
           <h2 className="text-xl font-bold text-white font-display">System Settings</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Configure global preferences, system theme display, languages and secure payments</p>
+          <p className="text-xs text-slate-500 mt-0.5">Configure global preferences, system theme display, and workspace customization</p>
         </div>
       </div>
 
