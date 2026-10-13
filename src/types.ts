@@ -81,6 +81,25 @@ export interface CustomSection {
   items: CustomSectionItem[];
 }
 
+export interface ResumeSnapshot {
+  id: string;
+  resumeId: string;
+  versionNumber: number;
+  label: string;
+  note?: string;
+  createdAt: string; // ISO date string
+  resumeData: ResumeData; // Complete snapshot of the resume state
+  tag?: "manual" | "pre-ai" | "pre-template" | "milestone" | "custom" | "auto";
+  metrics: {
+    experienceCount: number;
+    educationCount: number;
+    skillsCount: number;
+    projectsCount: number;
+    templateId: string;
+    hasSummary: boolean;
+  };
+}
+
 export interface ResumeData {
   id: string;
   title: string;
@@ -102,6 +121,7 @@ export interface ResumeData {
   layoutMode?: 'auto' | 'single' | 'split';
   createdAt?: string;
   updatedAt: string;
+  snapshots?: ResumeSnapshot[];
 }
 
 export interface CoverLetterData {

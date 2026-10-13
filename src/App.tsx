@@ -926,6 +926,33 @@ export default function App() {
     }
   };
 
+  const handleBranchResumeFromSnapshot = async (targetResume: ResumeData, newTitle: string) => {
+    if (!user) return;
+    const newId = crypto.randomUUID();
+    const branched: ResumeData = {
+      ...targetResume,
+      id: newId,
+      title: newTitle,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (isOfflineMode) {
+      const updatedResumes = [branched, ...resumes];
+      setResumes(updatedResumes);
+      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
+      setSelectedResumeId(newId);
+      return;
+    }
+
+    if (!auth.currentUser) return;
+    try {
+      await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", newId), branched);
+      setSelectedResumeId(newId);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/resumes/${newId}`);
+    }
+  };
+
   const handleDeleteResume = async (id: string) => {
     if (!user) return;
     setResumes(prev => {
@@ -2230,6 +2257,7 @@ export default function App() {
             onBackToDashboard={() => setCurrentView("dashboard")}
             isPremium={user.isPremium}
             onUpgrade={handleUpgradeElite}
+            onBranchResume={handleBranchResumeFromSnapshot}
           />
         )}
 

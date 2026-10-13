@@ -3,13 +3,15 @@ import {
   User, Briefcase, GraduationCap, Code, FolderGit, Languages, Award, Users, AlignLeft,
   Plus, Trash2, ArrowUp, ArrowDown, Settings, Sliders, Palette, Type as FontIcon, Sparkles,
   Download, Printer, ChevronDown, ChevronUp, Image, AlertCircle, Sparkle, Copy, RefreshCw, Layout, Eye,
-  Linkedin, CheckCircle2, ShieldCheck, ArrowLeft
+  Linkedin, CheckCircle2, ShieldCheck, ArrowLeft, History, Bookmark, GitBranch, Split
 } from "lucide-react";
 import { ResumeData, WorkExperience, Education, Project, Language, Certification, Reference, UserSession } from "../types";
 import { compressImage } from "../lib/imageUtils";
 import ResumeTemplates from "./ResumeTemplates";
 import PDFPreviewModal from "./PDFPreviewModal";
 import TemplateSelector from "./TemplateSelector";
+import ResumeSnapshotsModal from "./ResumeSnapshotsModal";
+import { getResumeSnapshots, createResumeSnapshot, attachSnapshotToResume } from "../utils/snapshotManager";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 import { getRoleDomainInfo } from "../utils/roleAnalyzer";
 
@@ -20,6 +22,7 @@ interface ResumeBuilderProps {
   onBackToDashboard: () => void;
   isPremium: boolean;
   onUpgrade: () => void;
+  onBranchResume?: (snapshotResume: ResumeData, newTitle: string) => void;
 }
 
 export default function ResumeBuilder({
@@ -29,6 +32,7 @@ export default function ResumeBuilder({
   onBackToDashboard,
   isPremium,
   onUpgrade,
+  onBranchResume,
 }: ResumeBuilderProps) {
   const [resume, setResume] = useState<ResumeData>(initialResume);
   const [activeTab, setActiveTab] = useState<"edit" | "design" | "ai">("edit");
@@ -40,6 +44,27 @@ export default function ResumeBuilder({
   const [templateFilter, setTemplateFilter] = useState<"all" | "free" | "premium">("all");
   const [templateSearch, setTemplateSearch] = useState("");
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [showSnapshotsModal, setShowSnapshotsModal] = useState(false);
+  const [snapshotPdfTarget, setSnapshotPdfTarget] = useState<ResumeData | null>(null);
+  const [showSnapshotPdf, setShowSnapshotPdf] = useState(false);
+  const [quickSnapshotSuccess, setQuickSnapshotSuccess] = useState<string | null>(null);
+
+  const snapshotsCount = getResumeSnapshots(resume).length;
+
+  const handleQuickSnapshot = () => {
+    const newSnapshot = createResumeSnapshot(
+      resume,
+      undefined,
+      "Quick snapshot before edits",
+      "manual"
+    );
+    const updated = attachSnapshotToResume(resume, newSnapshot);
+    setResume(updated);
+    onSave(updated);
+    setQuickSnapshotSuccess(`Snapshot v${newSnapshot.versionNumber} saved successfully!`);
+    setTimeout(() => setQuickSnapshotSuccess(null), 3500);
+  };
+
   // Auto-save changes
   useEffect(() => {
     onSave(resume);
@@ -700,6 +725,16 @@ export default function ResumeBuilder({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Snapshots pill button */}
+          <button
+            onClick={() => setShowSnapshotsModal(true)}
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-mono text-[10px] font-bold transition cursor-pointer"
+            title="Resume Snapshots & Version History (Freeze copies before major edits)"
+          >
+            <History className="h-3 w-3 text-indigo-400" />
+            <span>Snapshots ({snapshotsCount})</span>
+          </button>
+
           <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             ATS 98% Match
@@ -709,6 +744,22 @@ export default function ResumeBuilder({
           </span>
         </div>
       </div>
+
+      {/* Snapshot quick feedback toast banner */}
+      {quickSnapshotSuccess && (
+        <div className="bg-emerald-500/15 border-b border-emerald-500/30 px-4 py-2 text-xs text-emerald-300 flex items-center justify-between no-print animate-fade-in shrink-0">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>{quickSnapshotSuccess} Protected before significant edits.</span>
+          </div>
+          <button
+            onClick={() => setShowSnapshotsModal(true)}
+            className="text-xs text-emerald-300 underline hover:text-emerald-100 font-semibold cursor-pointer"
+          >
+            View Version History &rarr;
+          </button>
+        </div>
+      )}
 
       {/* Top action header */}
       <div className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">
@@ -749,6 +800,28 @@ export default function ResumeBuilder({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Snapshots & Versioning CTA */}
+          <button
+            onClick={() => setShowSnapshotsModal(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 text-xs font-semibold rounded-lg transition border border-indigo-500/30 hover:border-indigo-500/50 cursor-pointer shadow-sm"
+            title="Open Resume Snapshots & Version History - freeze copies before edits or restore earlier versions"
+          >
+            <History className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Versions</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-bold">
+              {snapshotsCount}
+            </span>
+          </button>
+
+          <button
+            onClick={handleQuickSnapshot}
+            className="hidden sm:flex items-center justify-center gap-1 px-2.5 py-1.5 bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-300 border border-indigo-500/30 text-xs font-medium rounded-lg transition cursor-pointer"
+            title="Instantly create a snapshot of your current resume data"
+          >
+            <Bookmark className="h-3.5 w-3.5 text-indigo-400" />
+            <span>+ Snapshot</span>
+          </button>
+
           <button
             onClick={() => setShowPdfPreview(true)}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
@@ -802,7 +875,7 @@ export default function ResumeBuilder({
                 activeTab === "design" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              Design Templates
+              Templates
             </button>
             <button
               onClick={() => setActiveTab("ai")}
@@ -810,7 +883,16 @@ export default function ResumeBuilder({
                 activeTab === "ai" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              Sections Reorder
+              Reorder
+            </button>
+            <button
+              onClick={() => setShowSnapshotsModal(true)}
+              className="px-2.5 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-800/60 transition flex items-center justify-center gap-1 cursor-pointer"
+              title="Open Snapshots & Version History"
+            >
+              <History className="h-3.5 w-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Versions</span>
+              <span className="text-[10px] font-mono font-bold text-indigo-400">({snapshotsCount})</span>
             </button>
           </div>
 
@@ -818,6 +900,34 @@ export default function ResumeBuilder({
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {activeTab === "edit" && (
               <div className="space-y-3">
+                {/* Safe Editing / Snapshot Banner Card */}
+                <div className="p-3 bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 border border-indigo-500/20 rounded-xl flex items-center justify-between gap-3 text-xs shadow-sm">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg shrink-0 border border-indigo-500/30">
+                      <Bookmark className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-semibold text-slate-200 block truncate">Version Snapshots</span>
+                      <span className="text-[11px] text-slate-400 block truncate">Save snapshot before making edits</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={handleQuickSnapshot}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition shadow-sm cursor-pointer"
+                      title="Quickly take a snapshot of current data"
+                    >
+                      + Snapshot
+                    </button>
+                    <button
+                      onClick={() => setShowSnapshotsModal(true)}
+                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-medium border border-slate-700 transition cursor-pointer"
+                      title="Manage snapshots & view diffs"
+                    >
+                      History ({snapshotsCount})
+                    </button>
+                  </div>
+                </div>
 
                 {/* 1. PERSONAL INFORMATION */}
                 <div className="border border-slate-800 rounded-xl bg-slate-900/40 overflow-hidden">
@@ -2088,6 +2198,39 @@ export default function ResumeBuilder({
         resume={resume}
         isPremium={isPremium}
       />
+
+      {/* Resume Snapshots & Version History Modal */}
+      <ResumeSnapshotsModal
+        isOpen={showSnapshotsModal}
+        onClose={() => setShowSnapshotsModal(false)}
+        currentResume={resume}
+        onRestoreSnapshot={(restoredResume) => {
+          setResume(restoredResume);
+          onSave(restoredResume);
+        }}
+        onUpdateResumeSnapshots={(updatedResume) => {
+          setResume(updatedResume);
+          onSave(updatedResume);
+        }}
+        onBranchAsNewResume={onBranchResume}
+        onPreviewSnapshotPdf={(snapResume) => {
+          setSnapshotPdfTarget(snapResume);
+          setShowSnapshotPdf(true);
+        }}
+      />
+
+      {/* Snapshot PDF Preview Modal */}
+      {snapshotPdfTarget && (
+        <PDFPreviewModal
+          isOpen={showSnapshotPdf}
+          onClose={() => {
+            setShowSnapshotPdf(false);
+            setSnapshotPdfTarget(null);
+          }}
+          resume={snapshotPdfTarget}
+          isPremium={isPremium}
+        />
+      )}
     </div>
   );
 }
