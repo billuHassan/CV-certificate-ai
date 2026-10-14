@@ -3,6 +3,8 @@ import { Sparkles, Award, ArrowLeft, RefreshCw, CheckCircle, Globe, ExternalLink
 import { ResumeData } from "../types";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 import UploadResumeModal from "./UploadResumeModal";
+import ArcGaugeChart from "./charts/ArcGaugeChart";
+import PolygonRadarChart from "./charts/PolygonRadarChart";
 
 interface GroundingSource {
   title: string;
@@ -330,27 +332,6 @@ export default function ResumeCoach({
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
-      {/* Mockup Studio Window Chrome Bar (matching Slide 3 design) */}
-      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
-            Rahmora Live Suite &bull; AI Resume Coach &amp; 3D Analytics
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-pink-300 bg-pink-500/10 border border-pink-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse shrink-0" />
-            8-Metric Live Audit
-          </span>
-          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
-            Radar Skill Alignment &bull; Callback Probability
-          </span>
-        </div>
-      </div>
 
       {/* Top Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
@@ -542,36 +523,67 @@ export default function ResumeCoach({
           {/* TAB 1: RESUME COACH & LINE-BY-LINE FIXES */}
           {activeTab === "coach" && (
             <div className="space-y-6">
-              {/* Top Verdict & Score Breakdown */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Score Card */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between items-center text-center space-y-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Resume Perfection Score</span>
-                  
-                  <div className="relative flex items-center justify-center">
-                    <div className={`text-5xl font-black font-display px-6 py-4 rounded-2xl border ${getScoreColor(analysisResult.perfectionScore)}`}>
-                      {analysisResult.perfectionScore}<span className="text-lg text-slate-500 font-normal">/100</span>
-                    </div>
+              {/* Top Visual Analytics Row: Arc Gauge + Radar Polygon Chart + Verdict */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                
+                {/* 1. Arc Gauge Meter */}
+                <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col items-center justify-between shadow-xl relative overflow-hidden">
+                  <div className="w-full flex items-center justify-between pb-2 border-b border-slate-800 mb-1">
+                    <span className="text-[10px] font-mono tracking-widest text-emerald-400 font-bold uppercase">
+                      Dial Gauge
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 font-semibold">
+                      Recruiter Threshold
+                    </span>
                   </div>
-
-                  <div className="text-xs text-slate-400">
+                  <ArcGaugeChart
+                    score={analysisResult.perfectionScore}
+                    title="Perfection Score"
+                    subtitle="COACH RATING"
+                    size={220}
+                  />
+                  <div className="text-xs text-slate-400 text-center mt-2">
                     {appliedRecIds.size > 0 ? (
-                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="text-emerald-400 font-bold flex items-center justify-center gap-1">
                         <CheckCircle className="h-4 w-4" /> {appliedRecIds.size} Coached Improvements Applied!
                       </span>
                     ) : (
-                      <span>Apply suggestions below to raise your perfection score.</span>
+                      <span>Apply suggestions below to raise your score.</span>
                     )}
                   </div>
                 </div>
 
-                {/* Verdict & Online Grounding Summary */}
-                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 flex flex-col justify-between">
+                {/* 2. Polygon Radar Chart for Multi-Dimensional Alignment */}
+                <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col items-center justify-between shadow-xl relative overflow-hidden">
+                  <div className="w-full flex items-center justify-between pb-2 border-b border-slate-800 mb-1">
+                    <span className="text-[10px] font-mono tracking-widest text-indigo-400 font-bold uppercase">
+                      Radar Skill Alignment
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 font-semibold">
+                      Polygon Web
+                    </span>
+                  </div>
+                  <PolygonRadarChart
+                    data={[
+                      { axis: "Impact", value: analysisResult.dimensionScores.impactMetrics, benchmark: 85, description: "Quantifiable % / $ metrics" },
+                      { axis: "Action Verbs", value: analysisResult.dimensionScores.actionVerbs, benchmark: 90, description: "High-power leadership verbs" },
+                      { axis: "Keywords", value: analysisResult.dimensionScores.keywordAlignment, benchmark: 88, description: "Role-specific core keywords" },
+                      { axis: "Formatting", value: analysisResult.dimensionScores.formatting, benchmark: 92, description: "Recruiter visual hierarchy" },
+                      { axis: "Clarity", value: analysisResult.dimensionScores.clarity, benchmark: 86, description: "Tone, brevity & skim-scan speed" },
+                    ]}
+                    size={230}
+                    currentLabel="Active Resume"
+                    benchmarkLabel="Target Tier"
+                  />
+                </div>
+
+                {/* 3. Executive Coach Verdict */}
+                <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
                   <div className="space-y-2">
                     <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
                       <Award className="h-4 w-4 text-amber-400" /> Executive Coach Verdict
                     </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-xl border border-slate-850">
+                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-slate-850">
                       {analysisResult.executiveSummary}
                     </p>
                   </div>

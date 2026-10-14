@@ -9,6 +9,8 @@ import {
 import { ResumeData, CoverLetterData, UserSession } from "../types";
 import { ThemeDefinition } from "./Settings";
 import PDFPreviewModal from "./PDFPreviewModal";
+import ArcGaugeChart from "./charts/ArcGaugeChart";
+import PolygonRadarChart from "./charts/PolygonRadarChart";
 
 interface DashboardProps {
   user: UserSession;
@@ -299,28 +301,6 @@ export default function Dashboard({
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       className="max-w-6xl mx-auto p-4 sm:p-8 space-y-6 no-print"
     >
-      {/* Mockup Studio Window Chrome Bar (matching Slideshow suite design) */}
-      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
-            Rahmora Live Suite &bull; Executive Career Operating System
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse shrink-0" />
-            All Suites Active
-          </span>
-          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
-            ATS &bull; Letters &bull; Coach &bull; Arena &bull; Simulator
-          </span>
-        </div>
-      </div>
-
       {/* Top Welcome Panel in 3D Card Style */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
@@ -458,6 +438,44 @@ export default function Dashboard({
             <span>Open 3D Analytics Suite</span>
             <ArrowUpRight className="h-4 w-4" />
           </button>
+        </div>
+
+        {/* Visual Analytics Showcase: Arc Gauge + Polygon Radar */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center p-4 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+          {/* Left: Arc Speedometer Gauge */}
+          <div className="md:col-span-5 flex flex-col items-center justify-center p-3 border-b md:border-b-0 md:border-r border-slate-800">
+            <span className="text-[10px] font-mono tracking-widest text-emerald-400 font-bold uppercase mb-1">
+              ATS MATCH SPEEDOMETER
+            </span>
+            <ArcGaugeChart
+              score={atsScore}
+              title="ATS Screener Gauge"
+              subtitle="AUTOMATED PARSER"
+              size={210}
+            />
+            <div className="flex items-center gap-3 mt-1 text-[11px] font-mono">
+              <span className="text-slate-400">Target: <strong className="text-white">85%+</strong></span>
+              <span className="text-slate-400">Status: <strong className={atsScore >= 80 ? "text-emerald-400" : "text-amber-400"}>{atsScore >= 80 ? "Optimal" : "Review"}</strong></span>
+            </div>
+          </div>
+
+          {/* Right: Polygon Radar Web Chart */}
+          <div className="md:col-span-7 flex flex-col items-center justify-center p-3">
+            <div className="w-full flex items-center justify-between pb-1 border-b border-slate-850 mb-1">
+              <span className="text-[10px] font-mono tracking-widest text-pink-400 font-bold uppercase">
+                RADAR SKILL ALIGNMENT (8 DIMENSIONS)
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 font-semibold">
+                Tier-1 Benchmark: 88%
+              </span>
+            </div>
+            <PolygonRadarChart
+              data={metrics3D.map(m => ({ axis: m.label, value: m.score, benchmark: 85 }))}
+              size={240}
+              currentLabel={activeResume?.title || "Active Resume"}
+              benchmarkLabel="Tier-1 Pass"
+            />
+          </div>
         </div>
 
         {/* 8 3D Dimensional Metric Badges Grid */}

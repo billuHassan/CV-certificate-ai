@@ -561,28 +561,6 @@ How can I help you today?`,
         </div>
       )}
 
-      {/* Mockup Studio Window Chrome Bar (matching Slideshow suite design) */}
-      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
-            Rahmora Live Suite &bull; Help, FAQ &amp; Support Center
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-blue-300 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
-            Live Helpdesk Active
-          </span>
-          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
-            Instant FAQs &bull; Direct Admin Chat
-          </span>
-        </div>
-      </div>
-
       {/* Page Header Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 relative overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />

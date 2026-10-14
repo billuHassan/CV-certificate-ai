@@ -4,7 +4,7 @@ import {
   Zap, Brain, Calendar, ChevronRight, ChevronLeft, ArrowRight, Star,
   Crown, Sparkles, Hash, BookOpen, Calculator, Volume2, VolumeX,
   Share2, ShieldCheck, RefreshCw, Layers, Check, X, Filter, BarChart3,
-  Lightbulb, AlertTriangle, Users
+  Lightbulb, AlertTriangle, Users, Code, Send
 } from "lucide-react";
 import { UserSession, GameType, GameScore, UserGameProfile } from "../types";
 import { ThemeDefinition } from "./Settings";
@@ -14,8 +14,9 @@ import {
 } from "firebase/firestore";
 import {
   getTodayDateString, generateDailySudoku, generateDailyWordMatrix,
-  generateDailyMathCrunch, DailySudokuPuzzle, DailyWordMatrixPuzzle,
-  DailyMathCrunchPuzzle, SudokuGrid
+  generateDailyMathCrunch, generateDailyCodingQuiz, generateDailyWordle,
+  DailySudokuPuzzle, DailyWordMatrixPuzzle, DailyMathCrunchPuzzle,
+  DailyCodingQuizPuzzle, DailyWordlePuzzle, SudokuGrid
 } from "../utils/gamePuzzles";
 
 interface SkillArenaProps {
@@ -87,6 +88,26 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
   const [mathFeedback, setMathFeedback] = useState<string | null>(null);
 
   // ==========================================
+  // 4. CODING QUIZ STATE (SLIDESHOW DESIGNATED)
+  // ==========================================
+  const dailyCodingQuiz = useMemo(() => generateDailyCodingQuiz(selectedDate), [selectedDate]);
+  const [currentQuizIdx, setCurrentQuizIdx] = useState<number>(0);
+  const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
+  const [quizAnswerSubmitted, setQuizAnswerSubmitted] = useState<boolean>(false);
+  const [quizScore, setQuizScore] = useState<number>(0);
+  const [quizCompletedQuestions, setQuizCompletedQuestions] = useState<number>(0);
+
+  // ==========================================
+  // 5. DAILY LEXICON WORDLE STATE (SLIDESHOW DESIGNATED)
+  // ==========================================
+  const dailyWordle = useMemo(() => generateDailyWordle(selectedDate), [selectedDate]);
+  const [wordleGuesses, setWordleGuesses] = useState<string[]>([]);
+  const [currentWordleInput, setCurrentWordleInput] = useState<string>("");
+  const [wordleGameOver, setWordleGameOver] = useState<boolean>(false);
+  const [wordleWon, setWordleWon] = useState<boolean>(false);
+  const [wordleHintRevealed, setWordleHintRevealed] = useState<boolean>(false);
+
+  // ==========================================
   // TIMER HOOK
   // ==========================================
   useEffect(() => {
@@ -134,6 +155,18 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
       setMathExpression("");
       setMathUsedIndices([]);
       setMathFeedback(null);
+    } else if (selectedGame === "coding_quiz") {
+      setCurrentQuizIdx(0);
+      setSelectedQuizOption(null);
+      setQuizAnswerSubmitted(false);
+      setQuizScore(0);
+      setQuizCompletedQuestions(0);
+    } else if (selectedGame === "daily_wordle") {
+      setWordleGuesses([]);
+      setCurrentWordleInput("");
+      setWordleGameOver(false);
+      setWordleWon(false);
+      setWordleHintRevealed(false);
     }
   };
 
@@ -522,6 +555,71 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
     }
   };
 
+  // ==========================================
+  // 4. CODING QUIZ LOGIC HANDLERS (SLIDE 4 SPEC)
+  // ==========================================
+  const handleSelectQuizOption = (idx: number) => {
+    if (quizAnswerSubmitted) return;
+    if (!isPlaying && !gameCompleted) setIsPlaying(true);
+    setSelectedQuizOption(idx);
+  };
+
+  const handleSubmitQuizAnswer = () => {
+    if (selectedQuizOption === null || quizAnswerSubmitted) return;
+    setQuizAnswerSubmitted(true);
+    const currentQ = dailyCodingQuiz.questions[currentQuizIdx];
+    if (selectedQuizOption === currentQ.correctIndex) {
+      setQuizScore(prev => prev + currentQ.xpPoints);
+    } else {
+      setElapsedSeconds(prev => prev + 10);
+    }
+  };
+
+  const handleNextQuizQuestion = () => {
+    if (currentQuizIdx < dailyCodingQuiz.questions.length - 1) {
+      setCurrentQuizIdx(prev => prev + 1);
+      setSelectedQuizOption(null);
+      setQuizAnswerSubmitted(false);
+    } else {
+      // Quiz complete!
+      const currentQ = dailyCodingQuiz.questions[currentQuizIdx];
+      const finalEarned = quizScore + (selectedQuizOption === currentQ.correctIndex ? currentQ.xpPoints : 0);
+      const timeBonus = Math.max(0, 3000 - elapsedSeconds * 15);
+      handleGameVictory(finalEarned * 10 + timeBonus);
+    }
+  };
+
+  // ==========================================
+  // 5. DAILY LEXICON WORDLE LOGIC HANDLERS (SLIDE 4 SPEC)
+  // ==========================================
+  const handleWordleKeyPress = (key: string) => {
+    if (wordleGameOver || gameCompleted) return;
+    if (!isPlaying && !gameCompleted) setIsPlaying(true);
+
+    if (key === "ENTER") {
+      if (currentWordleInput.length !== 5) return;
+      const guess = currentWordleInput.toUpperCase();
+      const newGuesses = [...wordleGuesses, guess];
+      setWordleGuesses(newGuesses);
+      setCurrentWordleInput("");
+
+      if (guess === dailyWordle.targetWord) {
+        setWordleWon(true);
+        setWordleGameOver(true);
+        const base = 9000;
+        const attemptsBonus = (6 - newGuesses.length) * 1200;
+        const timeBonus = Math.max(0, 4000 - elapsedSeconds * 20);
+        handleGameVictory(base + attemptsBonus + timeBonus);
+      } else if (newGuesses.length >= 6) {
+        setWordleGameOver(true);
+      }
+    } else if (key === "BACKSPACE" || key === "DEL") {
+      setCurrentWordleInput(prev => prev.slice(0, -1));
+    } else if (/^[A-Z]$/i.test(key) && currentWordleInput.length < 5) {
+      setCurrentWordleInput(prev => (prev + key).toUpperCase());
+    }
+  };
+
   // Helper formatting for time mm:ss
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -548,27 +646,6 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 text-slate-100 font-sans pb-16 no-print">
-      {/* Mockup Studio Window Chrome Bar (matching Slide 4 design) */}
-      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
-            Rahmora Live Suite &bull; Daily Skill Arena &amp; Brain Games
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-            Daily Quizzes &amp; Wordle
-          </span>
-          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
-            Global Competency XP &bull; Live Ranks
-          </span>
-        </div>
-      </div>
 
       {onBackToDashboard && (
         <div className="flex items-center justify-between">
@@ -679,64 +756,105 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
       {activeTab === "games" && (
         <div className="space-y-6">
           
-          {/* Game Selection Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Game 1: Daily Sudoku */}
+          {/* Designated Service Game Selection Cards (Matching Slide 4 Designation) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Game 1: Coding Quiz & Trivia (Slide 4 Designated) */}
             <button
-              onClick={() => setSelectedGame("sudoku")}
-              className={`p-4 rounded-2xl border text-left transition relative overflow-hidden group shadow-lg ${
-                selectedGame === "sudoku"
-                  ? "bg-gradient-to-br from-indigo-950/70 to-slate-900 border-indigo-500 ring-2 ring-indigo-500/20"
+              onClick={() => setSelectedGame("coding_quiz")}
+              className={`p-4 rounded-2xl border text-left transition relative overflow-hidden group shadow-lg cursor-pointer ${
+                selectedGame === "coding_quiz"
+                  ? "bg-gradient-to-br from-indigo-950/80 to-slate-900 border-indigo-500 ring-2 ring-indigo-500/30"
                   : "bg-slate-900/90 border-slate-800 hover:border-slate-700"
               }`}
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="p-2.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-xl">
-                  <Hash className="h-5 w-5" />
+                  <Code className="h-5 w-5" />
                 </div>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
-                  Day Level {dailySudokuPuzzle.level}
+                  +150 XP
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[9px] font-mono tracking-widest text-indigo-400 font-bold uppercase">
+                  SLIDESHOW SPEC
                 </span>
               </div>
               <h3 className="font-bold text-sm text-white group-hover:text-indigo-400 transition font-display">
-                Daily Sudoku Pro
+                Coding Quiz &amp; Trivia
               </h3>
               <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">
-                Classic 9x9 logic matrix with progressive daily clue reduction.
+                System Design, React, Algorithms &amp; Executive Tech Trivia with explanations.
               </p>
             </button>
 
-            {/* Game 2: Word Matrix */}
+            {/* Game 2: Daily Lexicon Wordle (Slide 4 Designated) */}
             <button
-              onClick={() => setSelectedGame("word_matrix")}
-              className={`p-4 rounded-2xl border text-left transition relative overflow-hidden group shadow-lg ${
-                selectedGame === "word_matrix"
-                  ? "bg-gradient-to-br from-emerald-950/70 to-slate-900 border-emerald-500 ring-2 ring-emerald-500/20"
+              onClick={() => setSelectedGame("daily_wordle")}
+              className={`p-4 rounded-2xl border text-left transition relative overflow-hidden group shadow-lg cursor-pointer ${
+                selectedGame === "daily_wordle"
+                  ? "bg-gradient-to-br from-emerald-950/80 to-slate-900 border-emerald-500 ring-2 ring-emerald-500/30"
                   : "bg-slate-900/90 border-slate-800 hover:border-slate-700"
               }`}
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="p-2.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl">
-                  <BookOpen className="h-5 w-5" />
+                  <Zap className="h-5 w-5" />
                 </div>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                  Day Level {dailyWordPuzzle.level}
+                  +200 XP
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[9px] font-mono tracking-widest text-emerald-400 font-bold uppercase">
+                  SLIDESHOW SPEC
                 </span>
               </div>
               <h3 className="font-bold text-sm text-white group-hover:text-emerald-400 transition font-display">
-                Word Matrix (Verbal Reasoning)
+                Daily Lexicon Wordle
               </h3>
               <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">
-                Executive aptitude anagram builder and vocabulary challenge.
+                5-letter tech &amp; career terminology deduction with color-coded feedback tiles.
               </p>
             </button>
 
-            {/* Game 3: Math Crunch */}
+            {/* Game 3: Daily Sudoku Pro */}
+            <button
+              onClick={() => setSelectedGame("sudoku")}
+              className={`p-4 rounded-2xl border text-left transition relative overflow-hidden group shadow-lg cursor-pointer ${
+                selectedGame === "sudoku"
+                  ? "bg-gradient-to-br from-purple-950/80 to-slate-900 border-purple-500 ring-2 ring-purple-500/30"
+                  : "bg-slate-900/90 border-slate-800 hover:border-slate-700"
+              }`}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="p-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-xl">
+                  <Hash className="h-5 w-5" />
+                </div>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+                  Day Level {dailySudokuPuzzle.level}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[9px] font-mono tracking-widest text-purple-400 font-bold uppercase">
+                  LOGIC MATRIX
+                </span>
+              </div>
+              <h3 className="font-bold text-sm text-white group-hover:text-purple-400 transition font-display">
+                Daily Sudoku Pro
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">
+                Classic 9x9 logic matrix with progressive daily clue reduction &amp; notes.
+              </p>
+            </button>
+
+            {/* Game 4: Math Crunch 24 */}
             <button
               onClick={() => setSelectedGame("math_crunch")}
-              className={`p-4 rounded-2xl border text-left transition relative overflow-hidden group shadow-lg ${
+              className={`p-4 rounded-2xl border text-left transition relative overflow-hidden group shadow-lg cursor-pointer ${
                 selectedGame === "math_crunch"
-                  ? "bg-gradient-to-br from-amber-950/70 to-slate-900 border-amber-500 ring-2 ring-amber-500/20"
+                  ? "bg-gradient-to-br from-amber-950/80 to-slate-900 border-amber-500 ring-2 ring-amber-500/30"
                   : "bg-slate-900/90 border-slate-800 hover:border-slate-700"
               }`}
             >
@@ -748,13 +866,19 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
                   Day Level {dailyMathPuzzle.level}
                 </span>
               </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[9px] font-mono tracking-widest text-amber-400 font-bold uppercase">
+                  TARGET ARITHMETIC
+                </span>
+              </div>
               <h3 className="font-bold text-sm text-white group-hover:text-amber-400 transition font-display">
-                Math Crunch 24 (Target Logic)
+                Math Crunch 24
               </h3>
               <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">
-                Timed arithmetic logic to reach exact targets with 4 integers.
+                Timed arithmetic logic to reach exact targets using 4 integers.
               </p>
             </button>
+
           </div>
 
           {/* Active Game Workspace */}
@@ -768,6 +892,8 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
                     Today's Challenge • {selectedDate}
                   </span>
                   <h2 className="text-lg font-bold text-white font-display">
+                    {selectedGame === "coding_quiz" && "Coding Quiz & Technical Trivia"}
+                    {selectedGame === "daily_wordle" && "Daily Lexicon Wordle"}
                     {selectedGame === "sudoku" && "Daily Sudoku Pro"}
                     {selectedGame === "word_matrix" && "Word Matrix Verbal Reasoning"}
                     {selectedGame === "math_crunch" && "Math Crunch 24 Target Logic"}
@@ -785,6 +911,18 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
                 </div>
 
                 <div className="h-4 w-[1px] bg-slate-800" />
+
+                {selectedGame === "coding_quiz" && (
+                  <span className="text-xs font-mono text-slate-400">
+                    Question: <strong className="text-indigo-400">{currentQuizIdx + 1}/{dailyCodingQuiz.questions.length}</strong> &bull; Score: <strong className="text-emerald-400">{quizScore} XP</strong>
+                  </span>
+                )}
+
+                {selectedGame === "daily_wordle" && (
+                  <span className="text-xs font-mono text-slate-400">
+                    Attempts: <strong className="text-emerald-400">{wordleGuesses.length}/6</strong>
+                  </span>
+                )}
 
                 {selectedGame === "sudoku" && (
                   <span className="text-xs font-mono text-slate-400">
@@ -809,7 +947,7 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
               <div className="flex items-center gap-2">
                 <button
                   onClick={resetCurrentGame}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                   title="Restart Puzzle"
                 >
                   <RotateCcw className="h-3.5 w-3.5" /> Reset
@@ -1093,6 +1231,247 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
                 </div>
               </div>
             )}
+
+            {/* ========================================================================= */}
+            {/* SUB-GAME 4: CODING QUIZ & TECHNICAL TRIVIA (SLIDE 4 DESIGNATED) */}
+            {/* ========================================================================= */}
+            {selectedGame === "coding_quiz" && dailyCodingQuiz.questions[currentQuizIdx] && (
+              <div className="space-y-6 max-w-2xl mx-auto py-2">
+                {/* Question Info Bar */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 px-2.5 py-1 rounded-full font-bold uppercase">
+                    {dailyCodingQuiz.questions[currentQuizIdx].category}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400">
+                    Question {currentQuizIdx + 1} of {dailyCodingQuiz.questions.length} &bull; +{dailyCodingQuiz.questions[currentQuizIdx].xpPoints} XP
+                  </span>
+                </div>
+
+                {/* Question Text */}
+                <h3 className="text-base sm:text-lg font-bold text-white font-display leading-snug">
+                  {dailyCodingQuiz.questions[currentQuizIdx].question}
+                </h3>
+
+                {/* Optional Code Snippet */}
+                {dailyCodingQuiz.questions[currentQuizIdx].codeSnippet && (
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-indigo-200 overflow-x-auto shadow-inner leading-relaxed">
+                    <pre>{dailyCodingQuiz.questions[currentQuizIdx].codeSnippet}</pre>
+                  </div>
+                )}
+
+                {/* Options List */}
+                <div className="space-y-2.5">
+                  {dailyCodingQuiz.questions[currentQuizIdx].options.map((opt, oIdx) => {
+                    const letters = ["A", "B", "C", "D"];
+                    const isSelected = selectedQuizOption === oIdx;
+                    const isCorrect = oIdx === dailyCodingQuiz.questions[currentQuizIdx].correctIndex;
+
+                    let btnStyle = "bg-slate-950/80 border-slate-800 hover:border-indigo-500/60 text-slate-200";
+                    if (quizAnswerSubmitted) {
+                      if (isCorrect) {
+                        btnStyle = "bg-emerald-950/80 border-emerald-500 text-emerald-200 ring-2 ring-emerald-500/30";
+                      } else if (isSelected && !isCorrect) {
+                        btnStyle = "bg-rose-950/80 border-rose-500 text-rose-200 ring-2 ring-rose-500/30";
+                      } else {
+                        btnStyle = "bg-slate-950/40 border-slate-900 text-slate-500";
+                      }
+                    } else if (isSelected) {
+                      btnStyle = "bg-indigo-950/80 border-indigo-500 text-white ring-2 ring-indigo-500/40";
+                    }
+
+                    return (
+                      <button
+                        key={oIdx}
+                        onClick={() => handleSelectQuizOption(oIdx)}
+                        disabled={quizAnswerSubmitted}
+                        className={`w-full p-3.5 sm:p-4 rounded-xl border text-left text-xs sm:text-sm font-medium transition flex items-start gap-3 cursor-pointer ${btnStyle}`}
+                      >
+                        <span className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-mono font-bold shrink-0 text-xs">
+                          {letters[oIdx]}
+                        </span>
+                        <span className="flex-1 leading-relaxed">{opt}</span>
+                        {quizAnswerSubmitted && isCorrect && (
+                          <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                        )}
+                        {quizAnswerSubmitted && isSelected && !isCorrect && (
+                          <X className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Post-Submit Rationale & Explanation */}
+                {quizAnswerSubmitted && (
+                  <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 text-xs text-indigo-100 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-indigo-300">
+                      <Lightbulb className="h-4 w-4 text-amber-400" />
+                      <span>Technical Explanation:</span>
+                    </div>
+                    <p className="leading-relaxed pl-6 text-slate-300">
+                      {dailyCodingQuiz.questions[currentQuizIdx].explanation}
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  {!quizAnswerSubmitted ? (
+                    <button
+                      onClick={handleSubmitQuizAnswer}
+                      disabled={selectedQuizOption === null}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Check className="h-4 w-4" /> Submit Answer
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleNextQuizQuestion}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>
+                        {currentQuizIdx < dailyCodingQuiz.questions.length - 1
+                          ? "Next Question"
+                          : "Complete Quiz & Save Score"}
+                      </span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* SUB-GAME 5: DAILY LEXICON WORDLE (SLIDE 4 DESIGNATED) */}
+            {/* ========================================================================= */}
+            {selectedGame === "daily_wordle" && (
+              <div className="space-y-6 max-w-lg mx-auto py-2">
+                {/* Category Hint Toggle */}
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setWordleHintRevealed(!wordleHintRevealed)}
+                    className="text-xs flex items-center gap-1.5 text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl transition cursor-pointer"
+                  >
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    <span>{wordleHintRevealed ? `Hint: ${dailyWordle.categoryHint}` : "Reveal Category Hint"}</span>
+                  </button>
+
+                  <span className="text-xs font-mono text-slate-400">
+                    Target: 5-Letter Career Term
+                  </span>
+                </div>
+
+                {/* 6x5 Wordle Guess Grid */}
+                <div className="flex flex-col items-center gap-2 select-none">
+                  {Array.from({ length: 6 }).map((_, rowIdx) => {
+                    const guess = wordleGuesses[rowIdx];
+                    const isCurrent = rowIdx === wordleGuesses.length && !wordleGameOver;
+                    const letters = isCurrent
+                      ? currentWordleInput.padEnd(5, " ").split("")
+                      : guess
+                      ? guess.split("")
+                      : [" ", " ", " ", " ", " "];
+
+                    return (
+                      <div key={rowIdx} className="flex gap-2">
+                        {letters.map((char, colIdx) => {
+                          const targetChar = dailyWordle.targetWord[colIdx];
+                          let cellStyle = "bg-slate-950 border-slate-800 text-white";
+
+                          if (guess) {
+                            if (char === targetChar) {
+                              cellStyle = "bg-emerald-600 border-emerald-500 text-white font-black shadow-md";
+                            } else if (dailyWordle.targetWord.includes(char)) {
+                              cellStyle = "bg-amber-600 border-amber-500 text-white font-black shadow-md";
+                            } else {
+                              cellStyle = "bg-slate-800 border-slate-700 text-slate-400";
+                            }
+                          } else if (isCurrent && char !== " ") {
+                            cellStyle = "bg-slate-900 border-indigo-500 text-white ring-2 ring-indigo-500/30 scale-105";
+                          }
+
+                          return (
+                            <div
+                              key={colIdx}
+                              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl border-2 flex items-center justify-center text-lg sm:text-xl font-bold font-mono uppercase transition-all duration-300 ${cellStyle}`}
+                            >
+                              {char !== " " ? char : ""}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Wordle Game Over / Win Banner */}
+                {wordleGameOver && (
+                  <div className={`p-4 rounded-2xl border text-center space-y-1 ${
+                    wordleWon
+                      ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-200"
+                      : "bg-slate-900 border-slate-800 text-slate-200"
+                  }`}>
+                    <h4 className="text-sm font-bold font-display">
+                      {wordleWon ? "🎉 Word Decoded Successfully!" : `Word was: ${dailyWordle.targetWord}`}
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
+                      {dailyWordle.definition}
+                    </p>
+                  </div>
+                )}
+
+                {/* On-Screen QWERTY Keyboard */}
+                <div className="space-y-1.5 select-none pt-2">
+                  {[
+                    ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+                    ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+                    ["ENTER", "Z", "X", "C", "V", "B", "N", "M", "BACKSPACE"],
+                  ].map((row, rIdx) => (
+                    <div key={rIdx} className="flex justify-center gap-1 sm:gap-1.5">
+                      {row.map((key) => {
+                        // Determine key color based on all previous guesses
+                        let keyBg = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700";
+                        if (key.length === 1) {
+                          let isGreen = false;
+                          let isAmber = false;
+                          let isGray = false;
+
+                          for (const g of wordleGuesses) {
+                            for (let i = 0; i < 5; i++) {
+                              if (g[i] === key) {
+                                if (dailyWordle.targetWord[i] === key) isGreen = true;
+                                else if (dailyWordle.targetWord.includes(key)) isAmber = true;
+                                else isGray = true;
+                              }
+                            }
+                          }
+
+                          if (isGreen) keyBg = "bg-emerald-600 text-white border-emerald-500";
+                          else if (isAmber) keyBg = "bg-amber-600 text-white border-amber-500";
+                          else if (isGray) keyBg = "bg-slate-900 text-slate-600 border-slate-850 opacity-60";
+                        }
+
+                        const isWide = key === "ENTER" || key === "BACKSPACE";
+
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => handleWordleKeyPress(key)}
+                            disabled={wordleGameOver}
+                            className={`h-11 sm:h-12 rounded-lg border font-mono font-bold transition active:scale-95 text-xs sm:text-sm flex items-center justify-center cursor-pointer ${keyBg} ${
+                              isWide ? "px-2.5 sm:px-4 text-[10px] sm:text-xs tracking-wider" : "w-8 sm:w-10"
+                            }`}
+                          >
+                            {key === "BACKSPACE" ? "DEL" : key}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
@@ -1107,7 +1486,7 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setLeaderboardTab("today")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   leaderboardTab === "today"
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
                     : "bg-slate-850 text-slate-300 hover:bg-slate-800"
@@ -1118,7 +1497,7 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
 
               <button
                 onClick={() => setLeaderboardTab("all-time")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   leaderboardTab === "all-time"
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
                     : "bg-slate-850 text-slate-300 hover:bg-slate-800"
@@ -1129,18 +1508,19 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
             </div>
 
             {/* Filter by Game Type */}
-            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 flex-wrap">
               <span className="text-[10px] font-mono text-slate-500 px-2 font-bold uppercase">Filter:</span>
               {[
                 { label: "All Games", val: "all" },
+                { label: "Coding Quiz", val: "coding_quiz" },
+                { label: "Daily Wordle", val: "daily_wordle" },
                 { label: "Sudoku", val: "sudoku" },
-                { label: "Word Matrix", val: "word_matrix" },
                 { label: "Math Crunch", val: "math_crunch" },
               ].map((f) => (
                 <button
                   key={f.val}
                   onClick={() => setLeaderboardFilter(f.val as any)}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
                     leaderboardFilter === f.val
                       ? "bg-slate-800 text-white shadow"
                       : "text-slate-400 hover:text-slate-200"

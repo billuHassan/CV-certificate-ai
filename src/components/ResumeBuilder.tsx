@@ -713,13 +713,10 @@ export default function ResumeBuilder({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
-      {/* Mockup Studio Window Chrome Bar (matching Slide 1 design) */}
+      {/* Top Studio Bar */}
       <div className="px-4 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-3 text-xs shrink-0 no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-mono text-[11px] text-slate-300 font-bold truncate">
             Rahmora Live Suite &bull; Executive ATS Resume Studio
           </span>
         </div>

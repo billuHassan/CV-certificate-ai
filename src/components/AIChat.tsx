@@ -348,27 +348,6 @@ ${(data.responsibilities || []).map((resp: string) => `- ${resp}`).join("\n")}
     <div className={`w-full max-w-6xl mx-auto flex flex-col h-[85vh] rounded-2xl border shadow-2xl overflow-hidden transition-all ${
       isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
     }`}>
-      {/* Mockup Studio Window Chrome Bar (matching Slideshow suite design) */}
-      <div className="px-4 py-2 bg-slate-950 border-b border-slate-800/80 flex items-center justify-between gap-3 text-xs shrink-0 no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
-            Rahmora Live Suite &bull; AI Multi-Modal Career Assistant
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse shrink-0" />
-            Gemini Vision Grounding
-          </span>
-          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
-            Multimodal OCR &bull; Live Search
-          </span>
-        </div>
-      </div>
 
       {/* Header bar */}
       <div className={`px-6 py-4 border-b flex flex-wrap items-center justify-between gap-4 ${

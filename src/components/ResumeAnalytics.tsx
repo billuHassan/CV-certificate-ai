@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import { ResumeData } from "../types";
 import { triggerRewarded } from "./AdSystem";
+import ArcGaugeChart from "./charts/ArcGaugeChart";
+import PolygonRadarChart from "./charts/PolygonRadarChart";
+import AtsBarMeter from "./charts/AtsBarMeter";
 
 interface ResumeAnalyticsProps {
   resume: ResumeData;
@@ -161,28 +164,6 @@ export default function ResumeAnalytics({
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 text-slate-100">
-      {/* Mockup Studio Window Chrome Bar (matching Slide 3 design) */}
-      <div className="px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-lg no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
-            Rahmora Live Suite &bull; AI Resume Coach &amp; 3D Analytics
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-pink-300 bg-pink-500/10 border border-pink-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse shrink-0" />
-            8-Metric Live Audit
-          </span>
-          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
-            Radar Skill Alignment &bull; Recruiter Pass Probability
-          </span>
-        </div>
-      </div>
-
       {/* 3D Dashboard Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div className="flex items-center gap-3">
@@ -226,67 +207,58 @@ export default function ResumeAnalytics({
         </button>
       </div>
 
-      {/* OVERALL 3D HERO HERO CARD */}
+      {/* OVERALL 3D HERO CARD: ARC GAUGE + POLYGON RADAR + RECRUITER VERDICT */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           
-          {/* Main 3D Meter Circle */}
-          <div className="flex flex-col items-center justify-center p-6 bg-slate-950/80 rounded-2xl border border-indigo-500/30 shadow-inner space-y-3">
-            <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest font-mono">
+          {/* Main 3D Arc Gauge Meter (4 cols) */}
+          <div className="lg:col-span-4 flex flex-col items-center justify-center p-5 bg-slate-950/80 rounded-2xl border border-indigo-500/30 shadow-inner">
+            <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest font-mono mb-1">
               Overall Employability
             </span>
-
-            <div className="relative w-40 h-40 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="70"
-                  stroke="currentColor"
-                  strokeWidth="12"
-                  className="text-slate-800"
-                  fill="transparent"
-                />
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="70"
-                  stroke="url(#employabilityGradient)"
-                  strokeWidth="12"
-                  strokeDasharray={440}
-                  strokeDashoffset={440 - (440 * analytics.overallEmployability) / 100}
-                  strokeLinecap="round"
-                  className="transition-all duration-1000 ease-out"
-                  fill="transparent"
-                />
-                <defs>
-                  <linearGradient id="employabilityGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#818cf8" />
-                    <stop offset="50%" stopColor="#c084fc" />
-                    <stop offset="100%" stopColor="#f472b6" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-4xl font-black font-display text-white tracking-tight">
-                  {analytics.overallEmployability}%
-                </span>
-                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
-                  Top 5% Talent
-                </span>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-slate-400 text-center max-w-xs">
-              Combines formatting, technical keywords, impact metrics & ATS parser benchmarks.
+            <ArcGaugeChart
+              score={analytics.overallEmployability}
+              title="Talent Employability"
+              subtitle="HIREABILITY INDEX"
+              size={230}
+            />
+            <p className="text-[11px] text-slate-400 text-center max-w-xs mt-2">
+              Composite score predicting interview callback probability across 1,000+ candidate baselines.
             </p>
           </div>
 
-          {/* Executive Verdict */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Polygon Radar Web Chart (8-Metric Polygon) (4 cols) */}
+          <div className="lg:col-span-4 flex flex-col items-center justify-center p-5 bg-slate-950/80 rounded-2xl border border-indigo-500/30 shadow-inner">
+            <div className="w-full flex items-center justify-between pb-2 border-b border-slate-850 mb-1">
+              <span className="text-xs font-bold text-pink-300 uppercase tracking-widest font-mono">
+                8-Metric Polygon Radar
+              </span>
+              <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                Live Alignment
+              </span>
+            </div>
+            <PolygonRadarChart
+              data={[
+                { axis: "ATS Score", value: analytics.atsScore, benchmark: 85 },
+                { axis: "Keywords", value: analytics.keywordScore, benchmark: 88 },
+                { axis: "Grammar", value: analytics.grammarScore, benchmark: 95 },
+                { axis: "Format", value: analytics.formattingScore, benchmark: 90 },
+                { axis: "Readability", value: analytics.readabilityScore, benchmark: 85 },
+                { axis: "Impact", value: analytics.impactScore, benchmark: 80 },
+                { axis: "Recruiter Ready", value: analytics.recruiterReadiness, benchmark: 88 },
+                { axis: "Employability", value: analytics.overallEmployability, benchmark: 85 },
+              ]}
+              size={250}
+              currentLabel="Active Resume"
+              benchmarkLabel="Tier-1 Pass"
+            />
+          </div>
+
+          {/* Executive Verdict & Badges (4 cols) */}
+          <div className="lg:col-span-4 space-y-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-amber-400" />
@@ -299,34 +271,48 @@ export default function ResumeAnalytics({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Spelling & Grammar</span>
-                  <span className="text-xs font-bold text-slate-200">{analytics.grammarScore}% Perfect</span>
+            <div className="grid grid-cols-1 gap-2.5 pt-1">
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-850 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs text-slate-300">Spelling &amp; Grammar</span>
                 </div>
+                <span className="text-xs font-mono font-bold text-emerald-400">{analytics.grammarScore}% Perfect</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
-                <Target className="w-5 h-5 text-indigo-400 shrink-0" />
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Recruiter Readiness</span>
-                  <span className="text-xs font-bold text-slate-200">{analytics.recruiterReadiness}% Ready</span>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-850 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs text-slate-300">Recruiter Readiness</span>
                 </div>
+                <span className="text-xs font-mono font-bold text-indigo-400">{analytics.recruiterReadiness}% Ready</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
-                <Zap className="w-5 h-5 text-purple-400 shrink-0" />
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Impact Score</span>
-                  <span className="text-xs font-bold text-slate-200">{analytics.impactScore}% High Impact</span>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-850 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-purple-400" />
+                  <span className="text-xs text-slate-300">Impact Score</span>
                 </div>
+                <span className="text-xs font-mono font-bold text-purple-400">{analytics.impactScore}% High Impact</span>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ⭐ THE ATS DESIGN IN BAR WAY ⭐ */}
+      <AtsBarMeter
+        overallScore={analytics.overallEmployability}
+        atsMatchRate={analytics.atsScore}
+        dimensions={[
+          { id: "ats", name: "ATS Parser Compatibility", score: analytics.atsScore, target: 85, description: "Passes Taleo, Workday, Greenhouse & Lever" },
+          { id: "kw", name: "Industry Keyword Match", score: analytics.keywordScore, target: 88, description: "Matches tech stacks & role competencies" },
+          { id: "grammar", name: "Spelling, Syntax & Grammar", score: analytics.grammarScore, target: 95, description: "Zero mechanical syntax errors" },
+          { id: "format", name: "Formatting & Typography Hierarchy", score: analytics.formattingScore, target: 90, description: "Margin alignment & section hierarchy" },
+          { id: "read", name: "6-Second Recruiter Readability", score: analytics.readabilityScore, target: 85, description: "Optimized for quick human skim scans" },
+          { id: "impact", name: "Action Verbs & Impact Metrics", score: analytics.impactScore, target: 80, description: "% / $ / # deliverables present in work history" },
+        ]}
+      />
 
       {/* THE 8 CORE 3D STATISTIC CARDS GRID */}
       <div className="space-y-4">

@@ -238,7 +238,7 @@ export interface DirectMessage {
   read: boolean;
 }
 
-export type GameType = "sudoku" | "word_matrix" | "math_crunch";
+export type GameType = "sudoku" | "word_matrix" | "math_crunch" | "coding_quiz" | "daily_wordle";
 
 export interface GameScore {
   id: string;
@@ -263,6 +263,8 @@ export interface UserGameProfile {
   bestSudokuTime?: number;
   bestWordTime?: number;
   bestMathTime?: number;
+  bestCodingTime?: number;
+  bestWordleTime?: number;
   updatedAt?: string;
 }
 

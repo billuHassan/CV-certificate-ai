@@ -152,13 +152,13 @@ function ServiceShowcaseSlideshow() {
 
       {/* Main Slide Card Frame */}
       <div className={`card-3d rounded-2xl overflow-hidden border ${activeSlide.borderGlow} bg-slate-950 shadow-2xl transition-all duration-300 relative group`}>
-        {/* Mockup Top Window Bar */}
-        <div className="px-4 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-            <span className="ml-2 font-mono text-[11px] text-slate-400 font-bold truncate">
+        {/* Slideshow Top Header Bar */}
+        <div className="px-4 py-2.5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 shrink-0">
+              <Sparkles className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-mono text-[11px] text-slate-300 font-bold truncate">
               Rahmora Live Suite &bull; {activeSlide.title}
             </span>
           </div>

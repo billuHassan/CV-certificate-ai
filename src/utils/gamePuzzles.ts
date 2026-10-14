@@ -300,3 +300,185 @@ export function generateDailyMathCrunch(dateStr: string): DailyMathCrunchPuzzle 
     problems,
   };
 }
+
+// ==========================================
+// 4. CODING QUIZ & TECHNICAL TRIVIA (SLIDE 4 SPEC)
+// ==========================================
+export interface CodingQuizQuestion {
+  id: string;
+  question: string;
+  codeSnippet?: string;
+  category: "Frontend" | "System Design" | "Algorithms" | "Cloud & DevOps" | "Executive Tech";
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  xpPoints: number;
+}
+
+export interface DailyCodingQuizPuzzle {
+  dayDate: string;
+  level: number;
+  questions: CodingQuizQuestion[];
+}
+
+const CODING_QUIZ_POOL: Omit<CodingQuizQuestion, "id">[] = [
+  {
+    category: "Frontend",
+    question: "In React 18/19, what is the primary benefit of automatic batching with createRoot?",
+    codeSnippet: `// Inside setTimeout:\nsetCount(c => c + 1);\nsetFlag(f => !f);\n// How many re-renders happen?`,
+    options: [
+      "Updates inside timeouts, promises & event handlers are batched into a single re-render",
+      "Components never re-render unless explicitly triggered by useSyncExternalStore",
+      "Batching only applies to synchronous React event handlers",
+      "State mutations become completely synchronous and bypass the virtual DOM"
+    ],
+    correctIndex: 0,
+    explanation: "React 18 automatic batching groups multiple state updates (even inside promises, timeouts, and native event handlers) into a single re-render for superior rendering performance.",
+    xpPoints: 100,
+  },
+  {
+    category: "System Design",
+    question: "When designing high-throughput distributed caching, what algorithm best balances cache servers when adding or removing nodes?",
+    options: [
+      "Consistent Hashing with virtual v-nodes",
+      "Modulo-N simple hashing (hash(key) % N)",
+      "Round-Robin deterministic dispatch",
+      "Two-Phase Commit distributed consensus"
+    ],
+    correctIndex: 0,
+    explanation: "Consistent Hashing with virtual nodes ensures that when nodes scale up or down, only k/N keys need remapping rather than the entire cluster, avoiding cache thundering herds.",
+    xpPoints: 125,
+  },
+  {
+    category: "Algorithms",
+    question: "What is the average and worst-case time complexity of quickselect for finding the k-th smallest element?",
+    options: [
+      "Average O(N), Worst-case O(N²)",
+      "Average O(N log N), Worst-case O(N log N)",
+      "Average O(log N), Worst-case O(N)",
+      "Average O(1), Worst-case O(N)"
+    ],
+    correctIndex: 0,
+    explanation: "Quickselect halves the problem size on each partition on average: N + N/2 + N/4 + ... = O(2N) = O(N). If pivot selection is consistently adversarial, it degrades to O(N²).",
+    xpPoints: 150,
+  },
+  {
+    category: "Cloud & DevOps",
+    question: "In Kubernetes container lifecycle, which probe determines if traffic should be routed to a pod without restarting it?",
+    options: [
+      "Readiness Probe",
+      "Liveness Probe",
+      "Startup Probe",
+      "Eviction Probe"
+    ],
+    correctIndex: 0,
+    explanation: "Readiness probes detect when a pod is temporarily unable to serve traffic. If it fails, Kubernetes removes the pod's IP from Service endpoints without killing the container.",
+    xpPoints: 100,
+  },
+  {
+    category: "Executive Tech",
+    question: "What metric in the DORA DevOps framework measures the elapsed time from code committed to code successfully running in production?",
+    options: [
+      "Lead Time for Changes",
+      "Deployment Frequency",
+      "Mean Time to Recovery (MTTR)",
+      "Change Failure Rate"
+    ],
+    correctIndex: 0,
+    explanation: "Lead Time for Changes is the canonical DORA metric quantifying engineering velocity from git commit to verified live production release.",
+    xpPoints: 125,
+  },
+  {
+    category: "Frontend",
+    question: "What does the CSS property 'content-visibility: auto' achieve for long web pages?",
+    options: [
+      "Skips rendering & layout work for off-screen DOM nodes until they approach the viewport",
+      "Hides all images when the user switches browser tabs",
+      "Forces hardware acceleration via GPU rasterization on all text elements",
+      "Automatically applies dark mode contrast filters to overflowing containers"
+    ],
+    correctIndex: 0,
+    explanation: "content-visibility: auto tells the browser rendering engine to skip layout and painting for elements that are offscreen, drastically accelerating initial page load and TBT.",
+    xpPoints: 100,
+  },
+  {
+    category: "System Design",
+    question: "In event-driven architectures, what pattern prevents dual-write anomalies between database updates and message broker publishes?",
+    options: [
+      "Transactional Outbox Pattern",
+      "Write-Through Cache Pattern",
+      "Compensating Transaction Saga",
+      "Optimistic Locking with eTag"
+    ],
+    correctIndex: 0,
+    explanation: "The Transactional Outbox pattern writes domain entities and outgoing event records into the same ACID database transaction, ensuring guaranteed publish semantics via CDC or polling.",
+    xpPoints: 150,
+  },
+];
+
+export function generateDailyCodingQuiz(dateStr: string): DailyCodingQuizPuzzle {
+  const seed = getSeedFromDate(dateStr, "quiz");
+  const rand = seededRandom(seed);
+  const dayOfWeek = new Date(dateStr).getDay();
+  const level = ((dayOfWeek + 6) % 7) + 1;
+
+  const shuffled = [...CODING_QUIZ_POOL];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const selected = shuffled.slice(0, 4);
+  const questions: CodingQuizQuestion[] = selected.map((q, idx) => ({
+    ...q,
+    id: `quiz_${dateStr}_${idx}`,
+  }));
+
+  return {
+    dayDate: dateStr,
+    level,
+    questions,
+  };
+}
+
+// ==========================================
+// 5. DAILY LEXICON WORDLE (SLIDE 4 SPEC)
+// ==========================================
+export interface DailyWordlePuzzle {
+  dayDate: string;
+  level: number;
+  targetWord: string; // 5-letter word
+  categoryHint: string;
+  definition: string;
+}
+
+const WORDLE_CAREER_LEXICON: { word: string; category: string; definition: string }[] = [
+  { word: "REACT", category: "Frontend Framework", definition: "Declarative component-driven UI library created by Meta." },
+  { word: "CLOUD", category: "Infrastructure", definition: "Elastic on-demand computing resources, storage, and serverless runtimes." },
+  { word: "AGILE", category: "Project Methodology", definition: "Iterative sprint delivery emphasizing rapid feedback and continuous integration." },
+  { word: "STACK", category: "Computer Science", definition: "LIFO data structure fundamental to call stacks, memory, and DFS algorithms." },
+  { word: "BUILD", category: "CI/CD & DevOps", definition: "Compiling, bundling, and validating source code into production deployables." },
+  { word: "LOGIC", category: "Cognitive Aptitude", definition: "Systematic principles of valid reasoning, Boolean algebra, and algorithms." },
+  { word: "CACHE", category: "Performance Engineering", definition: "High-speed data storage layer storing copies of transient computational results." },
+  { word: "SCALE", category: "System Architecture", definition: "The ability of a distributed system to handle exponential user workload growth." },
+  { word: "QUERY", category: "Database Engineering", definition: "Formal question or extraction request sent to a SQL or NoSQL database." },
+  { word: "MERGE", category: "Version Control", definition: "Integrating branch commit histories together in Git without merge conflict." },
+  { word: "ASYNC", category: "Concurrent Computing", definition: "Non-blocking execution pattern permitting concurrent I/O operations." },
+  { word: "TOKEN", category: "Security & AI", definition: "Atomic unit of authentication (JWT) or sub-word unit processed by LLMs." },
+];
+
+export function generateDailyWordle(dateStr: string): DailyWordlePuzzle {
+  const seed = getSeedFromDate(dateStr, "wordle");
+  const rand = seededRandom(seed);
+  const index = Math.floor(rand() * WORDLE_CAREER_LEXICON.length);
+  const item = WORDLE_CAREER_LEXICON[index];
+
+  return {
+    dayDate: dateStr,
+    level: 1,
+    targetWord: item.word,
+    categoryHint: item.category,
+    definition: item.definition,
+  };
+}
+

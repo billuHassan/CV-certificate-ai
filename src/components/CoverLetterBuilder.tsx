@@ -300,27 +300,6 @@ export default function CoverLetterBuilder({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col no-print">
-      {/* Mockup Studio Window Chrome Bar (matching Slide 2 design) */}
-      <div className="px-4 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-3 text-xs shrink-0 no-print">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-          <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
-            Rahmora Live Suite &bull; AI Grounded Cover Letter Generator
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-teal-300 bg-teal-500/10 border border-teal-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse shrink-0" />
-            Target Role Matched
-          </span>
-          <span className="hidden sm:inline-block text-[10px] font-mono text-slate-400 border border-slate-800 px-2 py-0.5 rounded-md bg-slate-950">
-            Company-Grounded AI &bull; Instant Export
-          </span>
-        </div>
-      </div>
 
       {/* Top action header */}
       <div className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 no-print">

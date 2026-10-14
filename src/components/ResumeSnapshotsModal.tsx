@@ -140,13 +140,10 @@ export default function ResumeSnapshotsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-fade-in no-print">
       <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Studio Window Chrome Bar (Matching Slide 1 design language) */}
+        {/* Studio Window Bar */}
         <div className="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between gap-3 text-xs shrink-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600/50 shrink-0" />
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600/50 shrink-0" />
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600/50 shrink-0" />
-            <span className="ml-2 font-mono text-[11px] text-slate-300 font-bold truncate">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-mono text-[11px] text-slate-300 font-bold truncate">
               Rahmora Live Suite &bull; Resume Snapshots &amp; Version History
             </span>
           </div>
