@@ -154,7 +154,7 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "gameType": { "type": "string", "enum": ["sudoku", "word_matrix", "math_crunch"] },
+        "gameType": { "type": "string", "enum": ["sudoku", "word_matrix", "math_crunch", "coding_quiz", "daily_wordle"] },
         "userId": { "type": "string" },
         "userName": { "type": "string" },
         "userEmail": { "type": "string" },

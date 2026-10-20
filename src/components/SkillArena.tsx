@@ -186,23 +186,32 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
     if (!user) return;
     setIsLoadingScores(true);
 
-    // 1. Fetch user game profile & streaks
-    const profileRef = doc(db, "users", user.uid || "anon", "game_profile", "default");
-    getDoc(profileRef).then((snap) => {
-      if (snap.exists()) {
-        setUserProfile(snap.data() as UserGameProfile);
-      } else {
-        // Load fallback from localStorage
-        const local = localStorage.getItem(`cvcraft_game_profile_${user.uid}`);
-        if (local) {
-          try {
-            setUserProfile(JSON.parse(local));
-          } catch {}
+    // 1. Fetch user game profile & streaks if authenticated in Firebase
+    if (user.uid && auth.currentUser) {
+      const profileRef = doc(db, "users", user.uid, "game_profile", "default");
+      getDoc(profileRef).then((snap) => {
+        if (snap.exists()) {
+          setUserProfile(snap.data() as UserGameProfile);
+        } else {
+          // Load fallback from localStorage
+          const local = localStorage.getItem(`cvcraft_game_profile_${user.uid}`);
+          if (local) {
+            try {
+              setUserProfile(JSON.parse(local));
+            } catch {}
+          }
         }
+      }).catch((err) => {
+        console.warn("Could not fetch game profile:", err);
+      });
+    } else {
+      const local = localStorage.getItem(`cvcraft_game_profile_${user?.uid || "anon"}`);
+      if (local) {
+        try {
+          setUserProfile(JSON.parse(local));
+        } catch {}
       }
-    }).catch((err) => {
-      console.warn("Could not fetch game profile:", err);
-    });
+    }
 
     // 2. Real-time Leaderboard query
     const scoresCol = collection(db, "game_scores");
@@ -219,8 +228,7 @@ export default function SkillArena({ user, theme, onBackToDashboard }: SkillAren
         setIsLoadingScores(false);
       },
       (error) => {
-        console.warn("Real-time leaderboard listener:", error);
-        // Fallback local simulated high scores
+        // Fallback local simulated high scores on connection/permission variance
         setLeaderboardScores(getLocalSimulatedLeaderboard());
         setIsLoadingScores(false);
       }

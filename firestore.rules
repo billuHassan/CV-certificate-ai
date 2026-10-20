@@ -78,7 +78,7 @@ service cloud.firestore {
 
     // Global Game Scores & Leaderboard Collection Rules
     match /game_scores/{scoreId} {
-      allow read, list: if isSignedIn();
+      allow read, list: if true;
       allow create: if isSignedIn() && isValidId(scoreId) && incoming().userId == request.auth.uid && isValidGameScore(incoming());
       allow update: if isAdmin();
       allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
@@ -180,7 +180,7 @@ service cloud.firestore {
 
     function isValidGameScore(data) {
       return data.id is string && data.id.size() <= 128 &&
-             data.gameType is string && (data.gameType == "sudoku" || data.gameType == "word_matrix" || data.gameType == "math_crunch") &&
+             data.gameType is string && (data.gameType == "sudoku" || data.gameType == "word_matrix" || data.gameType == "math_crunch" || data.gameType == "coding_quiz" || data.gameType == "daily_wordle") &&
              data.userId is string && data.userId.size() <= 128 &&
              data.userName is string && data.userName.size() <= 150 &&
              (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() <= 150)) &&
