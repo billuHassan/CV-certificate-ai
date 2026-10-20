@@ -29,6 +29,9 @@ import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut, getRedirectResult } from "firebase/auth";
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, query, where } from "firebase/firestore";
 import { motion, AnimatePresence } from "motion/react";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import OfflineIndicator from "./components/OfflineIndicator";
+import PWAInstallButton from "./components/PWAInstallButton";
 
 // Mock Sample Resume Data for Seeding
 const SAMPLE_RESUME: ResumeData = {
@@ -140,9 +143,11 @@ export default function App() {
   const [adminUnreadCount, setAdminUnreadCount] = useState<number>(0);
   const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string; view: "support" | "admin" | "direct-messages" } | null>(null);
 
+  const isOnline = useOnlineStatus();
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
     return localStorage.getItem("cvcraft_offline_mode") === "true";
   });
+  const effectiveOffline = isOfflineMode || !isOnline;
 
   const seenMessagesRef = useRef<Set<string>>(new Set());
   const isUserChatsFirstLoad = useRef(true);
@@ -465,10 +470,12 @@ export default function App() {
         if (unsubResumes) { unsubResumes(); unsubResumes = null; }
         if (unsubLetters) { unsubLetters(); unsubLetters = null; }
         
-        // If guest mode was explicitly enabled
+        // If guest mode was explicitly enabled OR device is offline with cached user
+        const isDeviceOffline = typeof navigator !== "undefined" && !navigator.onLine;
         const savedOffline = localStorage.getItem("cvcraft_offline_mode");
-        if (savedOffline === "true") {
-          const savedUser = localStorage.getItem("cvcraft_local_user");
+        const savedUser = localStorage.getItem("cvcraft_local_user");
+
+        if (savedOffline === "true" || (isDeviceOffline && savedUser)) {
           let localUser: UserSession | null = null;
           if (savedUser) {
             try {
@@ -477,9 +484,9 @@ export default function App() {
           }
           if (!localUser) {
             localUser = {
-              uid: "guest-explorer-session",
-              email: "guest@cvcraft.ai",
-              displayName: "Guest Explorer",
+              uid: "offline-editor-session",
+              email: "offline@cvcraft.ai",
+              displayName: "Offline Editor",
               isPremium: true,
               isGuest: true,
               creationsCount: 0,
@@ -489,6 +496,26 @@ export default function App() {
           }
           setUser(localUser);
           setIsOfflineMode(true);
+
+          // Restore local cached resumes for seamless offline editing
+          const localResumesStr = localStorage.getItem(`cvcraft_local_resumes_${localUser.email}`);
+          if (localResumesStr) {
+            try {
+              const loadedResumes = JSON.parse(localResumesStr);
+              if (Array.isArray(loadedResumes) && loadedResumes.length > 0) {
+                setResumes(loadedResumes);
+              }
+            } catch {}
+          }
+          const localLettersStr = localStorage.getItem(`cvcraft_local_letters_${localUser.email}`);
+          if (localLettersStr) {
+            try {
+              const loadedLetters = JSON.parse(localLettersStr);
+              if (Array.isArray(loadedLetters) && loadedLetters.length > 0) {
+                setLetters(loadedLetters);
+              }
+            } catch {}
+          }
         } else {
           setUser(null);
           setResumes([]);
@@ -1014,10 +1041,12 @@ export default function App() {
     if (!user) return;
     const updatedWithTime = { ...updated, updatedAt: new Date().toISOString() };
 
-    if (isOfflineMode) {
-      const updatedResumes = resumes.map(r => r.id === updated.id ? updatedWithTime : r);
-      setResumes(updatedResumes);
-      localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
+    // Always update local state & localStorage backup immediately so offline changes are never lost
+    const updatedResumes = resumes.map(r => r.id === updated.id ? updatedWithTime : r);
+    setResumes(updatedResumes);
+    localStorage.setItem(`cvcraft_local_resumes_${user.email}`, JSON.stringify(updatedResumes));
+
+    if (effectiveOffline) {
       return;
     }
 
@@ -1025,7 +1054,7 @@ export default function App() {
     try {
       await setDoc(doc(db, "users", auth.currentUser.uid, "resumes", updated.id), updatedWithTime);
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/resumes/${updated.id}`);
+      console.warn("Cloud save pending (saved locally):", err);
     }
   };
 
@@ -1033,10 +1062,12 @@ export default function App() {
     if (!user) return;
     const updatedWithTime = { ...updated, updatedAt: new Date().toISOString() };
 
-    if (isOfflineMode) {
-      const updatedLetters = letters.map(l => l.id === updated.id ? updatedWithTime : l);
-      setLetters(updatedLetters);
-      localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updatedLetters));
+    // Always update local state & localStorage backup immediately
+    const updatedLetters = letters.map(l => l.id === updated.id ? updatedWithTime : l);
+    setLetters(updatedLetters);
+    localStorage.setItem(`cvcraft_local_letters_${user.email}`, JSON.stringify(updatedLetters));
+
+    if (effectiveOffline) {
       return;
     }
 
@@ -1044,9 +1075,26 @@ export default function App() {
     try {
       await setDoc(doc(db, "users", auth.currentUser.uid, "letters", updated.id), updatedWithTime);
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/letters/${updated.id}`);
+      console.warn("Cloud save pending (saved locally):", err);
     }
   };
+
+  // Background cloud sync when reconnecting to online network
+  useEffect(() => {
+    if (isOnline && !isOfflineMode && auth.currentUser && user) {
+      const localResumesStr = localStorage.getItem(`cvcraft_local_resumes_${user.email}`);
+      if (localResumesStr) {
+        try {
+          const localList: ResumeData[] = JSON.parse(localResumesStr);
+          if (Array.isArray(localList)) {
+            for (const res of localList) {
+              setDoc(doc(db, "users", auth.currentUser.uid, "resumes", res.id), res, { merge: true }).catch(() => {});
+            }
+          }
+        } catch {}
+      }
+    }
+  }, [isOnline, isOfflineMode, user]);
 
   const handleRunATSAnalysis = async () => {
     const activeResume = resumes.find((r) => r.id === selectedResumeId) || resumes[0];
@@ -1152,6 +1200,9 @@ export default function App() {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* PWA Mobile Header Install Button */}
+          <PWAInstallButton variant="compact" />
+
           {/* Quick theme cycle */}
           <button
             type="button"
@@ -1198,7 +1249,7 @@ export default function App() {
           <aside
             className={`relative z-50 w-4/5 max-w-xs h-full ${activeThemeObj.sidebarClass} border-r ${activeThemeObj.borderClass} p-5 flex flex-col justify-between overflow-y-auto ${activeThemeObj.textClass} shadow-2xl animate-in slide-in-from-left duration-200`}
           >
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-750">
                 <RahmoraLogo size="sm" lightTheme={!activeThemeObj.isDark} />
                 <button
@@ -1208,6 +1259,9 @@ export default function App() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
+
+              {/* In-App PWA Install Card for Mobile */}
+              <PWAInstallButton className="w-full justify-center" />
 
               {/* Theme Mode & Font Mode Quick Switcher Widget */}
               <div className={`p-3 rounded-2xl ${activeThemeObj.cardClass} border ${activeThemeObj.borderClass} space-y-2.5 shadow-lg`}>
@@ -2185,15 +2239,24 @@ export default function App() {
           )}
 
           {/* AI Systems & Cloud Sync Live Status */}
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/70 text-[10px] text-slate-300">
+          <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[10px] ${
+            isOnline && !isOfflineMode
+              ? "bg-slate-900/60 border border-slate-800/70 text-slate-300"
+              : "bg-amber-500/10 border border-amber-500/30 text-amber-300"
+          }`}>
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <span>AI Cloud Synced</span>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline && !isOfflineMode ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+              <span>{isOnline && !isOfflineMode ? "AI Cloud Synced" : "Offline Mode Active"}</span>
             </span>
-            <span className="font-mono text-emerald-400 font-bold uppercase text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20">
-              Active
+            <span className={`font-mono font-bold uppercase text-[9px] px-1.5 py-0.2 rounded border ${
+              isOnline && !isOfflineMode ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-amber-400 bg-amber-500/20 border-amber-500/40"
+            }`}>
+              {isOnline && !isOfflineMode ? "Active" : "Local Save"}
             </span>
           </div>
+
+          {/* In-App PWA Install Button for Desktop */}
+          <PWAInstallButton variant="compact" className="w-full justify-center" />
 
           {/* Bottom User status details */}
           <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between gap-2 shrink-0">
@@ -2459,6 +2522,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Global Offline Connectivity Indicator & Cache Notification */}
+      <OfflineIndicator />
     </div>
   );
 }

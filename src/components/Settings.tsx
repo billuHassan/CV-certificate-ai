@@ -6,6 +6,7 @@ import {
 import { UserSession, ResumeData, CoverLetterData } from "../types";
 import { compressImage } from "../lib/imageUtils";
 import { setLanguageCookie } from "../lib/languageUtils";
+import PWAInstallButton from "./PWAInstallButton";
 
 export interface ThemeDefinition {
   id: string;
@@ -1186,6 +1187,25 @@ export default function Settings({
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* PWA & Offline Support Card */}
+              <div className="pt-5 border-t border-slate-850 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-950/60 border border-indigo-500/30 rounded-2xl p-5 shadow-lg">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Download className="w-4 h-4 text-indigo-400" />
+                      <h4 className="text-xs font-bold text-white font-display">Installable Progressive Web App (PWA)</h4>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
+                        Offline Ready
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 max-w-lg leading-relaxed">
+                      Install CVCraft AI as a native desktop or mobile application. The service worker precaches UI assets, font bundles, and templates so you can continue editing resumes seamlessly even without internet access.
+                    </p>
+                  </div>
+                  <PWAInstallButton className="shrink-0" />
                 </div>
               </div>
             </div>

@@ -2,6 +2,10 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { initPWA } from './pwaRegister.ts';
+
+// Initialize PWA service worker for offline UI asset caching & installation
+initPWA();
 
 // Gracefully intercept and silently handle benign Vite HMR WebSocket connection closed events
 if (typeof window !== "undefined") {
