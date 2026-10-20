@@ -598,6 +598,92 @@ Return JSON:
   }
 
   /**
+   * 4b. Suggest High-Impact ATS Keywords with parser categories, scores, and rationale
+   */
+  public async suggestAtsKeywords(payload: { jobTitle: string; existingSkills?: string[]; targetIndustry?: string }) {
+    const jobTitle = (payload.jobTitle || "Professional").trim();
+    const roleInfo = getRoleDomainInfo(jobTitle);
+
+    return this.executeWithFallback(
+      "suggest_ats_keywords",
+      { jobTitle },
+      async (client, model) => {
+        const prompt = `You are an elite Applicant Tracking System (ATS) algorithm analyst specializing in Workday, Taleo, Greenhouse, and Lever screener logic.
+Target Job Title: "${jobTitle}"
+Industry Domain: ${roleInfo.domainName}
+
+Analyze the keyword density and screener filters for this title. Generate 16 high-impact ATS keywords and exact search strings prioritized by recruiter search queries.
+
+Return JSON with:
+- targetJobTitle: string
+- screeningTier: string ("Tier-1 Guaranteed Pass" or "Tier-2 Competitive Margin")
+- atsParserInsights: string (concise 1-2 sentence breakdown of how screening algorithms parse this role)
+- keywords: array of 16 keyword objects, each containing:
+  - keyword: string (exact technical, methodological, or leadership keyword)
+  - category: string (one of "Hard Skill", "Framework & Tool", "Methodology", "Leadership & Impact", or "Industry Standard")
+  - importance: string ("Critical", "High", or "Recommended")
+  - relevanceScore: number (integer 82 to 99)
+  - rationale: string (concise explanation of why ATS screeners scan for this exact keyword)
+  - exampleUsage: string (action-oriented resume bullet snippet demonstrating this keyword in context)`;
+
+        const res = await client.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                targetJobTitle: { type: Type.STRING },
+                screeningTier: { type: Type.STRING },
+                atsParserInsights: { type: Type.STRING },
+                keywords: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      keyword: { type: Type.STRING },
+                      category: { type: Type.STRING },
+                      importance: { type: Type.STRING },
+                      relevanceScore: { type: Type.NUMBER },
+                      rationale: { type: Type.STRING },
+                      exampleUsage: { type: Type.STRING },
+                    },
+                    required: ["keyword", "category", "importance", "relevanceScore", "rationale", "exampleUsage"],
+                  },
+                },
+              },
+              required: ["targetJobTitle", "keywords", "atsParserInsights"],
+            },
+          },
+        });
+        return this.safeParseJson(res.text, {});
+      },
+      () => {
+        const skillsList = roleInfo.coreSkills.length >= 8 ? roleInfo.coreSkills : [
+          "Strategic Planning", "Cross-Functional Collaboration", "Process Optimization",
+          "Project Lifecycle Management", "Performance Metrics", "Risk Mitigation",
+          "Data-Driven Decision Making", "Stakeholder Communication", "Resource Allocation"
+        ];
+        return {
+          targetJobTitle: jobTitle,
+          screeningTier: "Tier-1 Guaranteed Pass",
+          atsParserInsights: `Workday and Taleo screening algorithms heavily weight verified technical competencies, framework familiarity, and quantified impact phrases for ${jobTitle} applicants.`,
+          keywords: skillsList.slice(0, 14).map((skill, index) => ({
+            keyword: skill,
+            category: index < 5 ? "Hard Skill" : index < 9 ? "Framework & Tool" : index < 12 ? "Methodology" : "Leadership & Impact",
+            importance: index < 4 ? "Critical" : index < 8 ? "High" : "Recommended",
+            relevanceScore: 98 - index * 2,
+            rationale: `Core ATS qualification filter frequently checked in initial recruiter scans for ${jobTitle} candidates.`,
+            exampleUsage: `Championed ${skill} to streamline operational execution and accelerate deliverables by 24%.`,
+          })),
+        };
+      },
+      { rawPrompt: `Generate 16 high-impact ATS keywords for "${jobTitle}" in JSON {targetJobTitle, screeningTier, atsParserInsights, keywords}` }
+    );
+  }
+
+  /**
    * 5. Generate Tailored Cover Letter
    */
   public async generateCoverLetter(payload: {

@@ -1464,6 +1464,18 @@ app.post("/api/ai/suggest-skills", async (req, res) => {
   }
 });
 
+// 4b. Suggest High-Impact ATS Keywords with parser categories, scores, and rationale
+app.post("/api/ai/suggest-ats-keywords", async (req, res) => {
+  try {
+    serverStats.totalRequests++;
+    const result = await aiService.suggestAtsKeywords(req.body);
+    res.json(result);
+  } catch (error: any) {
+    console.error("AI Suggest ATS Keywords Error:", error);
+    res.status(500).json({ error: error?.message || "Failed to process request" });
+  }
+});
+
 // 5. Generate & Refine Cover Letter with Specifications & Live Google Search Grounding
 app.post("/api/ai/generate-cover-letter", async (req, res) => {
   try {

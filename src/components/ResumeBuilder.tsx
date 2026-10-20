@@ -3,7 +3,7 @@ import {
   User, Briefcase, GraduationCap, Code, FolderGit, Languages, Award, Users, AlignLeft,
   Plus, Trash2, ArrowUp, ArrowDown, Settings, Sliders, Palette, Type as FontIcon, Sparkles,
   Download, Printer, ChevronDown, ChevronUp, Image, AlertCircle, Sparkle, Copy, RefreshCw, Layout, Eye,
-  Linkedin, CheckCircle2, ShieldCheck, ArrowLeft, History, Bookmark, GitBranch, Split
+  Linkedin, CheckCircle2, ShieldCheck, ArrowLeft, History, Bookmark, GitBranch, Split, Target
 } from "lucide-react";
 import { ResumeData, WorkExperience, Education, Project, Language, Certification, Reference, UserSession } from "../types";
 import { compressImage } from "../lib/imageUtils";
@@ -11,6 +11,7 @@ import ResumeTemplates from "./ResumeTemplates";
 import PDFPreviewModal from "./PDFPreviewModal";
 import TemplateSelector from "./TemplateSelector";
 import ResumeSnapshotsModal from "./ResumeSnapshotsModal";
+import AtsKeywordSuggester from "./AtsKeywordSuggester";
 import { getResumeSnapshots, createResumeSnapshot, attachSnapshotToResume } from "../utils/snapshotManager";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 import { getRoleDomainInfo } from "../utils/roleAnalyzer";
@@ -35,7 +36,7 @@ export default function ResumeBuilder({
   onBranchResume,
 }: ResumeBuilderProps) {
   const [resume, setResume] = useState<ResumeData>(initialResume);
-  const [activeTab, setActiveTab] = useState<"edit" | "design" | "ai">("edit");
+  const [activeTab, setActiveTab] = useState<"edit" | "design" | "ai" | "keywords">("edit");
   const [mobileMode, setMobileMode] = useState<"edit" | "preview">("edit");
   const [previewZoom, setPreviewZoom] = useState<number>(100);
   const [openSection, setOpenSection] = useState<string>("personal");
@@ -45,9 +46,23 @@ export default function ResumeBuilder({
   const [templateSearch, setTemplateSearch] = useState("");
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [showSnapshotsModal, setShowSnapshotsModal] = useState(false);
+  const [showAtsKeywordsModal, setShowAtsKeywordsModal] = useState(false);
   const [snapshotPdfTarget, setSnapshotPdfTarget] = useState<ResumeData | null>(null);
   const [showSnapshotPdf, setShowSnapshotPdf] = useState(false);
   const [quickSnapshotSuccess, setQuickSnapshotSuccess] = useState<string | null>(null);
+
+  const handleAddKeywordSkill = (skill: string) => {
+    const trimmed = skill.trim();
+    if (trimmed && !resume.skills.includes(trimmed)) {
+      setResume((prev) => ({ ...prev, skills: [...prev.skills, trimmed] }));
+    }
+  };
+
+  const handleAddMultipleKeywordSkills = (skillsToAdd: string[]) => {
+    const valid = skillsToAdd.map(s => s.trim()).filter(Boolean);
+    const unique = Array.from(new Set([...resume.skills, ...valid]));
+    setResume((prev) => ({ ...prev, skills: unique }));
+  };
 
   const snapshotsCount = getResumeSnapshots(resume).length;
 
@@ -819,6 +834,19 @@ export default function ResumeBuilder({
             <span>+ Snapshot</span>
           </button>
 
+          {/* ATS Keywords Quick Launcher */}
+          <button
+            onClick={() => {
+              setActiveTab("keywords");
+              setMobileMode("edit");
+            }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-teal-900/60 to-indigo-900/60 hover:from-teal-800/80 hover:to-indigo-800/80 text-teal-300 hover:text-white text-xs font-bold rounded-lg transition border border-teal-500/40 hover:border-teal-400 cursor-pointer shadow-sm"
+            title="Suggest high-impact ATS keywords based on your job title"
+          >
+            <Target className="h-3.5 w-3.5 text-teal-400" />
+            <span>ATS Keywords</span>
+          </button>
+
           <button
             onClick={() => setShowPdfPreview(true)}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
@@ -861,15 +889,25 @@ export default function ResumeBuilder({
             <button
               onClick={() => setActiveTab("edit")}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                activeTab === "edit" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                activeTab === "edit" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-slate-200"
               }`}
             >
               Content
             </button>
             <button
+              onClick={() => setActiveTab("keywords")}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1 ${
+                activeTab === "keywords" ? "bg-teal-600 text-white font-bold" : "text-slate-400 hover:text-teal-300"
+              }`}
+              title="ATS High-Impact Keywords based on job title"
+            >
+              <Target className="w-3.5 h-3.5 text-teal-400" />
+              <span>Keywords</span>
+            </button>
+            <button
               onClick={() => setActiveTab("design")}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                activeTab === "design" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                activeTab === "design" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-slate-200"
               }`}
             >
               Templates
@@ -877,7 +915,7 @@ export default function ResumeBuilder({
             <button
               onClick={() => setActiveTab("ai")}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                activeTab === "ai" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                activeTab === "ai" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-slate-200"
               }`}
             >
               Reorder
@@ -997,6 +1035,19 @@ export default function ResumeBuilder({
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
                             placeholder="Software Engineer"
                           />
+                          {resume.personalInfo.jobTitle && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab("keywords");
+                                setMobileMode("edit");
+                              }}
+                              className="text-[10px] text-teal-400 hover:text-teal-300 font-bold flex items-center gap-1 transition mt-1 cursor-pointer"
+                            >
+                              <Target className="w-3 h-3 text-teal-400" />
+                              <span>Suggest ATS Keywords for "{resume.personalInfo.jobTitle}" →</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1464,6 +1515,17 @@ export default function ResumeBuilder({
                           </span>
                         ))}
                       </div>
+
+                      {/* Embedded High-Impact ATS Keywords Suggester */}
+                      <div className="pt-3 border-t border-slate-800/80">
+                        <AtsKeywordSuggester
+                          jobTitle={resume.personalInfo.jobTitle}
+                          resume={resume}
+                          onAddSkill={handleAddKeywordSkill}
+                          onAddMultipleSkills={handleAddMultipleKeywordSkills}
+                          onUpdateJobTitle={(title) => updatePersonalInfo("jobTitle", title)}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1928,6 +1990,18 @@ export default function ResumeBuilder({
               </div>
             )}
 
+            {activeTab === "keywords" && (
+              <div className="space-y-4">
+                <AtsKeywordSuggester
+                  jobTitle={resume.personalInfo.jobTitle}
+                  resume={resume}
+                  onAddSkill={handleAddKeywordSkill}
+                  onAddMultipleSkills={handleAddMultipleKeywordSkills}
+                  onUpdateJobTitle={(title) => updatePersonalInfo("jobTitle", title)}
+                />
+              </div>
+            )}
+
             {activeTab === "design" && (
               <div className="space-y-6 p-1">
                 {/* 1. Template Selector Component */}
@@ -2227,6 +2301,38 @@ export default function ResumeBuilder({
           resume={snapshotPdfTarget}
           isPremium={isPremium}
         />
+      )}
+
+      {/* ATS Keywords Recommender Overlay Modal */}
+      {showAtsKeywordsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col text-slate-100">
+            <div className="flex items-center justify-between p-4 bg-slate-950 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-teal-400" />
+                <h3 className="text-sm font-bold text-white font-display">
+                  ATS High-Impact Keywords Recommender
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAtsKeywordsModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              <AtsKeywordSuggester
+                jobTitle={resume.personalInfo.jobTitle}
+                resume={resume}
+                onAddSkill={handleAddKeywordSkill}
+                onAddMultipleSkills={handleAddMultipleKeywordSkills}
+                onUpdateJobTitle={(title) => updatePersonalInfo("jobTitle", title)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
