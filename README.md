@@ -1,6 +1,6 @@
 # RahmoraAI — Intelligent Career, Resume & Cover Letter Platform
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Available%20Online-00C7B7?style=for-the-badge&logo=vercel&logoColor=white)](https://cv-certificate-ai.vercel.app)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FbilluHassan%2FCV-certificate-ai&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20Key%20for%20AI%20features&envLink=https%3A%2F%2Faistudio.google.com%2Fapp%2Fapikey)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![React](https://img.shields.io/badge/React%2019-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -12,13 +12,17 @@
 
 ---
 
-## 🌐 Live Demo
+## 🌐 Live Demo & Instant Deployment
 
-Explore the live application:
+Deploy your own live instance with 1-click on Vercel:
 
-🔗 **[https://cv-certificate-ai.vercel.app](https://cv-certificate-ai.vercel.app)**
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FbilluHassan%2FCV-certificate-ai&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20Key%20for%20AI%20features&envLink=https%3A%2F%2Faistudio.google.com%2Fapp%2Fapikey)
 
-*(You can also run the project locally with full features following the [Quick Start](#-quick-start) guide below).*
+### How to access or launch the live deployment:
+1. **1-Click Deploy to Vercel**: Click the **Deploy with Vercel** button above or import the GitHub repository at [vercel.com/new](https://vercel.com/new).
+2. **Add Environment Variable**: Set `GEMINI_API_KEY` (get a free key at [Google AI Studio](https://aistudio.google.com/app/apikey)).
+3. **Live URL**: Once deployed, Vercel will assign your production domain (e.g. `https://your-project.vercel.app`).
+4. **Local Demo**: You can also run the full platform locally at `http://localhost:3000` via `npm run dev` (see [Quick Start](#-quick-start)).
 
 ---
 
