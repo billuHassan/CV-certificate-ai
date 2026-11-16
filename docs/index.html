@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RahmoraAI — Interactive Platform & Certificate Demo</title>
+  <link rel="icon" type="image/svg+xml" href="../public/icon.svg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Space Grotesk"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .gradient-glow {
+      background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, transparent 70%);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="sticky top-0 z-50 glass-card border-b border-slate-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-lg">
+        R
+      </div>
+      <div>
+        <h1 class="font-display font-bold text-base sm:text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
+          RahmoraAI
+        </h1>
+        <p class="text-[10px] text-slate-400 font-mono hidden sm:block">GitHub Interactive Preview & Showcase</p>
+      </div>
+    </div>
+
+    <nav class="flex items-center gap-2 sm:gap-4 text-xs font-semibold">
+      <a href="#showcase" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/70 transition">Feature Showcase</a>
+      <a href="#interactive-builder" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/70 transition">Interactive Studio</a>
+      <a href="https://github.com/billuHassan/CV-certificate-ai" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/30 transition flex items-center gap-1.5">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub Repo
+      </a>
+    </nav>
+  </header>
+
+  <!-- Hero Header -->
+  <section class="relative pt-12 pb-16 px-4 sm:px-8 text-center max-w-5xl mx-auto gradient-glow">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-mono font-medium mb-6">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      Interactive GitHub Demo &bull; No Server Deployment Required
+    </div>
+    <h2 class="font-display text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-6 leading-tight">
+      Next-Generation Career, Resume & <span class="bg-gradient-to-r from-indigo-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent">Certificate Studio</span>
+    </h2>
+    <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed mb-8">
+      Explore the live visual walkthrough of RahmoraAI's entire suite — featuring 10+ Canva-inspired ATS resume templates, AI grounded cover letters, mock interview intelligence, and cognitive career games.
+    </p>
+    <div class="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+      <a href="#interactive-builder" class="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs sm:text-sm shadow-xl shadow-indigo-600/30 transition transform hover:-translate-y-0.5">
+        Try Interactive Preview Below &darr;
+      </a>
+      <a href="#showcase" class="px-6 py-3 rounded-xl glass-card hover:bg-slate-800 text-slate-200 font-semibold text-xs sm:text-sm transition">
+        Browse Visual Screenshots
+      </a>
+    </div>
+  </section>
+
+  <!-- Section 1: Full Platform Screenshot Showcase -->
+  <section id="showcase" class="max-w-7xl mx-auto px-4 sm:px-8 py-12 border-t border-slate-900">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h3 class="font-display text-2xl font-bold text-white flex items-center gap-2">
+          <span>📸</span> Complete Platform View Showcase
+        </h3>
+        <p class="text-slate-400 text-xs sm:text-sm mt-1">High-definition views captured from the live RahmoraAI application</p>
+      </div>
+      <span class="text-xs font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-md hidden sm:block">
+        5 Core Modules
+      </span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- Module 1: Resume Studio -->
+      <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 hover:border-indigo-500/40 transition group">
+        <div class="relative overflow-hidden aspect-[16/10] bg-slate-900">
+          <img src="images/preview-resume-builder.jpg" alt="Executive ATS Resume Studio" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+          <div class="absolute top-3 left-3 bg-emerald-500/90 text-white text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-md">
+            ATS 98% Match
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h4 class="font-display font-bold text-lg text-white">1. Executive ATS Resume Studio</h4>
+            <span class="text-xs font-mono text-emerald-400 font-semibold">10+ Templates</span>
+          </div>
+          <p class="text-slate-400 text-xs leading-relaxed mb-4">
+            Recruiter-tested resume layouts with customizable typography, dynamic themes, PDF/Word export, and deterministic ATS parsing without AI hallucinations.
+          </p>
+          <div class="flex flex-wrap gap-1.5 text-[11px] font-mono">
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">PDF Export</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Word (.docx)</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Snapshot History</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 2: Cover Letter Generator -->
+      <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 hover:border-teal-500/40 transition group">
+        <div class="relative overflow-hidden aspect-[16/10] bg-slate-900">
+          <img src="images/preview-cover-letter.jpg" alt="AI Grounded Cover Letter Generator" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+          <div class="absolute top-3 left-3 bg-teal-500/90 text-white text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-md">
+            Context Grounded
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h4 class="font-display font-bold text-lg text-white">2. AI Cover Letter Generator</h4>
+            <span class="text-xs font-mono text-teal-400 font-semibold">Role-Matched</span>
+          </div>
+          <p class="text-slate-400 text-xs leading-relaxed mb-4">
+            Auto-generate personalized, highly persuasive cover letters referencing specific target company details, role competencies, and verified achievements.
+          </p>
+          <div class="flex flex-wrap gap-1.5 text-[11px] font-mono">
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Company Grounded</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Tone Fine-Tuning</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Instant DOCX</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 3: Career Coach & 3D Audit -->
+      <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 hover:border-pink-500/40 transition group">
+        <div class="relative overflow-hidden aspect-[16/10] bg-slate-900">
+          <img src="images/preview-career-coach.jpg" alt="AI Resume Coach & 3D Analytics" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+          <div class="absolute top-3 left-3 bg-pink-500/90 text-white text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-md">
+            8-Metric Live Audit
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h4 class="font-display font-bold text-lg text-white">3. AI Resume Coach & 3D Analytics</h4>
+            <span class="text-xs font-mono text-pink-400 font-semibold">ATS Scorer</span>
+          </div>
+          <p class="text-slate-400 text-xs leading-relaxed mb-4">
+            Multi-dimensional audit analyzing ATS keyword density, formatting hygiene, impact metrics, and recruiter callback probability with concrete suggestions.
+          </p>
+          <div class="flex flex-wrap gap-1.5 text-[11px] font-mono">
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Keyword Density</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Callback Probability</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Actionable Gaps</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 4: Interview AI Simulator -->
+      <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 hover:border-purple-500/40 transition group">
+        <div class="relative overflow-hidden aspect-[16/10] bg-slate-900">
+          <img src="images/preview-interview-ai.jpg" alt="Interview AI Simulator" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+          <div class="absolute top-3 left-3 bg-purple-500/90 text-white text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-md">
+            AI Interviewer
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h4 class="font-display font-bold text-lg text-white">4. Interview AI Simulator</h4>
+            <span class="text-xs font-mono text-purple-400 font-semibold">STAR Evaluation</span>
+          </div>
+          <p class="text-slate-400 text-xs leading-relaxed mb-4">
+            Rehearse behavioral and technical interviews with AI persona interviewers, speech input, real-time STAR scoring, and personalized answer enhancement tips.
+          </p>
+          <div class="flex flex-wrap gap-1.5 text-[11px] font-mono">
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">AI Personas</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">STAR Scorecard</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Strengths Feedback</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 5: Daily Skill Arena (Full Width) -->
+      <div class="md:col-span-2 glass-card rounded-2xl overflow-hidden border border-slate-800 hover:border-amber-500/40 transition group">
+        <div class="relative overflow-hidden aspect-[21/9] bg-slate-900">
+          <img src="images/preview-skill-games.jpg" alt="Daily Skill Arena & Brain Games" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+          <div class="absolute top-3 left-3 bg-amber-500/90 text-white text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-md">
+            Daily Quizzes & Wordle
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h4 class="font-display font-bold text-lg text-white">5. Daily Skill Arena & Cognitive Games</h4>
+            <span class="text-xs font-mono text-amber-400 font-semibold">Global Leaderboard</span>
+          </div>
+          <p class="text-slate-400 text-xs leading-relaxed mb-4">
+            Sharpen problem-solving skills with gamified challenges: Daily Sudoku, Coding Quizzes, Word Matrix, Math Crunch, and Career Lexicon Wordle with daily streak tracking.
+          </p>
+          <div class="flex flex-wrap gap-1.5 text-[11px] font-mono">
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Coding Quizzes</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Daily Wordle</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Speed Math</span>
+            <span class="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">Community Leaderboard</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Section 2: Interactive Resume & Certificate Live Demo Studio -->
+  <section id="interactive-builder" class="max-w-7xl mx-auto px-4 sm:px-8 py-12 border-t border-slate-900">
+    <div class="text-center max-w-3xl mx-auto mb-10">
+      <h3 class="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
+        ⚡ Interactive Resume & Certificate Preview Studio
+      </h3>
+      <p class="text-slate-400 text-xs sm:text-sm">
+        Test template themes, color palettes, typography, and live field editing in this client-side demo simulator.
+      </p>
+    </div>
+
+    <!-- Interactive Workspace Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Controls Column (4 cols) -->
+      <div class="lg:col-span-4 glass-card rounded-2xl p-5 border border-slate-800 space-y-5">
+        <h4 class="text-xs font-mono uppercase font-bold text-slate-400 tracking-wider">Demo Customizer</h4>
+
+        <!-- Template Style Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-2">Resume & Certificate Layout</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="setTemplate('executive')" id="btn-tmpl-executive" class="px-3 py-2 rounded-xl text-xs font-medium border border-indigo-500 bg-indigo-500/20 text-indigo-300 text-left transition">
+              Executive Pro
+            </button>
+            <button type="button" onclick="setTemplate('modern')" id="btn-tmpl-modern" class="px-3 py-2 rounded-xl text-xs font-medium border border-slate-800 bg-slate-900 text-slate-400 text-left hover:text-white transition">
+              Modern Tech
+            </button>
+            <button type="button" onclick="setTemplate('minimal')" id="btn-tmpl-minimal" class="px-3 py-2 rounded-xl text-xs font-medium border border-slate-800 bg-slate-900 text-slate-400 text-left hover:text-white transition">
+              Clean Minimal
+            </button>
+            <button type="button" onclick="setTemplate('creative')" id="btn-tmpl-creative" class="px-3 py-2 rounded-xl text-xs font-medium border border-slate-800 bg-slate-900 text-slate-400 text-left hover:text-white transition">
+              Creative Bold
+            </button>
+          </div>
+        </div>
+
+        <!-- Color Palette Theme -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-2">Color Palette Accent</label>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="setTheme('indigo', '#6366f1')" class="w-8 h-8 rounded-full bg-indigo-500 ring-2 ring-white ring-offset-2 ring-offset-slate-950 transition transform hover:scale-110" title="Indigo Violet"></button>
+            <button type="button" onclick="setTheme('emerald', '#10b981')" class="w-8 h-8 rounded-full bg-emerald-500 transition transform hover:scale-110" title="Emerald Mint"></button>
+            <button type="button" onclick="setTheme('cyan', '#06b6d4')" class="w-8 h-8 rounded-full bg-cyan-500 transition transform hover:scale-110" title="Cyber Cyan"></button>
+            <button type="button" onclick="setTheme('rose', '#f43f5e')" class="w-8 h-8 rounded-full bg-rose-500 transition transform hover:scale-110" title="Crimson Flame"></button>
+            <button type="button" onclick="setTheme('amber', '#f59e0b')" class="w-8 h-8 rounded-full bg-amber-500 transition transform hover:scale-110" title="Solar Amber"></button>
+          </div>
+        </div>
+
+        <!-- Live Content Inputs -->
+        <div class="space-y-3 pt-2 border-t border-slate-800">
+          <div>
+            <label class="block text-[11px] font-mono text-slate-400 mb-1">Full Name</label>
+            <input type="text" id="input-name" value="Alex Jordan" oninput="updatePreview()" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-mono text-slate-400 mb-1">Target Professional Title</label>
+            <input type="text" id="input-title" value="Senior Cloud Solutions Architect" oninput="updatePreview()" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-mono text-slate-400 mb-1">Key Certification</label>
+            <input type="text" id="input-cert" value="AWS Certified Solutions Architect &bull; CKA Kubernetes" oninput="updatePreview()" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <!-- Live ATS Compliance Meter -->
+        <div class="pt-3 border-t border-slate-800">
+          <div class="flex items-center justify-between text-xs font-mono mb-1.5">
+            <span class="text-slate-400">ATS Compliance Score</span>
+            <span class="font-bold text-emerald-400" id="ats-score-text">96%</span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
+            <div id="ats-score-bar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500" style="width: 96%;"></div>
+          </div>
+          <p class="text-[10px] text-slate-500 mt-1.5">Keywords & Quantified Metrics Verified</p>
+        </div>
+      </div>
+
+      <!-- Preview Column (8 cols) -->
+      <div class="lg:col-span-8 bg-slate-900/60 rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4 text-xs font-mono text-slate-400">
+          <span>DOCUMENT PREVIEW (8.5" x 11")</span>
+          <span class="text-emerald-400 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Live Interactive Engine
+          </span>
+        </div>
+
+        <!-- Document Sheet Simulation -->
+        <div id="resume-sheet" class="bg-white text-slate-900 p-6 sm:p-10 rounded-xl shadow-2xl min-h-[580px] text-xs transition-all duration-300">
+          
+          <!-- Resume Header -->
+          <div id="sheet-header" class="border-b-2 border-indigo-600 pb-4 mb-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <h2 id="sheet-name" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">Alex Jordan</h2>
+                <p id="sheet-title" class="text-sm font-bold text-indigo-600 mt-0.5">Senior Cloud Solutions Architect</p>
+              </div>
+              <div class="text-right text-[11px] text-slate-500 font-mono">
+                <p>alex.jordan@example.com</p>
+                <p>linkedin.com/in/alexjordan</p>
+                <p>San Francisco, CA</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Professional Summary -->
+          <div class="mb-4">
+            <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1 mb-1.5">Professional Summary</h5>
+            <p class="text-slate-600 leading-relaxed text-[11.5px]">
+              High-impact solutions architect with 8+ years architecting scalable multi-cloud microservices and zero-trust infrastructure. Proven track record increasing system availability to 99.99% and reducing cloud spend by 28% through automated infrastructure as code.
+            </p>
+          </div>
+
+          <!-- Certifications Highlight Box -->
+          <div id="sheet-cert-box" class="mb-4 p-3 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center gap-3">
+            <div class="p-2 rounded-md bg-indigo-600 text-white font-bold text-sm shrink-0">
+              🏅
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold tracking-wider text-indigo-700 block">Verified Industry Certifications</span>
+              <span id="sheet-cert" class="font-semibold text-slate-800 text-[11.5px]">AWS Certified Solutions Architect &bull; CKA Kubernetes</span>
+            </div>
+          </div>
+
+          <!-- Work Experience -->
+          <div class="mb-4">
+            <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1 mb-2">Work Experience</h5>
+            
+            <div class="mb-3">
+              <div class="flex items-center justify-between font-bold text-slate-900 text-xs">
+                <span>Lead Cloud Infrastructure Engineer &bull; CloudScale Systems</span>
+                <span class="text-slate-500 text-[11px] font-normal font-mono">2023 - Present</span>
+              </div>
+              <ul class="list-disc list-inside text-slate-600 mt-1 space-y-0.5 leading-relaxed text-[11px]">
+                <li>Architected distributed Kubernetes clusters across 3 AWS regions, reducing deployment latency by 45%.</li>
+                <li>Standardized Terraform GitOps pipelines for 12 enterprise microservices with zero downtime deployments.</li>
+              </ul>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between font-bold text-slate-900 text-xs">
+                <span>Senior DevOps & Systems Engineer &bull; Apex FinTech</span>
+                <span class="text-slate-500 text-[11px] font-normal font-mono">2020 - 2023</span>
+              </div>
+              <ul class="list-disc list-inside text-slate-600 mt-1 space-y-0.5 leading-relaxed text-[11px]">
+                <li>Spearheaded compliance audit automation (SOC 2, ISO 27001), decreasing audit prep turnaround by 60%.</li>
+                <li>Engineered automated disaster recovery failover mechanisms with RTO &lt; 2 minutes.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Skills & Tooling -->
+          <div>
+            <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1 mb-1.5">Core Competencies & Technologies</h5>
+            <p class="text-slate-700 text-[11px]">
+              <strong>Cloud & Infrastructure:</strong> AWS, Google Cloud, Docker, Kubernetes, Terraform, CI/CD, Linux, Prometheus<br>
+              <strong>Security & Architecture:</strong> Zero-Trust, SOC 2, HIPAA, Microservices, RESTful APIs, Distributed Caching
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Section 3: Technical Comparison Matrix -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-8 py-12 border-t border-slate-900">
+    <h3 class="font-display text-2xl font-bold text-white text-center mb-8">
+      Why RahmoraAI Stands Out
+    </h3>
+
+    <div class="glass-card rounded-2xl overflow-x-auto border border-slate-800">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-900/90 text-slate-400 font-mono text-[11px] border-b border-slate-800">
+          <tr>
+            <th class="p-4">Capability</th>
+            <th class="p-4 text-indigo-400">RahmoraAI Platform</th>
+            <th class="p-4 text-slate-500">Standard Resume Builders</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/80 text-slate-300">
+          <tr>
+            <td class="p-4 font-semibold text-white">AI Engine Resilience</td>
+            <td class="p-4 text-emerald-400 font-bold">Dual-Engine (Gemini 3.8 Flash + Groq Failover)</td>
+            <td class="p-4 text-slate-500">Single API key (fails on quota exhaustion)</td>
+          </tr>
+          <tr>
+            <td class="p-4 font-semibold text-white">ATS Parsing Reliability</td>
+            <td class="p-4 text-emerald-400 font-bold">Deterministic extraction + Multimodal fallback</td>
+            <td class="p-4 text-slate-500">Prone to AI hallucinations & field corruption</td>
+          </tr>
+          <tr>
+            <td class="p-4 font-semibold text-white">Candidate Practice Suite</td>
+            <td class="p-4 text-emerald-400 font-bold">Live STAR Interview Simulator + Daily SkillArena</td>
+            <td class="p-4 text-slate-500">No interview preparation or cognitive games</td>
+          </tr>
+          <tr>
+            <td class="p-4 font-semibold text-white">Export Versatility</td>
+            <td class="p-4 text-emerald-400 font-bold">Vector PDF, Native Word (.docx), and Clean Print</td>
+            <td class="p-4 text-slate-500">Watermarked or PDF-only behind paywalls</td>
+          </tr>
+          <tr>
+            <td class="p-4 font-semibold text-white">Security & Auth Hardening</td>
+            <td class="p-4 text-emerald-400 font-bold">Cryptographic tokens, sliding rate limiters, strict rules</td>
+            <td class="p-4 text-slate-500">Vulnerable unauthenticated APIs</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-900 bg-slate-950 py-10 px-4 sm:px-8 text-center text-xs text-slate-500">
+    <p class="mb-2 text-slate-400">
+      <strong>RahmoraAI</strong> &bull; Crafted by <a href="https://github.com/billuHassan" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline">Bilal Hassan Mussa</a>
+    </p>
+    <p class="font-mono text-[11px]">
+      GitHub Repository: <a href="https://github.com/billuHassan/CV-certificate-ai" class="text-slate-400 hover:text-white underline">billuHassan/CV-certificate-ai</a>
+    </p>
+  </footer>
+
+  <!-- Interactive JavaScript Engine -->
+  <script>
+    let currentThemeColor = '#6366f1';
+    let currentTemplate = 'executive';
+
+    function setTemplate(tmpl) {
+      currentTemplate = tmpl;
+      ['executive', 'modern', 'minimal', 'creative'].forEach(t => {
+        const btn = document.getElementById(`btn-tmpl-${t}`);
+        if (t === tmpl) {
+          btn.className = "px-3 py-2 rounded-xl text-xs font-medium border border-indigo-500 bg-indigo-500/20 text-indigo-300 text-left transition";
+        } else {
+          btn.className = "px-3 py-2 rounded-xl text-xs font-medium border border-slate-800 bg-slate-900 text-slate-400 text-left hover:text-white transition";
+        }
+      });
+
+      const sheet = document.getElementById('resume-sheet');
+      const header = document.getElementById('sheet-header');
+      const certBox = document.getElementById('sheet-cert-box');
+
+      if (tmpl === 'minimal') {
+        sheet.className = "bg-white text-slate-800 p-6 sm:p-10 rounded-xl shadow-2xl min-h-[580px] text-xs font-sans border border-slate-200";
+        header.className = "border-b border-slate-300 pb-3 mb-4";
+        certBox.className = "mb-4 p-2.5 rounded border border-slate-200 bg-slate-50 flex items-center gap-2";
+      } else if (tmpl === 'modern') {
+        sheet.className = "bg-slate-50 text-slate-900 p-6 sm:p-10 rounded-xl shadow-2xl min-h-[580px] text-xs font-sans border-t-4 border-indigo-600";
+        header.className = "pb-4 mb-4 border-b border-slate-200";
+        certBox.className = "mb-4 p-3 rounded-xl bg-white shadow-sm border border-slate-200 flex items-center gap-3";
+      } else if (tmpl === 'creative') {
+        sheet.className = "bg-white text-slate-900 p-6 sm:p-10 rounded-xl shadow-2xl min-h-[580px] text-xs font-sans ring-1 ring-slate-900/5";
+        header.className = "pb-4 mb-4 border-b-4 border-indigo-600";
+        certBox.className = "mb-4 p-3 rounded-lg bg-indigo-50/80 border border-indigo-200/60 flex items-center gap-3";
+      } else {
+        sheet.className = "bg-white text-slate-900 p-6 sm:p-10 rounded-xl shadow-2xl min-h-[580px] text-xs font-sans";
+        header.className = "border-b-2 border-indigo-600 pb-4 mb-4";
+        certBox.className = "mb-4 p-3 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center gap-3";
+      }
+      applyThemeColor(currentThemeColor);
+    }
+
+    function setTheme(name, hex) {
+      currentThemeColor = hex;
+      applyThemeColor(hex);
+    }
+
+    function applyThemeColor(hex) {
+      const title = document.getElementById('sheet-title');
+      if (title) title.style.color = hex;
+
+      const header = document.getElementById('sheet-header');
+      if (header && currentTemplate !== 'minimal') {
+        header.style.borderColor = hex;
+      }
+    }
+
+    function updatePreview() {
+      const name = document.getElementById('input-name').value || "Your Full Name";
+      const title = document.getElementById('input-title').value || "Professional Title";
+      const cert = document.getElementById('input-cert').value || "Certifications & Credentials";
+
+      document.getElementById('sheet-name').textContent = name;
+      document.getElementById('sheet-title').textContent = title;
+      document.getElementById('sheet-cert').innerHTML = cert;
+
+      // Dynamic calculation of ATS score based on length and keywords
+      let score = 88;
+      if (name.length > 5) score += 3;
+      if (title.toLowerCase().includes("architect") || title.toLowerCase().includes("engineer") || title.toLowerCase().includes("lead") || title.toLowerCase().includes("manager")) score += 4;
+      if (cert.length > 10) score += 4;
+      score = Math.min(score, 99);
+
+      document.getElementById('ats-score-text').textContent = score + "%";
+      document.getElementById('ats-score-bar').style.width = score + "%";
+    }
+
+    // Initial setup
+    updatePreview();
+  </script>
+</body>
+</html>

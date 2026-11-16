@@ -1,6 +1,6 @@
 # RahmoraAI — Intelligent Career, Resume & Cover Letter Platform
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FbilluHassan%2FCV-certificate-ai&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20Key%20for%20AI%20features&envLink=https%3A%2F%2Faistudio.google.com%2Fapp%2Fapikey)
+[![GitHub Pages Demo](https://img.shields.io/badge/GitHub%20Demo-Interactive%20Preview-6366f1?style=for-the-badge&logo=github&logoColor=white)](https://billuhassan.github.io/CV-certificate-ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![React](https://img.shields.io/badge/React%2019-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -12,17 +12,46 @@
 
 ---
 
-## 🌐 Live Demo & Instant Deployment
+## 🖥️ Live GitHub Demo & Website Walkthrough
 
-Deploy your own live instance with 1-click on Vercel:
+Experience the full interactive demo directly hosted on GitHub without needing an external cloud server:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FbilluHassan%2FCV-certificate-ai&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20Key%20for%20AI%20features&envLink=https%3A%2F%2Faistudio.google.com%2Fapp%2Fapikey)
+🔗 **[Launch Interactive GitHub Demo](https://billuhassan.github.io/CV-certificate-ai/)**  
+*(Or open [`docs/index.html`](docs/index.html) locally in any web browser).*
 
-### How to access or launch the live deployment:
-1. **1-Click Deploy to Vercel**: Click the **Deploy with Vercel** button above or import the GitHub repository at [vercel.com/new](https://vercel.com/new).
-2. **Add Environment Variable**: Set `GEMINI_API_KEY` (get a free key at [Google AI Studio](https://aistudio.google.com/app/apikey)).
-3. **Live URL**: Once deployed, Vercel will assign your production domain (e.g. `https://your-project.vercel.app`).
-4. **Local Demo**: You can also run the full platform locally at `http://localhost:3000` via `npm run dev` (see [Quick Start](#-quick-start)).
+---
+
+### 📸 Complete Platform Visual Showcase
+
+#### 1. Executive ATS Resume & Certificate Studio
+> Recruiter-tested layouts with customizable typography, dynamic themes, PDF/Word export, and deterministic ATS parsing without AI hallucinations.
+<p align="center">
+  <img src="docs/images/preview-resume-builder.jpg" alt="Executive ATS Resume Studio" width="100%" style="border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</p>
+
+#### 2. AI Grounded Cover Letter Generator
+> Auto-generate personalized, highly persuasive cover letters referencing specific target company details, role competencies, and verified achievements.
+<p align="center">
+  <img src="docs/images/preview-cover-letter.jpg" alt="AI Grounded Cover Letter Generator" width="100%" style="border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</p>
+
+#### 3. AI Resume Coach & 3D Audit Analytics
+> Multi-dimensional audit analyzing ATS keyword density, formatting hygiene, impact metrics, and recruiter callback probability with concrete suggestions.
+<p align="center">
+  <img src="docs/images/preview-career-coach.jpg" alt="AI Resume Coach and 3D Analytics" width="100%" style="border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</p>
+
+#### 4. Interview AI Intelligence Simulator
+> Rehearse behavioral and technical interviews with AI persona interviewers, speech input, real-time STAR scoring, and personalized answer enhancement tips.
+<p align="center">
+  <img src="docs/images/preview-interview-ai.jpg" alt="Interview AI Simulator" width="100%" style="border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</p>
+
+#### 5. Daily Skill Arena & Cognitive Brain Games
+> Sharpen problem-solving skills with gamified challenges: Daily Sudoku, Coding Quizzes, Word Matrix, Math Crunch, and Career Lexicon Wordle with daily streak tracking.
+<p align="center">
+  <img src="docs/images/preview-skill-games.jpg" alt="Daily Skill Arena" width="100%" style="border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</p>
 
 ---
 
