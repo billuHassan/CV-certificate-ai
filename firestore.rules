@@ -35,7 +35,9 @@ service cloud.firestore {
       allow read, write: if isAdmin();
       allow read, list: if isSignedIn();
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        !('isPremium' in incoming()) || incoming().isPremium == existing().isPremium || isAdmin()
+      );
       allow delete: if false; // Profiles are permanent once created
     }
 
@@ -116,10 +118,12 @@ service cloud.firestore {
       return (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 150)) &&
              (!('isPremium' in data) || data.isPremium is bool) &&
-             (!('creationsCount' in data) || data.creationsCount is number) &&
-             (!('adViews' in data) || data.adViews is number) &&
+             (!('creationsCount' in data) || (data.creationsCount is number && data.creationsCount >= 0)) &&
+             (!('adViews' in data) || (data.adViews is number && data.adViews >= 0)) &&
              (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 1000000)) &&
-             (!('settings' in data) || data.settings is map);
+             (!('settings' in data) || data.settings is map) &&
+             !('isSystemAdmin' in data) &&
+             !('isAdmin' in data);
     }
 
     function isValidReview(data) {

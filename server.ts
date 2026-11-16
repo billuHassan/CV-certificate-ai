@@ -120,11 +120,88 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-key");
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
   }
   next();
+});
+
+// Production Defensive Security Headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.removeHeader("X-Powered-By");
+  next();
+});
+
+// Simple In-Memory Sliding-Window Rate Limiter
+interface RateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+const rateLimitStore = new Map<string, RateLimitBucket>();
+
+const rateLimitCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of rateLimitStore.entries()) {
+    if (now > bucket.resetAt) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+if (typeof rateLimitCleanupTimer.unref === "function") {
+  rateLimitCleanupTimer.unref();
+}
+
+function createRateLimiter(options: { windowMs: number; max: number; message: string; keyPrefix: string }) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const rawIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "127.0.0.1";
+    const key = `${options.keyPrefix}:${rawIp}`;
+    const now = Date.now();
+
+    const record = rateLimitStore.get(key);
+    if (!record || now > record.resetAt) {
+      rateLimitStore.set(key, { count: 1, resetAt: now + options.windowMs });
+      return next();
+    }
+
+    if (record.count >= options.max) {
+      const retryAfterSec = Math.ceil((record.resetAt - now) / 1000);
+      res.setHeader("Retry-After", retryAfterSec);
+      return res.status(429).json({
+        error: options.message,
+        retryAfter: retryAfterSec
+      });
+    }
+
+    record.count++;
+    next();
+  };
+}
+
+// Rate Limiting Instances
+const generalApiLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: "Too many requests. Please slow down and try again shortly.",
+  keyPrefix: "gen_api"
+});
+
+const authSendCodeLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: "Too many verification codes requested from this IP. Please wait 10 minutes before trying again.",
+  keyPrefix: "auth_send"
+});
+
+const aiRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 40,
+  message: "AI service request limit reached. Please wait a moment before sending more requests.",
+  keyPrefix: "ai_req"
 });
 
 // Proxy & Serverless URL Normalization (ensures both /api/... and proxy-stripped /ai/..., /auth/... routes work identically)
@@ -140,6 +217,11 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Attach Rate Limiters to APIs
+app.use("/api/", generalApiLimiter);
+app.use("/api/auth/send-code", authSendCodeLimiter);
+app.use("/api/ai/", aiRateLimiter);
 
 // Global Server-Side Statistics for Admin Dashboard
 const serverStats = {
@@ -209,11 +291,41 @@ app.use((req, res, next) => {
   next();
 });
 
-// Admin stats endpoint
-app.post("/api/admin/stats", (req, res) => {
-  const { email } = req.body;
-  if (email !== "bilalhassanmussa@gmail.com") {
-    return res.status(403).json({ error: "Unauthorized access level" });
+// Admin authorization verification helper
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "bilalhassanmussa@gmail.com").toLowerCase().trim();
+const ADMIN_API_KEY = (process.env.ADMIN_API_KEY || "").trim();
+
+async function verifyAdminAuth(req: express.Request): Promise<boolean> {
+  const adminKey = ((req.headers["x-admin-key"] as string) || (req.query.adminKey as string) || "").trim();
+  if (ADMIN_API_KEY && adminKey && adminKey === ADMIN_API_KEY) {
+    return true;
+  }
+
+  const authHeader = req.headers["authorization"] || "";
+  if (authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7).trim();
+    if (ADMIN_API_KEY && token === ADMIN_API_KEY) {
+      return true;
+    }
+    // Attempt Firebase Admin ID token verification
+    try {
+      const decoded = await getAdminAuth().verifyIdToken(token);
+      if (decoded.email && decoded.email.toLowerCase() === ADMIN_EMAIL) {
+        return true;
+      }
+    } catch {
+      // Token verification failed or unconfigured
+    }
+  }
+
+  return false;
+}
+
+// Admin stats endpoint (Strictly protected via Firebase Auth token or Admin Key)
+app.post("/api/admin/stats", async (req, res) => {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Unauthorized access level. Valid admin credentials required." });
   }
 
   // Get real server metrics
@@ -248,16 +360,16 @@ app.post("/api/admin/stats", (req, res) => {
 });
 
 // Diagnostic endpoint to check environment setup securely (sanitized status only)
-app.get("/api/diagnostic", (req, res) => {
-  const adminKey = req.headers["x-admin-key"] || req.query.adminKey;
+app.get("/api/diagnostic", async (req, res) => {
+  const isAuthorized = await verifyAdminAuth(req);
   const geminiExists = !!(
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_API_KEY ||
     process.env.AI_STUDIO_API_KEY ||
     process.env.VITE_GEMINI_API_KEY
   );
-  if (!adminKey && req.headers["authorization"] !== "Bearer bilalhassanmussa") {
-    // Return minimal safe health status for public probes
+  if (!isAuthorized) {
+    // Return minimal safe health status for public probes without internal metadata
     return res.json({
       status: "healthy",
       service: "CVCraft AI Core Engine",
@@ -616,8 +728,14 @@ app.post("/api/payments/verify-receipt", async (req, res) => {
   }
 });
 
-// In-memory store for secure email verification codes (email -> { code, expires })
-const verificationCodes = new Map<string, { code: string; expires: number }>();
+// In-memory store for secure email verification codes & password reset sessions
+interface VerificationRecord {
+  code: string;
+  expires: number;
+  failedAttempts: number;
+}
+const verificationCodes = new Map<string, VerificationRecord>();
+const passwordResetTokens = new Map<string, { token: string; expires: number }>();
 
 // Helper function to dispatch verification emails via SMTP if configured
 async function dispatchVerificationEmail(email: string, code: string, actionType: "registration" | "recovery") {
@@ -625,7 +743,8 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || `RahmoraAI Security <${user || "bilalhassanmussa@gmail.com"}>`;
+  const defaultFromEmail = process.env.ADMIN_EMAIL || "support@rahmora.ai";
+  const from = process.env.SMTP_FROM || `RahmoraAI Security <${user || defaultFromEmail}>`;
 
   if (!host || !user || !pass) {
     console.warn(`[SMTP DISPATCH NOTICE FOR ${email}] Sender: ${from}. Verification code: ${code}. To send real emails to inbox, configure SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables.`);
@@ -731,7 +850,7 @@ app.post("/api/auth/send-code", async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
 
-    verificationCodes.set(normalizedEmail, { code, expires });
+    verificationCodes.set(normalizedEmail, { code, expires, failedAttempts: 0 });
     addServerEvent(`Generated secure verification code for ${normalizedEmail}`);
     console.log(`[AUTH SECURE CODE DISPATCHED FOR ${normalizedEmail}]: ${code}`);
 
@@ -742,13 +861,18 @@ app.post("/api/auth/send-code", async (req, res) => {
       action === "reset" ? "recovery" : "registration"
     );
 
+    const isProduction = process.env.NODE_ENV === "production";
+    const allowDemo = !isProduction && (process.env.ALLOW_DEMO_CODE === "true" || !process.env.SMTP_HOST);
+
     res.json({
       success: true,
       smtpConfigured: smtpDispatched,
-      demoCode: !smtpDispatched ? code : undefined,
+      demoCode: (!smtpDispatched && allowDemo) ? code : undefined,
       message: smtpDispatched 
         ? "A 6-digit verification code has been dispatched directly to your inbox."
-        : "Verification code generated! Set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables to send live emails."
+        : (allowDemo
+            ? "Verification code generated! Set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables to send live emails."
+            : "Verification code sent if this email is valid. Please check your inbox.")
     });
   } catch (error: any) {
     console.error("Send Code Error:", error);
@@ -782,16 +906,32 @@ app.post("/api/auth/verify-code", (req, res) => {
     }
 
     if (record.code !== code.trim()) {
+      record.failedAttempts = (record.failedAttempts || 0) + 1;
+      if (record.failedAttempts >= 5) {
+        verificationCodes.delete(normalizedEmail);
+        return res.status(429).json({
+          success: false,
+          reason: "Too many incorrect verification attempts. For your security, this code has been invalidated. Please request a new code."
+        });
+      }
       return res.json({
         success: false,
-        reason: "Invalid verification code. Please check your spelling and try again."
+        reason: `Invalid verification code. ${5 - record.failedAttempts} attempt(s) remaining.`
       });
     }
 
     // Code is valid! Delete it from store to prevent reuse
     verificationCodes.delete(normalizedEmail);
     addServerEvent(`Successfully verified email credentials for ${normalizedEmail}`);
-    res.json({ success: true });
+
+    // Generate single-use reset token valid for 15 minutes
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    passwordResetTokens.set(normalizedEmail, {
+      token: resetToken,
+      expires: Date.now() + 15 * 60 * 1000
+    });
+
+    res.json({ success: true, resetToken });
   } catch (error: any) {
     console.error("Verify Code Error:", error);
     res.status(500).json({ error: "Failed to verify code" });
@@ -801,12 +941,24 @@ app.post("/api/auth/verify-code", (req, res) => {
 // Endpoint to securely reset a user's password on the backend using Admin SDK
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, resetToken } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and new password are required." });
     }
 
+    if (!resetToken || typeof resetToken !== "string") {
+      return res.status(401).json({ error: "Missing or invalid password reset token. Please verify your email code first." });
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
+    const session = passwordResetTokens.get(normalizedEmail);
+    if (!session || session.token !== resetToken || Date.now() > session.expires) {
+      passwordResetTokens.delete(normalizedEmail);
+      return res.status(401).json({ error: "The password reset session has expired or is invalid. Please request a new verification code." });
+    }
+
+    // Consume single-use reset token immediately
+    passwordResetTokens.delete(normalizedEmail);
     
     try {
       // Find user record and update password if Admin SDK is enabled
@@ -827,7 +979,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
     addServerEvent(`Successfully reset password verification for ${normalizedEmail}`);
     res.json({
       success: true,
-      message: "Your password verification was successful. Please sign in with your updated credentials."
+      message: "Your password has been updated successfully. Please sign in with your updated credentials."
     });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to update your password." });

@@ -3854,11 +3854,71 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-key");
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
   }
   next();
+});
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.removeHeader("X-Powered-By");
+  next();
+});
+var rateLimitStore = /* @__PURE__ */ new Map();
+var rateLimitCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of rateLimitStore.entries()) {
+    if (now > bucket.resetAt) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1e3);
+if (typeof rateLimitCleanupTimer.unref === "function") {
+  rateLimitCleanupTimer.unref();
+}
+function createRateLimiter(options) {
+  return (req, res, next) => {
+    const rawIp = (req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim()) || req.socket.remoteAddress || "127.0.0.1";
+    const key = `${options.keyPrefix}:${rawIp}`;
+    const now = Date.now();
+    const record = rateLimitStore.get(key);
+    if (!record || now > record.resetAt) {
+      rateLimitStore.set(key, { count: 1, resetAt: now + options.windowMs });
+      return next();
+    }
+    if (record.count >= options.max) {
+      const retryAfterSec = Math.ceil((record.resetAt - now) / 1e3);
+      res.setHeader("Retry-After", retryAfterSec);
+      return res.status(429).json({
+        error: options.message,
+        retryAfter: retryAfterSec
+      });
+    }
+    record.count++;
+    next();
+  };
+}
+var generalApiLimiter = createRateLimiter({
+  windowMs: 60 * 1e3,
+  max: 120,
+  message: "Too many requests. Please slow down and try again shortly.",
+  keyPrefix: "gen_api"
+});
+var authSendCodeLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1e3,
+  max: 5,
+  message: "Too many verification codes requested from this IP. Please wait 10 minutes before trying again.",
+  keyPrefix: "auth_send"
+});
+var aiRateLimiter = createRateLimiter({
+  windowMs: 60 * 1e3,
+  max: 40,
+  message: "AI service request limit reached. Please wait a moment before sending more requests.",
+  keyPrefix: "ai_req"
 });
 app.use((req, res, next) => {
   if (!req.url.startsWith("/api") && (req.url.startsWith("/ai/") || req.url.startsWith("/auth/") || req.url.startsWith("/admin/") || req.url.startsWith("/payments/") || req.url.startsWith("/feedback/"))) {
@@ -3866,6 +3926,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+app.use("/api/", generalApiLimiter);
+app.use("/api/auth/send-code", authSendCodeLimiter);
+app.use("/api/ai/", aiRateLimiter);
 var serverStats = {
   totalRequests: 0,
   endpointsCalls: {
@@ -3926,10 +3989,33 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.post("/api/admin/stats", (req, res) => {
-  const { email } = req.body;
-  if (email !== "bilalhassanmussa@gmail.com") {
-    return res.status(403).json({ error: "Unauthorized access level" });
+var ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "bilalhassanmussa@gmail.com").toLowerCase().trim();
+var ADMIN_API_KEY = (process.env.ADMIN_API_KEY || "").trim();
+async function verifyAdminAuth(req) {
+  const adminKey = ((req.headers["x-admin-key"]) || (req.query.adminKey) || "").trim();
+  if (ADMIN_API_KEY && adminKey && adminKey === ADMIN_API_KEY) {
+    return true;
+  }
+  const authHeader = req.headers["authorization"] || "";
+  if (authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7).trim();
+    if (ADMIN_API_KEY && token === ADMIN_API_KEY) {
+      return true;
+    }
+    try {
+      const decoded = await getAdminAuth().verifyIdToken(token);
+      if (decoded.email && decoded.email.toLowerCase() === ADMIN_EMAIL) {
+        return true;
+      }
+    } catch {
+    }
+  }
+  return false;
+}
+app.post("/api/admin/stats", async (req, res) => {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Unauthorized access level. Valid admin credentials required." });
   }
   const uptimeSeconds = Math.floor(process.uptime());
   const uptimeHours = Math.floor(uptimeSeconds / 3600);
@@ -3958,10 +4044,10 @@ app.post("/api/admin/stats", (req, res) => {
     recentEvents: serverStats.recentEvents
   });
 });
-app.get("/api/diagnostic", (req, res) => {
-  const adminKey = req.headers["x-admin-key"] || req.query.adminKey;
+app.get("/api/diagnostic", async (req, res) => {
+  const isAuthorized = await verifyAdminAuth(req);
   const geminiExists = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY);
-  if (!adminKey && req.headers["authorization"] !== "Bearer bilalhassanmussa") {
+  if (!isAuthorized) {
     return res.json({
       status: "healthy",
       service: "CVCraft AI Core Engine",
@@ -4258,12 +4344,14 @@ app.post("/api/payments/verify-receipt", async (req, res) => {
   }
 });
 var verificationCodes = /* @__PURE__ */ new Map();
+var passwordResetTokens = /* @__PURE__ */ new Map();
 async function dispatchVerificationEmail(email, code, actionType) {
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || `RahmoraAI Security <${user || "bilalhassanmussa@gmail.com"}>`;
+  const defaultFromEmail = process.env.ADMIN_EMAIL || "support@rahmora.ai";
+  const from = process.env.SMTP_FROM || `RahmoraAI Security <${user || defaultFromEmail}>`;
   if (!host || !user || !pass) {
     console.warn(`[SMTP DISPATCH NOTICE FOR ${email}] Sender: ${from}. Verification code: ${code}. To send real emails to inbox, configure SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables.`);
     return false;
@@ -4359,7 +4447,7 @@ app.post("/api/auth/send-code", async (req, res) => {
     }
     const code = Math.floor(1e5 + Math.random() * 9e5).toString();
     const expires = Date.now() + 10 * 60 * 1e3;
-    verificationCodes.set(normalizedEmail, { code, expires });
+    verificationCodes.set(normalizedEmail, { code, expires, failedAttempts: 0 });
     addServerEvent(`Generated secure verification code for ${normalizedEmail}`);
     console.log(`[AUTH SECURE CODE DISPATCHED FOR ${normalizedEmail}]: ${code}`);
     const smtpDispatched = await dispatchVerificationEmail(
@@ -4367,11 +4455,13 @@ app.post("/api/auth/send-code", async (req, res) => {
       code,
       action === "reset" ? "recovery" : "registration"
     );
+    const isProduction = process.env.NODE_ENV === "production";
+    const allowDemo = !isProduction && (process.env.ALLOW_DEMO_CODE === "true" || !process.env.SMTP_HOST);
     res.json({
       success: true,
       smtpConfigured: smtpDispatched,
-      demoCode: !smtpDispatched ? code : void 0,
-      message: smtpDispatched ? "A 6-digit verification code has been dispatched directly to your inbox." : "Verification code generated! Set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables to send live emails."
+      demoCode: (!smtpDispatched && allowDemo) ? code : void 0,
+      message: smtpDispatched ? "A 6-digit verification code has been dispatched directly to your inbox." : (allowDemo ? "Verification code generated! Set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables to send live emails." : "Verification code sent if this email is valid. Please check your inbox.")
     });
   } catch (error) {
     console.error("Send Code Error:", error);
@@ -4400,14 +4490,27 @@ app.post("/api/auth/verify-code", (req, res) => {
       });
     }
     if (record.code !== code.trim()) {
+      record.failedAttempts = (record.failedAttempts || 0) + 1;
+      if (record.failedAttempts >= 5) {
+        verificationCodes.delete(normalizedEmail);
+        return res.status(429).json({
+          success: false,
+          reason: "Too many incorrect verification attempts. For your security, this code has been invalidated. Please request a new code."
+        });
+      }
       return res.json({
         success: false,
-        reason: "Invalid verification code. Please check your spelling and try again."
+        reason: `Invalid verification code. ${5 - record.failedAttempts} attempt(s) remaining.`
       });
     }
     verificationCodes.delete(normalizedEmail);
     addServerEvent(`Successfully verified email credentials for ${normalizedEmail}`);
-    res.json({ success: true });
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    passwordResetTokens.set(normalizedEmail, {
+      token: resetToken,
+      expires: Date.now() + 15 * 60 * 1e3
+    });
+    res.json({ success: true, resetToken });
   } catch (error) {
     console.error("Verify Code Error:", error);
     res.status(500).json({ error: "Failed to verify code" });
@@ -4415,11 +4518,20 @@ app.post("/api/auth/verify-code", (req, res) => {
 });
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, resetToken } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and new password are required." });
     }
+    if (!resetToken || typeof resetToken !== "string") {
+      return res.status(401).json({ error: "Missing or invalid password reset token. Please verify your email code first." });
+    }
     const normalizedEmail = email.trim().toLowerCase();
+    const session = passwordResetTokens.get(normalizedEmail);
+    if (!session || session.token !== resetToken || Date.now() > session.expires) {
+      passwordResetTokens.delete(normalizedEmail);
+      return res.status(401).json({ error: "The password reset session has expired or is invalid. Please request a new verification code." });
+    }
+    passwordResetTokens.delete(normalizedEmail);
     try {
       const userRecord = await getAdminAuth().getUserByEmail(normalizedEmail);
       if (userRecord?.uid) {

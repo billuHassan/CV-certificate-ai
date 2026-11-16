@@ -217,9 +217,14 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
 
     const fetchStats = async () => {
       try {
+        const idToken = await firebaseAdminUser?.getIdToken();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (idToken) {
+          headers["Authorization"] = `Bearer ${idToken}`;
+        }
         const response = await fetch("/api/admin/stats", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ email: user.email }),
         });
         if (response.ok) {

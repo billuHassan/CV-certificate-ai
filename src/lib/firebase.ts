@@ -3,7 +3,19 @@ import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersist
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
-const app = initializeApp(firebaseConfig);
+// Support both local configuration and environment variable overrides for public deployments
+const activeConfig = {
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || "(default)",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfig.measurementId
+};
+
+const app = initializeApp(activeConfig);
 
 // CRITICAL: Initialize Firestore with resilient long-polling transport to eliminate WebChannel connection reset warnings
 export const db = initializeFirestore(
@@ -11,8 +23,8 @@ export const db = initializeFirestore(
   {
     experimentalAutoDetectLongPolling: true,
   },
-  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)"
-    ? firebaseConfig.firestoreDatabaseId
+  activeConfig.firestoreDatabaseId && activeConfig.firestoreDatabaseId !== "(default)"
+    ? activeConfig.firestoreDatabaseId
     : undefined
 );
 export const auth = getAuth(app);

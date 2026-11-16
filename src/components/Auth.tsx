@@ -357,6 +357,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [resetError, setResetError] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [forgotResetCode, setForgotResetCode] = useState("");
+  const [forgotResetToken, setForgotResetToken] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [forgotNewPasswordConfirm, setForgotNewPasswordConfirm] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -744,6 +745,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       const data = await response.json();
 
       if (data.success) {
+        if (data.resetToken) {
+          setForgotResetToken(data.resetToken);
+        }
         setForgotPasswordStep("change");
         setResetSuccess("Code verified successfully! You can now set your new password below.");
       } else {
@@ -789,7 +793,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail, password: forgotNewPassword }),
+        body: JSON.stringify({ email: resetEmail, password: forgotNewPassword, resetToken: forgotResetToken }),
       });
       const data = await response.json();
 
@@ -807,6 +811,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         setResetSuccess("");
         setResetError("");
         setForgotResetCode("");
+        setForgotResetToken("");
         setForgotNewPassword("");
         setForgotNewPasswordConfirm("");
       } else {
