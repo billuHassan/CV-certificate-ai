@@ -12,12 +12,17 @@
 
 ---
 
-## 🖥️ Live GitHub Demo & Website Walkthrough
+## 🖥️ Live Demo & Direct Access
 
-Experience the full interactive demo directly hosted on GitHub without needing an external cloud server:
+Try the interactive demo hosted on GitHub Pages without running a local server:
 
-🔗 **[Launch Interactive GitHub Demo](https://billuhassan.github.io/CV-certificate-ai/)**  
-*(Or open [`docs/index.html`](docs/index.html) locally in any web browser).*
+| Resource | Link | Description |
+| :--- | :--- | :--- |
+| **Interactive GitHub Pages Demo** | **[https://billuhassan.github.io/CV-certificate-ai/](https://billuhassan.github.io/CV-certificate-ai/)** | Interactive resume/certificate studio & full module showcase (`docs/index.html`) |
+| **GitHub Repository** | **[github.com/billuHassan/CV-certificate-ai](https://github.com/billuHassan/CV-certificate-ai)** | Source code, GitHub Actions workflow & issues |
+| **One-Click Full-Stack Deploy** | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/billuHassan/CV-certificate-ai&env=GEMINI_API_KEY) | Deploy the complete React + Express + AI backend to Vercel |
+
+> 💡 **Local Preview:** You can also open [`docs/index.html`](docs/index.html) directly in any browser, or run the full-stack application locally via [Quick Start](#-quick-start).
 
 ---
 
@@ -203,10 +208,20 @@ This builds:
 npm start
 ```
 
-### Deploying to Vercel
+### Deploying the Interactive Demo to GitHub Pages
+This repository includes a pre-configured GitHub Actions workflow at [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) that automatically publishes the `./docs` interactive demo to GitHub Pages:
+
+1. Push your repository to GitHub on the `main` (or `master`) branch.
+2. Open your repository on GitHub and navigate to **Settings → Pages**.
+3. Under **Build and deployment → Source**, select **GitHub Actions**.
+4. Go to the **Actions** tab, select **Deploy GitHub Demo to GitHub Pages**, and click **Run workflow** (or push any commit to `main`).
+5. Once complete, your live demo will be accessible at:
+   **`https://billuhassan.github.io/CV-certificate-ai/`**
+
+### Deploying Full-Stack App to Vercel
 1. Push your repository to GitHub.
-2. Import the repository into your [Vercel Dashboard](https://vercel.com).
-3. In **Settings -> Environment Variables**, add your `GEMINI_API_KEY` (and optional `GROQ_API_KEY`, `SMTP_*`, etc.).
+2. Import the repository into your [Vercel Dashboard](https://vercel.com) (or use the **Deploy with Vercel** button at the top of this README).
+3. In **Settings → Environment Variables**, add your `GEMINI_API_KEY` (and optional `GROQ_API_KEY`, `SMTP_*`, etc.).
 4. Click **Deploy**. Vercel will build and serve both the static client and serverless API automatically.
 
 ---
@@ -215,8 +230,15 @@ npm start
 
 ```
 CV-certificate-ai/
+├── .github/
+│   └── workflows/
+│       └── deploy-pages.yml # Automated GitHub Pages deployment for ./docs
 ├── api/                     # Vercel serverless function entrypoint
 │   └── index.js
+├── docs/                    # GitHub Pages interactive demo site
+│   ├── images/              # Showcase screenshots
+│   ├── icon.svg             # Demo favicon
+│   └── index.html           # Interactive preview & resume/certificate studio
 ├── public/                  # Public static assets, icons, manifest
 ├── scripts/                 # Asset generation & utility scripts
 ├── server/                  # Backend AI logic & document extraction
@@ -241,6 +263,7 @@ CV-certificate-ai/
 │   └── index.css            # Tailwind CSS v4 styling & animations
 ├── .env.example             # Documented environment variables template
 ├── firestore.rules          # Hardened Firestore security rules
+├── LICENSE                  # MIT License
 ├── package.json             # Pinned dependencies & scripts
 ├── server.ts                # Express application server with security middleware
 ├── vercel.json              # Vercel routing & rewrites configuration
