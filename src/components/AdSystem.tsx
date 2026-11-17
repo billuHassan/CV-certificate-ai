@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Award, Shield, Sparkles, AlertCircle, RefreshCw, Star, CreditCard, Wallet, Landmark, Lock, Check } from "lucide-react";
+import { safeExternalUrl } from "../utils/security";
 
 interface AdSystemProps {
   isPremium: boolean;
@@ -352,16 +353,20 @@ export function PremiumModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; 
             throw new Error(createData.error);
           }
 
+          const safeApproveUrl = safeExternalUrl(createData.approveUrl);
           setPaypalOrderId(createData.orderId);
-          setPaypalApproveUrl(createData.approveUrl);
+          setPaypalApproveUrl(safeApproveUrl || null);
           setPaypalStep("redirected");
 
-          // Open PayPal authorization link in a new window/tab
-          if (createData.approveUrl) {
-            const newWindow = window.open(createData.approveUrl, "_blank");
-            if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
-              alert("Popup Blocked! We created your secure gateway link. Please click the 'Launch PayPal Gateway' button that just appeared in the form to pay.");
-            }
+          // Trigger safe anchor navigation if PayPal URL is valid
+          if (safeApproveUrl) {
+            const tempLink = document.createElement("a");
+            tempLink.href = safeApproveUrl;
+            tempLink.target = "_blank";
+            tempLink.rel = "noopener noreferrer";
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            document.body.removeChild(tempLink);
           }
         } else {
           // Step 2: Capture PayPal order on the server
@@ -613,9 +618,9 @@ export function PremiumModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; 
                       </div>
 
                       <div className="flex flex-col gap-2 max-w-xs mx-auto">
-                        {paypalApproveUrl && (
+                        {safeExternalUrl(paypalApproveUrl) && (
                           <a
-                            href={paypalApproveUrl}
+                            href={safeExternalUrl(paypalApproveUrl)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center justify-center gap-1.5 text-xs text-amber-400 bg-amber-950/30 border border-amber-500/30 hover:bg-amber-950/50 py-1.5 px-3 rounded-lg transition"

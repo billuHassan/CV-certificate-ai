@@ -93,7 +93,7 @@ function getAdminApp(): App {
     } else {
       try {
         adminApp = initializeApp({
-          projectId: firebaseConfig.projectId || "eco-compass-fcf5x"
+          projectId: firebaseConfig.projectId
         });
         console.log("[FIREBASE ADMIN] Initialized successfully on backend.");
       } catch (adminErr) {
@@ -110,19 +110,77 @@ function getAdminAuth() {
   return getAuth(app);
 }
 
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  (typeof __filename !== "undefined" && __filename.endsWith(".cjs")) ||
+  (typeof __dirname !== "undefined" && __dirname.includes("dist")) ||
+  Boolean(process.env.VERCEL) ||
+  Boolean(process.env.VERCEL_ENV) ||
+  Boolean(process.env.RENDER) ||
+  Boolean(process.env.RAILWAY_ENVIRONMENT) ||
+  Boolean(process.env.K_SERVICE);
+
+if (isProduction && process.env.NODE_ENV !== "production") {
+  process.env.NODE_ENV = "production";
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  try {
+    const parsed = new URL(origin);
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1") return true;
+    if (host === "billuhassan.github.io") return true;
+    if (host.endsWith(".vercel.app") || host.endsWith(".run.app")) return true;
+
+    if (process.env.APP_URL) {
+      try {
+        if (new URL(process.env.APP_URL).origin === parsed.origin) return true;
+      } catch {}
+    }
+    if (process.env.ALLOWED_ORIGINS) {
+      const custom = process.env.ALLOWED_ORIGINS.split(",").map(s => s.trim()).filter(Boolean);
+      if (custom.includes(parsed.origin)) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "12mb" }));
+app.use(express.urlencoded({ limit: "12mb", extended: true }));
 
-// Cross-Origin & Preflight Handling for Production & Deployed Environments
+// Strict Allowlist CORS & Preflight Handling
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin;
+  if (origin && isAllowedOrigin(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-key");
   if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
+    return origin && !isAllowedOrigin(origin) ? res.sendStatus(403) : res.sendStatus(204);
   }
   next();
 });
@@ -133,6 +191,10 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), geolocation=(), payment=(self)");
+  if (isProduction) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
   res.removeHeader("X-Powered-By");
   next();
 });
@@ -204,6 +266,27 @@ const aiRateLimiter = createRateLimiter({
   keyPrefix: "ai_req"
 });
 
+const authVerifyLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: "Too many verification or password reset attempts. Please wait 10 minutes before trying again.",
+  keyPrefix: "auth_verify"
+});
+
+const paymentLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  message: "Too many payment verification requests. Please wait a moment and try again.",
+  keyPrefix: "pay_req"
+});
+
+const feedbackLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: "Too many feedback submissions from this IP. Please wait before submitting again.",
+  keyPrefix: "fb_req"
+});
+
 // Proxy & Serverless URL Normalization (ensures both /api/... and proxy-stripped /ai/..., /auth/... routes work identically)
 app.use((req, res, next) => {
   if (!req.url.startsWith("/api") && (
@@ -221,6 +304,9 @@ app.use((req, res, next) => {
 // Attach Rate Limiters to APIs
 app.use("/api/", generalApiLimiter);
 app.use("/api/auth/send-code", authSendCodeLimiter);
+app.use(["/api/auth/verify-code", "/api/auth/reset-password"], authVerifyLimiter);
+app.use("/api/payments/", paymentLimiter);
+app.use("/api/feedback/", feedbackLimiter);
 app.use("/api/ai/", aiRateLimiter);
 
 // Global Server-Side Statistics for Admin Dashboard
@@ -296,21 +382,21 @@ const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "bilalhassanmussa@gmail.com").to
 const ADMIN_API_KEY = (process.env.ADMIN_API_KEY || "").trim();
 
 async function verifyAdminAuth(req: express.Request): Promise<boolean> {
-  const adminKey = ((req.headers["x-admin-key"] as string) || (req.query.adminKey as string) || "").trim();
-  if (ADMIN_API_KEY && adminKey && adminKey === ADMIN_API_KEY) {
+  const adminKey = typeof req.headers["x-admin-key"] === "string" ? req.headers["x-admin-key"].trim() : "";
+  if (ADMIN_API_KEY && adminKey && timingSafeEqualStrings(adminKey, ADMIN_API_KEY)) {
     return true;
   }
 
   const authHeader = req.headers["authorization"] || "";
   if (authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice(7).trim();
-    if (ADMIN_API_KEY && token === ADMIN_API_KEY) {
+    if (ADMIN_API_KEY && timingSafeEqualStrings(token, ADMIN_API_KEY)) {
       return true;
     }
     // Attempt Firebase Admin ID token verification
     try {
       const decoded = await getAdminAuth().verifyIdToken(token);
-      if (decoded.email && decoded.email.toLowerCase() === ADMIN_EMAIL) {
+      if (decoded.email && decoded.email_verified !== false && decoded.email.toLowerCase() === ADMIN_EMAIL) {
         return true;
       }
     } catch {
@@ -365,16 +451,13 @@ app.get("/api/diagnostic", async (req, res) => {
   const geminiExists = !!(
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_API_KEY ||
-    process.env.AI_STUDIO_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY
+    process.env.AI_STUDIO_API_KEY
   );
   if (!isAuthorized) {
     // Return minimal safe health status for public probes without internal metadata
     return res.json({
       status: "healthy",
-      service: "CVCraft AI Core Engine",
-      aiConfigured: geminiExists,
-      aiProvider: "Google Gemini 3.8 Flash (Primary)"
+      service: "CVCraft AI Core Engine"
     });
   }
 
@@ -391,20 +474,35 @@ app.get("/api/diagnostic", async (req, res) => {
 // Secure Server-Side PayPal and Bank Payment Processing
 // These operations use server-side credentials. Secrets are never sent to the browser.
 app.post("/api/payments/create-paypal-order", async (req, res) => {
-  const { amount, currency } = req.body;
+  const { amount, currency } = req.body || {};
   const payPalClientId = process.env.PAYPAL_CLIENT_ID;
   const payPalSecret = process.env.PAYPAL_CLIENT_SECRET;
   const mode = process.env.PAYPAL_MODE || "sandbox";
+  const allowMockPayments = !isProduction || process.env.ALLOW_MOCK_PAYMENTS === "true";
 
-  // If credentials are not set, return simulated but functional credentials for secure prototype flow
+  // Validate amount & currency
+  const numericAmount = Number(amount || "1.99");
+  const safeAmount = Number.isFinite(numericAmount) && numericAmount > 0 && numericAmount <= 10000
+    ? numericAmount.toFixed(2)
+    : "1.99";
+  const safeCurrency = typeof currency === "string" && /^[A-Z]{3}$/.test(currency.trim())
+    ? currency.trim()
+    : "USD";
+
+  // If credentials are not set, disallow unauthenticated mock approvals in production
   if (!payPalClientId || !payPalSecret) {
-    const mockOrderId = "MOCK-PP-ORDER-" + Math.floor(Math.random() * 10000000);
-    addServerEvent(`Securely initiated simulated PayPal transaction for ${amount} ${currency || "USD"}.`);
+    if (!allowMockPayments) {
+      return res.status(503).json({
+        error: "PayPal live checkout is not configured on this server."
+      });
+    }
+    const mockOrderId = "MOCK-PP-ORDER-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+    addServerEvent(`Initiated sandbox PayPal simulation for ${safeAmount} ${safeCurrency}.`);
     return res.json({
       orderId: mockOrderId,
-      approveUrl: `/#mock-paypal-checkout?id=${mockOrderId}&amount=${amount || "1.99"}`,
+      approveUrl: `/#mock-paypal-checkout?id=${encodeURIComponent(mockOrderId)}&amount=${encodeURIComponent(safeAmount)}`,
       mode: "development-mock",
-      message: "Running in sandbox simulation. Configure PAYPAL_CLIENT_ID in your Secrets tab to go live."
+      message: "Running in sandbox simulation. Configure PAYPAL_CLIENT_ID in environment secrets to go live."
     });
   }
 
@@ -450,8 +548,8 @@ app.post("/api/payments/create-paypal-order", async (req, res) => {
         intent: "CAPTURE",
         purchase_units: [{
           amount: {
-            currency_code: currency || "USD",
-            value: amount || "1.99"
+            currency_code: safeCurrency,
+            value: safeAmount
           },
           description: "CVCraft AI Elite Premium Upgrade"
         }],
@@ -469,35 +567,44 @@ app.post("/api/payments/create-paypal-order", async (req, res) => {
 
     const orderData = await orderResponse.json() as { id: string; links?: Array<{ href: string; rel: string }> };
     const approveLink = orderData.links?.find(l => l.rel === "approve");
-    const approveUrl = approveLink ? approveLink.href : `https://www.paypal.com/checkoutnow?token=${orderData.id}`;
+    const approveUrl = approveLink ? approveLink.href : `https://www.paypal.com/checkoutnow?token=${encodeURIComponent(orderData.id)}`;
 
     addServerEvent(`Securely initialized live PayPal order: ${orderData.id}`);
     res.json({ orderId: orderData.id, approveUrl, mode });
   } catch (err: any) {
     console.error("PayPal Order Error:", err);
-    res.status(500).json({ error: "Failed to generate secure PayPal order on server", details: err.message });
+    res.status(500).json({ error: "Failed to generate secure PayPal order on server." });
   }
 });
 
 app.post("/api/payments/capture-paypal-order", async (req, res) => {
-  const { orderId } = req.body;
+  const rawOrderId = req.body?.orderId;
+  const orderId = typeof rawOrderId === "string" ? rawOrderId.trim() : "";
   const payPalClientId = process.env.PAYPAL_CLIENT_ID;
   const payPalSecret = process.env.PAYPAL_CLIENT_SECRET;
   const mode = process.env.PAYPAL_MODE || "sandbox";
+  const allowMockPayments = !isProduction || process.env.ALLOW_MOCK_PAYMENTS === "true";
 
-  if (!orderId) {
-    return res.status(400).json({ error: "Order ID is required to complete capture." });
+  if (!orderId || !/^[A-Za-z0-9_-]{5,64}$/.test(orderId)) {
+    return res.status(400).json({ error: "A valid Order ID is required to complete capture." });
   }
 
-  // Handle prototype sandbox simulation
+  // Handle prototype sandbox simulation (blocked in production unless explicitly enabled)
   if (orderId.startsWith("MOCK-PP-ORDER-")) {
+    if (!allowMockPayments) {
+      return res.status(403).json({ error: "Simulated payment orders are disabled in production." });
+    }
     addServerEvent(`Verified and finalized simulated payment for Order ${orderId}.`);
     return res.json({
       status: "COMPLETED",
       orderId,
       payer: { email_address: "candidate-sandbox@example.com" },
-      message: "Simulated PayPal Payment captured securely. User account promoted to ELITE."
+      message: "Simulated PayPal Payment captured securely."
     });
+  }
+
+  if (!payPalClientId || !payPalSecret) {
+    return res.status(503).json({ error: "PayPal live capture is not configured on this server." });
   }
 
   try {
@@ -522,9 +629,10 @@ app.post("/api/payments/capture-paypal-order", async (req, res) => {
     const tokenData = await tokenResponse.json() as { access_token: string };
     const accessToken = tokenData.access_token;
 
+    const encodedOrderId = encodeURIComponent(orderId);
     const captureUrl = mode === "live"
-      ? `https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`
-      : `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderId}/capture`;
+      ? `https://api-m.paypal.com/v2/checkout/orders/${encodedOrderId}/capture`
+      : `https://api-m.sandbox.paypal.com/v2/checkout/orders/${encodedOrderId}/capture`;
 
     const captureResponse = await fetch(captureUrl, {
       method: "POST",
@@ -543,50 +651,57 @@ app.post("/api/payments/capture-paypal-order", async (req, res) => {
     res.json({
       status: captureData.status,
       orderId,
-      message: "Funds successfully captured on backend. Promote tier action completed."
+      message: "Funds successfully captured on backend."
     });
   } catch (err: any) {
     console.error("PayPal Capture Error:", err);
-    res.status(500).json({ error: "Failed to securely capture payment on server", details: err.message });
+    res.status(500).json({ error: "Failed to securely capture payment on server." });
   }
 });
 
 app.post("/api/payments/bank-transfer", async (req, res) => {
-  const { bankName, routingNumber, accountNumber, accountHolder, amount } = req.body;
-
-  if (!routingNumber || !accountNumber || !accountHolder) {
-    return res.status(400).json({ error: "All account parameters are required to run secure payment check." });
+  const allowMockPayments = !isProduction || process.env.ALLOW_MOCK_PAYMENTS === "true";
+  if (!allowMockPayments) {
+    return res.status(503).json({
+      error: "Direct automated bank clearing is unavailable. Please use manual receipt upload verification."
+    });
   }
 
-  // Ensure routing & account parameters are validated, masked, and logged using server-only secure storage
-  const maskedAccount = `*****${accountNumber.slice(-4)}`;
-  addServerEvent(`Secure bank transfer verification requested for holder ${accountHolder} via ${bankName || "Unspecified Bank"}.`);
+  const { bankName, routingNumber, accountNumber, accountHolder } = req.body || {};
+  if (typeof routingNumber !== "string" || typeof accountNumber !== "string" || typeof accountHolder !== "string" || !routingNumber.trim() || accountNumber.trim().length < 4 || !accountHolder.trim()) {
+    return res.status(400).json({ error: "Valid account parameters are required." });
+  }
 
-  // Simple automated risk analysis and instant secure simulation
-  setTimeout(() => {
-    addServerEvent(`Achieved clearing validation for account ${maskedAccount}. Promoted to Elite.`);
-  }, 100);
+  const maskedAccount = `*****${accountNumber.trim().slice(-4)}`;
+  const safeBank = typeof bankName === "string" ? bankName.trim().slice(0, 80) : "Unspecified Bank";
+  addServerEvent(`Sandbox bank transfer verification requested via ${safeBank} (${maskedAccount}).`);
 
   res.json({
     success: true,
-    transactionId: "BANK-TX-" + Math.floor(Math.random() * 1000000000),
+    transactionId: "BANK-TX-" + crypto.randomBytes(5).toString("hex").toUpperCase(),
     maskedAccount,
     status: "APPROVED",
-    message: "Bank transfer processed through secured tokenized validation layer."
+    message: "Sandbox bank transfer processed through tokenized validation layer."
   });
 });
 
 app.post("/api/payments/tng-charge", async (req, res) => {
-  const { amount, phone } = req.body;
-  const mockTxId = "TNG-TX-" + Math.floor(Math.random() * 1000000000);
-  addServerEvent(`Secure Touch 'n Go transaction initiated for RM 8.90 on mobile: ${phone || "unspecified"}`);
+  const allowMockPayments = !isProduction || process.env.ALLOW_MOCK_PAYMENTS === "true";
+  if (!allowMockPayments) {
+    return res.status(503).json({
+      error: "Direct Touch 'n Go API charging is disabled in this environment. Please submit your transfer receipt for verification."
+    });
+  }
+
+  const mockTxId = "TNG-TX-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+  addServerEvent(`Sandbox Touch 'n Go transaction initiated (${mockTxId}).`);
   
   res.json({
     success: true,
     transactionId: mockTxId,
-    qrPayload: `duitnow://payment/transfer?merchant=CVCRAFTAI&amount=8.90&ref=${mockTxId}`,
+    qrPayload: `duitnow://payment/transfer?merchant=CVCRAFTAI&amount=8.90&ref=${encodeURIComponent(mockTxId)}`,
     amountMYR: "8.90",
-    message: "Touch 'n Go secure DuitNow payload compiled. Tap or scan to complete payment securely on server."
+    message: "Touch 'n Go DuitNow payload compiled."
   });
 });
 
@@ -608,17 +723,19 @@ function parseBase64(base64Str: string): { mimeType: string, data: string } {
 // AI payment receipt verification endpoint
 app.post("/api/payments/verify-receipt", async (req, res) => {
   try {
-    const { receiptBase64, receiptName, paymentType, txRef, details } = req.body;
+    const { receiptBase64, receiptName, paymentType, txRef } = req.body || {};
     
-    if (!receiptBase64) {
+    if (typeof receiptBase64 !== "string" || !receiptBase64.trim()) {
       return res.status(400).json({ error: "No receipt file uploaded for verification." });
     }
     
-    if (!txRef) {
-      return res.status(400).json({ error: "Transaction Reference ID is required." });
+    if (typeof txRef !== "string" || txRef.trim().length < 4 || txRef.trim().length > 100) {
+      return res.status(400).json({ error: "A valid Transaction Reference ID is required." });
     }
 
-    addServerEvent(`AI verification requested for ${paymentType || "direct"} receipt. Name: ${receiptName || "unnamed"}, Ref ID: ${txRef}`);
+    const cleanTxRef = txRef.trim();
+    const safeReceiptName = typeof receiptName === "string" ? receiptName.slice(0, 120) : "unnamed";
+    addServerEvent(`AI verification requested for ${paymentType === "tng" ? "tng" : "direct"} receipt.`);
 
     const parsed = parseBase64(receiptBase64);
     
@@ -641,24 +758,24 @@ app.post("/api/payments/verify-receipt", async (req, res) => {
               text: `You are an automated financial auditor and transaction receipt verification specialist for CVCraft AI.
               The customer has uploaded this document/image as proof of a direct manual transfer for their Elite Membership.
               The expected payment is RM 8.50 (for Touch 'n Go eWallet) or $1.99 USD (for Direct Bank Transfer).
-              The customer entered this transaction reference ID in our system: "${txRef}".
+              The customer entered this transaction reference ID in our system: "${cleanTxRef}".
               
               Verify the following from the document/image carefully:
               1. Is this a legitimate banking receipt, transaction slip, or payment transfer confirmation screenshot? Reject if it's an unrelated image (such as a selfie, scenery, random documents, internet memes, etc.).
               2. Does the receipt show a "SUCCESSFUL", "COMPLETED", "APPROVED", "SUCCESS" or "SECURELY SENT" status?
               3. Check the transferred amount. Is it close to or matches RM 8.50 or $1.99 USD (allowing for slight conversion differences or exchange rates, e.g. RM 8.00 - RM 9.00 or $1.90 - $2.10)?
-              4. Check if the reference ID, transaction ID, or Reference Number printed on the receipt matches or resembles the user-entered ID: "${txRef}".
+              4. Check if the reference ID, transaction ID, or Reference Number printed on the receipt matches or resembles the user-entered ID: "${cleanTxRef}".
               
               Be rigorous. If it's a random image, fake file, or wrong amount, reject it.
               
               Return a JSON object with this schema:
               {
-                "isValid": boolean, // true if it is a valid receipt, amount is correct, and transaction was successful
-                "confidenceScore": number, // 0 to 100
-                "detectedAmount": string, // e.g. "RM 8.50"
-                "detectedReferenceId": string, // e.g. "TNG12345"
+                "isValid": boolean,
+                "confidenceScore": number,
+                "detectedAmount": string,
+                "detectedReferenceId": string,
                 "status": "APPROVED" | "REJECTED",
-                "analysisMessage": string // elegant explanation explaining what was found, why it was approved or rejected, and instructions if rejected.
+                "analysisMessage": string
               }`
             }
           ],
@@ -684,39 +801,28 @@ app.post("/api/payments/verify-receipt", async (req, res) => {
         return parsedResponse;
       },
       () => {
-        // Fallback simulation in case Gemini is offline or not configured
-        const lowerName = (receiptName || "").toLowerCase();
-        const lowerRef = (txRef || "").toLowerCase();
-        
-        if (lowerName.includes("scam") || lowerName.includes("fake") || lowerName.includes("empty") || lowerName.includes("unrelated") || lowerName.includes("test-reject")) {
+        const allowMockPayments = !isProduction && process.env.ALLOW_MOCK_PAYMENTS === "true";
+        const lowerName = safeReceiptName.toLowerCase();
+        const lowerRef = cleanTxRef.toLowerCase();
+
+        if (!allowMockPayments || lowerName.includes("scam") || lowerName.includes("fake") || lowerRef.includes("scam") || lowerRef.includes("fake")) {
           return {
             isValid: false,
-            confidenceScore: 99,
-            detectedAmount: "None",
-            detectedReferenceId: txRef,
+            confidenceScore: 0,
+            detectedAmount: "Unverified",
+            detectedReferenceId: cleanTxRef,
             status: "REJECTED",
-            analysisMessage: "Simulated Auditing: Verification failed. The uploaded file has been flagged as a non-payment file or containing invalid transfer details."
+            analysisMessage: "Automated AI receipt verification is currently unavailable. We cannot auto-approve manual transfers without AI or administrator verification."
           };
         }
-        
-        if (lowerRef.includes("scam") || lowerRef.includes("fake") || lowerRef.length < 5) {
-          return {
-            isValid: false,
-            confidenceScore: 95,
-            detectedAmount: "None",
-            detectedReferenceId: txRef,
-            status: "REJECTED",
-            analysisMessage: "Simulated Auditing: Rejected. The provided Transaction Reference ID is invalid, too short, or flagged as a potential mock entry."
-          };
-        }
-        
+
         return {
           isValid: true,
           confidenceScore: 92,
           detectedAmount: paymentType === "tng" ? "RM 8.50" : "$1.99",
-          detectedReferenceId: txRef,
+          detectedReferenceId: cleanTxRef,
           status: "APPROVED",
-          analysisMessage: "Simulated Auditing: The transfer receipt looks authentic and the Transaction Reference ID matches. Your manual payment is cleared and verified!"
+          analysisMessage: "Development Sandbox Auditing: Manual payment cleared in local mock mode."
         };
       }
     );
@@ -724,7 +830,7 @@ app.post("/api/payments/verify-receipt", async (req, res) => {
     res.json(result);
   } catch (error: any) {
     console.error("Verify Receipt Error:", error);
-    res.status(500).json({ error: error?.message || "Failed to analyze receipt" });
+    res.status(500).json({ error: "Failed to analyze receipt" });
   }
 });
 
@@ -747,7 +853,7 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
   const from = process.env.SMTP_FROM || `RahmoraAI Security <${user || defaultFromEmail}>`;
 
   if (!host || !user || !pass) {
-    console.warn(`[SMTP DISPATCH NOTICE FOR ${email}] Sender: ${from}. Verification code: ${code}. To send real emails to inbox, configure SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables.`);
+    console.warn(`[SMTP DISPATCH NOTICE] SMTP credentials not configured; email delivery skipped.`);
     return false;
   }
 
@@ -761,7 +867,8 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
         pass,
       },
       tls: {
-        rejectUnauthorized: false
+        minVersion: "TLSv1.2",
+        rejectUnauthorized: true
       },
       connectionTimeout: 10000,
       greetingTimeout: 5000,
@@ -773,6 +880,7 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
       : "[RahmoraAI] Reset your account password";
 
     const actionText = actionType === "registration" ? "registering your new account" : "resetting your account password";
+    const safeCode = escapeHtml(code);
 
     const mailOptions = {
       from,
@@ -786,7 +894,7 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
             You requested a 6-digit security code for <strong>${actionText}</strong>. Please enter the following code in the application:
           </p>
           <div style="background-color: #1e293b; border: 1px solid #475569; border-radius: 12px; padding: 20px; margin-bottom: 24px; display: inline-block;">
-            <span style="font-family: monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #38bdf8;">${code}</span>
+            <span style="font-family: monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #38bdf8;">${safeCode}</span>
           </div>
           <p style="font-size: 12px; color: #64748b; margin-top: 24px;">
             This code is valid for <strong>10 minutes</strong>. If you did not make this request, your account remains completely safe.
@@ -798,7 +906,7 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[SMTP SUCCESS] Dispatched verification email successfully to ${email}. MessageID: ${info.messageId}`);
+    console.log(`[SMTP SUCCESS] Dispatched verification email. MessageID: ${info.messageId}`);
     return true;
   } catch (err: any) {
     console.error("[SMTP ERROR] Failed to dispatch verification email over Nodemailer:", err?.message || err);
@@ -809,13 +917,13 @@ async function dispatchVerificationEmail(email: string, code: string, actionType
 // Endpoint to generate and "send" a secure 6-digit verification code
 app.post("/api/auth/send-code", async (req, res) => {
   try {
-    const { email, action } = req.body;
-    if (!email) {
+    const { email, action } = req.body || {};
+    if (typeof email !== "string" || !email.trim()) {
       return res.status(400).json({ error: "Email is required for verification." });
     }
 
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(email.trim())) {
       return res.status(400).json({ error: "The email address format is invalid." });
     }
 
@@ -846,13 +954,12 @@ app.post("/api/auth/send-code", async (req, res) => {
       }
     }
 
-    // Generate a secure 6-digit verification code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate a cryptographically secure 6-digit verification code
+    const code = crypto.randomInt(100000, 1000000).toString();
     const expires = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
 
     verificationCodes.set(normalizedEmail, { code, expires, failedAttempts: 0 });
-    addServerEvent(`Generated secure verification code for ${normalizedEmail}`);
-    console.log(`[AUTH SECURE CODE DISPATCHED FOR ${normalizedEmail}]: ${code}`);
+    addServerEvent(`Generated secure verification code challenge.`);
 
     // Attempt SMTP dispatch
     const smtpDispatched = await dispatchVerificationEmail(
@@ -861,7 +968,6 @@ app.post("/api/auth/send-code", async (req, res) => {
       action === "reset" ? "recovery" : "registration"
     );
 
-    const isProduction = process.env.NODE_ENV === "production";
     const allowDemo = !isProduction && (process.env.ALLOW_DEMO_CODE === "true" || !process.env.SMTP_HOST);
 
     res.json({
@@ -883,8 +989,8 @@ app.post("/api/auth/send-code", async (req, res) => {
 // Endpoint to verify the secure 6-digit code on the server
 app.post("/api/auth/verify-code", (req, res) => {
   try {
-    const { email, code } = req.body;
-    if (!email || !code) {
+    const { email, code } = req.body || {};
+    if (typeof email !== "string" || typeof code !== "string" || !email.trim() || !code.trim()) {
       return res.status(400).json({ error: "Email and verification code are required." });
     }
 
@@ -905,7 +1011,7 @@ app.post("/api/auth/verify-code", (req, res) => {
       });
     }
 
-    if (record.code !== code.trim()) {
+    if (!timingSafeEqualStrings(record.code, code.trim())) {
       record.failedAttempts = (record.failedAttempts || 0) + 1;
       if (record.failedAttempts >= 5) {
         verificationCodes.delete(normalizedEmail);
@@ -922,7 +1028,7 @@ app.post("/api/auth/verify-code", (req, res) => {
 
     // Code is valid! Delete it from store to prevent reuse
     verificationCodes.delete(normalizedEmail);
-    addServerEvent(`Successfully verified email credentials for ${normalizedEmail}`);
+    addServerEvent(`Successfully verified email challenge.`);
 
     // Generate single-use reset token valid for 15 minutes
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -941,9 +1047,20 @@ app.post("/api/auth/verify-code", (req, res) => {
 // Endpoint to securely reset a user's password on the backend using Admin SDK
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
-    const { email, password, resetToken } = req.body;
-    if (!email || !password) {
+    const { email, password, resetToken } = req.body || {};
+    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
       return res.status(400).json({ error: "Email and new password are required." });
+    }
+
+    const isStrongPassword =
+      password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[0-9]/.test(password) &&
+      /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    if (!isStrongPassword) {
+      return res.status(400).json({
+        error: "Password must be at least 8 characters and include an uppercase letter, number, and symbol."
+      });
     }
 
     if (!resetToken || typeof resetToken !== "string") {
@@ -952,7 +1069,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
     const session = passwordResetTokens.get(normalizedEmail);
-    if (!session || session.token !== resetToken || Date.now() > session.expires) {
+    if (!session || !timingSafeEqualStrings(session.token, resetToken) || Date.now() > session.expires) {
       passwordResetTokens.delete(normalizedEmail);
       return res.status(401).json({ error: "The password reset session has expired or is invalid. Please request a new verification code." });
     }
@@ -973,10 +1090,16 @@ app.post("/api/auth/reset-password", async (req, res) => {
       if (authErr?.code === "auth/weak-password") {
         return res.status(400).json({ error: "The chosen password format is too weak." });
       }
-      console.log("[AUTH] Admin SDK password update bypassed; client session verification active.");
+      if (isProduction) {
+        console.error("[AUTH] Admin SDK password update error:", authErr?.message || authErr);
+        return res.status(503).json({
+          error: "Password reset service requires Firebase Admin service credentials in production."
+        });
+      }
+      console.log("[AUTH] Admin SDK password update bypassed in local dev mode.");
     }
 
-    addServerEvent(`Successfully reset password verification for ${normalizedEmail}`);
+    addServerEvent(`Successfully processed password reset request.`);
     res.json({
       success: true,
       message: "Your password has been updated successfully. Please sign in with your updated credentials."
@@ -1033,7 +1156,7 @@ app.post("/api/auth/validate-email", async (req, res) => {
 // we override and clear the GCP metadata environment variables.
 // Environment overrides are handled in env-init.ts to ensure they execute before any imports.
 
-const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY || process.env.VITE_GEMINI_API_KEY;
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_STUDIO_API_KEY;
 let ai: GoogleGenAI | null = null;
 let lastGeminiErrorDetails: any = null;
 let geminiIsBlocked = false;
@@ -1045,7 +1168,6 @@ function getGenAIClient(): GoogleGenAI | null {
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_API_KEY ||
     process.env.AI_STUDIO_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY ||
     ""
   ).trim();
   if (key && key !== "undefined" && key.length > 5) {
@@ -1884,26 +2006,37 @@ app.post("/api/ai/analyze-image", async (req, res) => {
 // 8. Direct Feedback Email Dispatcher
 app.post("/api/feedback/send-email", async (req, res) => {
   try {
-    const { rating, comment, email, displayName, userId } = req.body;
-    
-    if (!rating || !comment || !email) {
-      return res.status(400).json({ error: "Rating, comment, and email are required fields." });
+    const { rating, comment, email, displayName, userId } = req.body || {};
+    const numRating = Number(rating);
+    if (!Number.isInteger(numRating) || numRating < 1 || numRating > 5 || typeof comment !== "string" || !comment.trim() || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({ error: "Valid rating (1-5), comment, and email are required fields." });
     }
 
-    console.log(`[Feedback Received] ${rating}/5 stars from ${email}. Comment: ${comment}`);
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: "Invalid sender email format." });
+    }
+
+    const cleanComment = comment.trim().slice(0, 5000);
+    const cleanEmail = email.trim().slice(0, 150);
+    const cleanName = typeof displayName === "string" ? displayName.trim().slice(0, 150) : "Anonymous";
+    const cleanUserId = typeof userId === "string" ? userId.trim().slice(0, 128) : "Not Provided";
+
+    console.log(`[Feedback Received] ${numRating}/5 stars.`);
 
     const host = process.env.SMTP_HOST;
     const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
     const from = process.env.SMTP_FROM || "feedback@cvcraftai.com";
+    const recipient = process.env.FEEDBACK_TO_EMAIL || process.env.ADMIN_EMAIL || "mwana1601@gmail.com";
 
     if (!host || !user || !pass) {
-      console.warn("SMTP credentials are not configured in AI Studio Secrets. Email dispatch skipped.");
+      console.warn("SMTP credentials are not configured. Email dispatch skipped.");
       return res.json({
         success: true,
         smtpConfigured: false,
-        message: "Your rating and feedback was saved to the database. Note: Programmatic email dispatch requires SMTP configuration in AI Studio Secrets."
+        message: "Your rating and feedback was saved to the database."
       });
     }
 
@@ -1916,62 +2049,56 @@ app.post("/api/feedback/send-email", async (req, res) => {
         pass,
       },
       tls: {
-        rejectUnauthorized: false
+        minVersion: "TLSv1.2",
+        rejectUnauthorized: true
       },
       connectionTimeout: 10000,
       greetingTimeout: 5000,
       socketTimeout: 10000,
     });
 
+    const safeComment = escapeHtml(cleanComment);
+    const safeName = escapeHtml(cleanName || "Anonymous User");
+    const safeEmail = escapeHtml(cleanEmail);
+    const safeUserId = escapeHtml(cleanUserId || "N/A");
+
     const mailOptions = {
       from,
-      to: "mwana1601@gmail.com",
-      subject: `[CVCraft AI] New Feedback Submitted (${rating}/5 Stars)`,
-      text: `Hello Bilal,\n\nA new user feedback review has been submitted on CVCraft AI.\n\nRating: ${rating} / 5 Stars\nComments:\n${comment}\n\n---\nUser Profile:\nName: ${displayName || "Anonymous"}\nEmail: ${email}\nUser ID: ${userId || "Not Provided"}\nSubmitted At: ${new Date().toLocaleString()}\n`,
+      to: recipient,
+      subject: `[CVCraft AI] New Feedback Submitted (${numRating}/5 Stars)`,
+      text: `Hello,\n\nA new user feedback review has been submitted on CVCraft AI.\n\nRating: ${numRating} / 5 Stars\nComments:\n${cleanComment}\n\n---\nUser Profile:\nName: ${cleanName}\nEmail: ${cleanEmail}\nUser ID: ${cleanUserId}\nSubmitted At: ${new Date().toISOString()}\n`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #fafafa;">
           <h2 style="color: #4f46e5; margin-top: 0; font-size: 20px; font-weight: 700;">New Feedback & Rating Received!</h2>
           <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
             <p style="font-size: 18px; margin: 0 0 12px 0; font-weight: bold; color: #1e293b;">
-              Rating: ${"★".repeat(rating)}${"☆".repeat(5-rating)} <span style="font-size: 14px; color: #64748b; font-weight: normal;">(${rating}/5 Stars)</span>
+              Rating: ${"★".repeat(numRating)}${"☆".repeat(5-numRating)} <span style="font-size: 14px; color: #64748b; font-weight: normal;">(${numRating}/5 Stars)</span>
             </p>
-            <div style="font-size: 14px; line-height: 1.6; color: #334155; white-space: pre-wrap; background-color: #f8fafc; padding: 12px; border-radius: 8px;">${comment}</div>
+            <div style="font-size: 14px; line-height: 1.6; color: #334155; white-space: pre-wrap; background-color: #f8fafc; padding: 12px; border-radius: 8px;">${safeComment}</div>
           </div>
           <div style="font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-            <p style="margin: 3px 0;"><strong>Sender Name:</strong> ${displayName || "Anonymous User"}</p>
-            <p style="margin: 3px 0;"><strong>Sender Email:</strong> <a href="mailto:${email}" style="color: #4f46e5; text-decoration: none;">${email}</a></p>
-            <p style="margin: 3px 0;"><strong>User ID:</strong> <code style="background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: monospace;">${userId || "N/A"}</code></p>
-            <p style="margin: 3px 0;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+            <p style="margin: 3px 0;"><strong>Sender Name:</strong> ${safeName}</p>
+            <p style="margin: 3px 0;"><strong>Sender Email:</strong> <a href="mailto:${safeEmail}" style="color: #4f46e5; text-decoration: none;">${safeEmail}</a></p>
+            <p style="margin: 3px 0;"><strong>User ID:</strong> <code style="background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: monospace;">${safeUserId}</code></p>
+            <p style="margin: 3px 0;"><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
           </div>
         </div>
       `,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Successfully dispatched feedback email to mwana1601@gmail.com`);
+    console.log(`Successfully dispatched feedback email.`);
     return res.json({ success: true, smtpConfigured: true });
 
   } catch (error: any) {
     console.error("Error dispatching feedback email:", error);
-    return res.status(500).json({ error: "Failed to dispatch feedback email over SMTP.", details: error?.message || error });
+    return res.status(500).json({ error: "Failed to dispatch feedback email over SMTP." });
   }
 });
 
 // ----------------------------------------------------
 // Express static & Vite Middleware setup
 // ----------------------------------------------------
-
-const isProduction =
-  process.env.NODE_ENV === "production" ||
-  (typeof __filename !== "undefined" && __filename.endsWith(".cjs")) ||
-  (typeof __dirname !== "undefined" && __dirname.includes("dist")) ||
-  Boolean(process.env.RENDER) ||
-  Boolean(process.env.RAILWAY_ENVIRONMENT) ||
-  Boolean(process.env.K_SERVICE);
-
-if (isProduction && process.env.NODE_ENV !== "production") {
-  process.env.NODE_ENV = "production";
-}
 
 async function startServer() {
   if (!isProduction) {

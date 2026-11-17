@@ -9,6 +9,7 @@ import { db, auth, handleFirestoreError, OperationType } from "../lib/firebase";
 import { 
   collection, onSnapshot, doc, updateDoc, setDoc, query, orderBy
 } from "firebase/firestore";
+import { safeMediaUrl } from "../utils/security";
 
 interface AdminPanelProps {
   user: UserSession;
@@ -687,32 +688,36 @@ export default function AdminPanel({ user, onClose }: AdminPanelProps) {
                             }`}>
                               <p className="whitespace-pre-wrap break-words">{msg.message}</p>
                               
-                              {msg.mediaUrl && (
-                                <div className="mt-2.5 rounded-xl overflow-hidden border border-slate-950 shadow-inner bg-slate-950/40 p-1 relative group/attachment">
-                                  {msg.mediaType === "video" ? (
-                                    <video src={msg.mediaUrl} controls className="max-h-56 max-w-full rounded-lg" />
-                                  ) : (
-                                    <img 
-                                      src={msg.mediaUrl} 
-                                      alt="Attachment" 
-                                      onClick={() => setLightboxImg(msg.mediaUrl || null)}
-                                      className="max-h-56 max-w-full rounded-lg object-cover cursor-zoom-in hover:opacity-90 transition" 
-                                    />
-                                  )}
-                                  <div className="absolute top-2.5 right-2.5 opacity-0 group-hover/attachment:opacity-100 transition-opacity flex gap-1 bg-black/70 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-2xl">
-                                    <a 
-                                      href={msg.mediaUrl} 
-                                      download={`admin_media_${msg.id}.${msg.mediaType === "video" ? "mp4" : "png"}`}
-                                      className="p-1.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                                      title="Download this attachment"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Download className="h-4 w-4" />
-                                      <span className="text-[10px] font-bold font-mono px-0.5">DL</span>
-                                    </a>
+                              {(() => {
+                                const validMediaUrl = safeMediaUrl(msg.mediaUrl);
+                                if (!validMediaUrl) return null;
+                                return (
+                                  <div className="mt-2.5 rounded-xl overflow-hidden border border-slate-950 shadow-inner bg-slate-950/40 p-1 relative group/attachment">
+                                    {msg.mediaType === "video" ? (
+                                      <video src={validMediaUrl} controls className="max-h-56 max-w-full rounded-lg" />
+                                    ) : (
+                                      <img 
+                                        src={validMediaUrl} 
+                                        alt="Attachment" 
+                                        onClick={() => setLightboxImg(validMediaUrl)}
+                                        className="max-h-56 max-w-full rounded-lg object-cover cursor-zoom-in hover:opacity-90 transition" 
+                                      />
+                                    )}
+                                    <div className="absolute top-2.5 right-2.5 opacity-0 group-hover/attachment:opacity-100 transition-opacity flex gap-1 bg-black/70 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-2xl">
+                                      <a 
+                                        href={validMediaUrl} 
+                                        download={`admin_media_${msg.id}.${msg.mediaType === "video" ? "mp4" : "png"}`}
+                                        className="p-1.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                        title="Download this attachment"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Download className="h-4 w-4" />
+                                        <span className="text-[10px] font-bold font-mono px-0.5">DL</span>
+                                      </a>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
                             </div>
                           </div>
                         );

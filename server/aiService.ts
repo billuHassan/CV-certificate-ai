@@ -80,7 +80,6 @@ export class AIService {
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_API_KEY ||
       process.env.AI_STUDIO_API_KEY ||
-      process.env.VITE_GEMINI_API_KEY ||
       ""
     ).trim();
 
@@ -118,7 +117,6 @@ export class AIService {
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_API_KEY ||
       process.env.AI_STUDIO_API_KEY ||
-      process.env.VITE_GEMINI_API_KEY ||
       ""
     ).trim();
 
@@ -132,7 +130,7 @@ export class AIService {
   private hashKey(action: string, payload: any): string {
     try {
       const serialized = typeof payload === "string" ? payload : JSON.stringify(payload);
-      return `${action}_${crypto.createHash("md5").update(serialized).digest("hex")}`;
+      return `${action}_${crypto.createHash("sha256").update(serialized).digest("hex")}`;
     } catch {
       return `${action}_${Date.now()}`;
     }
@@ -2225,16 +2223,29 @@ Return JSON:
    * 22. Fetch & Parse Public Profile Data from LinkedIn URL
    */
   public async parseLinkedInProfile(payload: { url: string; rawText?: string }) {
-    const rawUrl = (payload.url || "").trim();
-    const rawText = (payload.rawText || "").trim();
+    const rawUrl = (typeof payload.url === "string" ? payload.url : "").trim().slice(0, 500);
+    const rawText = (typeof payload.rawText === "string" ? payload.rawText : "").trim().slice(0, 8000);
 
-    // Extract handle / username from linkedin.com/in/<username>
-    const match = rawUrl.match(/(?:linkedin\.com\/in\/|linkedin\.com\/pub\/)([a-zA-Z0-9_\-\%]+)/i);
-    let handle = match ? match[1].replace(/%20/g, "-") : "";
-    if (!handle && rawUrl.length > 0 && !rawUrl.includes("http")) {
-      handle = rawUrl.replace(/^@/, "").trim();
+    // Extract and strictly sanitize LinkedIn handle / username to block SSRF or arbitrary URL injection
+    let handle = "";
+    if (rawUrl) {
+      try {
+        const parsed = new URL(rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`);
+        const host = parsed.hostname.toLowerCase();
+        if (host === "linkedin.com" || host === "www.linkedin.com" || host.endsWith(".linkedin.com")) {
+          const pathMatch = parsed.pathname.match(/^\/(?:in|pub)\/([a-zA-Z0-9_\-\%]{1,100})/i);
+          if (pathMatch) {
+            handle = pathMatch[1].replace(/%20/g, "-").replace(/[^a-zA-Z0-9_-]/g, "");
+          }
+        }
+      } catch {
+        // Check if caller passed a plain handle without URL
+        if (/^@?[a-zA-Z0-9_-]{2,100}$/.test(rawUrl)) {
+          handle = rawUrl.replace(/^@/, "");
+        }
+      }
     }
-    const normalizedUrl = handle ? `https://www.linkedin.com/in/${handle}` : (rawUrl || "https://www.linkedin.com");
+    const normalizedUrl = handle ? `https://www.linkedin.com/in/${handle}` : "https://www.linkedin.com";
 
     const prompt = `You are an expert career intelligence AI and executive resume engineer.
 Extract and synthesize public career profile details for this public LinkedIn profile:

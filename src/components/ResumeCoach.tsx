@@ -5,6 +5,7 @@ import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 import UploadResumeModal from "./UploadResumeModal";
 import ArcGaugeChart from "./charts/ArcGaugeChart";
 import PolygonRadarChart from "./charts/PolygonRadarChart";
+import { safeExternalUrl } from "../utils/security";
 
 interface GroundingSource {
   title: string;
@@ -606,18 +607,22 @@ export default function ResumeCoach({
                         Online Web Pages Researched:
                       </span>
                       <div className="flex flex-wrap gap-2 max-h-16 overflow-y-auto">
-                        {analysisResult.groundingSources.map((source, i) => (
-                          <a
-                            key={i}
-                            href={source.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800 truncate max-w-xs"
-                          >
-                            <ExternalLink className="h-3 w-3 shrink-0 text-indigo-400" />
-                            <span className="truncate">{source.title || source.uri}</span>
-                          </a>
-                        ))}
+                        {analysisResult.groundingSources.map((source, i) => {
+                          const safeHref = safeExternalUrl(source.uri);
+                          if (!safeHref) return null;
+                          return (
+                            <a
+                              key={i}
+                              href={safeHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800 truncate max-w-xs"
+                            >
+                              <ExternalLink className="h-3 w-3 shrink-0 text-indigo-400" />
+                              <span className="truncate">{source.title || source.uri}</span>
+                            </a>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -827,7 +832,8 @@ export default function ResumeCoach({
 
                   <div className="space-y-4">
                     {analysisResult.homeCountryAnalysis.topCompanies?.map((comp, compIdx) => {
-                      const linkUrl = comp.companyUrl || `https://www.google.com/search?q=${encodeURIComponent(comp.companyName + " careers")}`;
+                      const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(comp.companyName + " careers")}`;
+                      const linkUrl = safeExternalUrl(comp.companyUrl) || fallbackUrl;
                       return (
                         <div key={compIdx} className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 hover:border-indigo-500/40 transition">
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-850 pb-2.5">
@@ -1004,7 +1010,8 @@ export default function ResumeCoach({
                               {/* Companies list */}
                               <div className="space-y-4">
                                 {country.topCompanies?.map((comp, compIdx) => {
-                                  const linkUrl = comp.companyUrl || `https://www.google.com/search?q=${encodeURIComponent(comp.companyName + " careers")}`;
+                                  const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(comp.companyName + " careers")}`;
+                                  const linkUrl = safeExternalUrl(comp.companyUrl) || fallbackUrl;
                                   return (
                                     <div key={compIdx} className="bg-slate-950 border border-slate-850 rounded-xl p-4 space-y-3 hover:border-emerald-500/30 transition">
                                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">

@@ -12,6 +12,7 @@ import {
   collection, query, where, onSnapshot, setDoc, doc, updateDoc, getDocs
 } from "firebase/firestore";
 import { UserSession } from "../types";
+import { safeMediaUrl } from "../utils/security";
 
 interface SupportFeedbackProps {
   user: UserSession;
@@ -1261,28 +1262,32 @@ How can I help you today?`,
                       </div>
 
                       {/* Media preview */}
-                      {msg.mediaUrl && (
-                        <div className="space-y-1.5 pt-1">
-                          {msg.mediaType === "video" ? (
-                            <video 
-                              src={msg.mediaUrl} 
-                              controls 
-                              className="max-h-48 w-full rounded-xl border border-slate-800 bg-black" 
-                            />
-                          ) : (
-                            <div className="relative group cursor-pointer" onClick={() => setLightboxImg(msg.mediaUrl || null)}>
-                              <img 
-                                src={msg.mediaUrl} 
-                                alt="Attachment" 
-                                className="max-h-48 w-full object-cover rounded-xl border border-slate-800 hover:opacity-90 transition" 
+                      {(() => {
+                        const validMediaUrl = safeMediaUrl(msg.mediaUrl);
+                        if (!validMediaUrl) return null;
+                        return (
+                          <div className="space-y-1.5 pt-1">
+                            {msg.mediaType === "video" ? (
+                              <video 
+                                src={validMediaUrl} 
+                                controls 
+                                className="max-h-48 w-full rounded-xl border border-slate-800 bg-black" 
                               />
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded-xl transition">
-                                <Eye className="h-6 w-6 text-white" />
+                            ) : (
+                              <div className="relative group cursor-pointer" onClick={() => setLightboxImg(validMediaUrl)}>
+                                <img 
+                                  src={validMediaUrl} 
+                                  alt="Attachment" 
+                                  className="max-h-48 w-full object-cover rounded-xl border border-slate-800 hover:opacity-90 transition" 
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded-xl transition">
+                                  <Eye className="h-6 w-6 text-white" />
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {msg.message && (
                         <p className="break-words font-medium whitespace-pre-wrap">{msg.message}</p>

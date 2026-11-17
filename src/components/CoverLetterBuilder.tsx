@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, Printer, Copy, RefreshCw, Send, CheckCircle, ChevronLeft, Mail, Phone, MapPin, Download, Globe, ExternalLink, ShieldCheck, Wand2, FileText, Sliders, Check } from "lucide-react";
 import { CoverLetterData, ResumeData } from "../types";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
+import { escapeHtml, safeExternalUrl } from "../utils/security";
 
 interface GroundingSource {
   title: string;
@@ -229,7 +230,7 @@ export default function CoverLetterBuilder({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${name} - ${title}</title>
+  <title>${escapeHtml(name)} - ${escapeHtml(title)}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
   <style>
@@ -626,18 +627,22 @@ export default function CoverLetterBuilder({
                   <div className="pt-2 border-t border-emerald-900/40">
                     <span className="text-[10px] text-slate-400 font-medium block mb-1">Online Sources Analyzed by Gemini:</span>
                     <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
-                      {groundingSources.map((source, idx) => (
-                        <a
-                          key={idx}
-                          href={source.uri}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 truncate"
-                        >
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{source.title || source.uri}</span>
-                        </a>
-                      ))}
+                      {groundingSources.map((source, idx) => {
+                        const safeHref = safeExternalUrl(source.uri);
+                        if (!safeHref) return null;
+                        return (
+                          <a
+                            key={idx}
+                            href={safeHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 truncate"
+                          >
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{source.title || source.uri}</span>
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

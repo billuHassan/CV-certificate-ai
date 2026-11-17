@@ -12,17 +12,17 @@
 
 ---
 
-## 🖥️ Live Demo & Direct Access
+## 🖥️ Live Demo & Public Full-Stack Deployment
 
-Try the interactive demo hosted on GitHub Pages without running a local server:
+You can publish and share **RahmoraAI** in two ways depending on whether visitors need **only the static showcase** or the **full interactive React + Express + AI + Firebase application**:
 
-| Resource | Link | Description |
+| Deployment Type | Public URL / Action | What Visitors Get |
 | :--- | :--- | :--- |
-| **Interactive GitHub Pages Demo** | **[https://billuhassan.github.io/CV-certificate-ai/](https://billuhassan.github.io/CV-certificate-ai/)** | Interactive resume/certificate studio & full module showcase (`docs/index.html`) |
-| **GitHub Repository** | **[github.com/billuHassan/CV-certificate-ai](https://github.com/billuHassan/CV-certificate-ai)** | Source code, GitHub Actions workflow & issues |
-| **One-Click Full-Stack Deploy** | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/billuHassan/CV-certificate-ai&env=GEMINI_API_KEY) | Deploy the complete React + Express + AI backend to Vercel |
+| **Full Public Application (Recommended — Vercel)** | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/billuHassan/CV-certificate-ai&env=GEMINI_API_KEY,APP_URL&envDescription=Server-side%20Gemini%20API%20key%20and%20public%20app%20URL&project-name=rahmora-ai) | **Complete live web app** (`https://<your-project>.vercel.app`): React UI, Firebase Auth & Firestore, ATS Builder, AI Interviewer, Cover Letters, & protected server `/api/*` proxy (API keys stay private on server). |
+| **Static Interactive Preview (GitHub Pages)** | **[https://billuhassan.github.io/CV-certificate-ai/](https://billuhassan.github.io/CV-certificate-ai/)** | Interactive resume/certificate studio & platform showcase served from `docs/index.html` (static hosting only — no server-side API keys). |
+| **GitHub Repository** | **[github.com/billuHassan/CV-certificate-ai](https://github.com/billuHassan/CV-certificate-ai)** | Source code, hardened security configuration, and GitHub Actions workflow. |
 
-> 💡 **Local Preview:** You can also open [`docs/index.html`](docs/index.html) directly in any browser, or run the full-stack application locally via [Quick Start](#-quick-start).
+> 🔒 **Why Full-Stack Hosting Is Required for the Live App URL:** GitHub Pages serves static HTML/CSS/JS only and cannot protect server-side secrets (`GEMINI_API_KEY`, `SMTP_PASS`, `PAYPAL_CLIENT_SECRET`). Deploying the full app via **Vercel** (`vercel.json` + `api/index.js`), **Cloud Run**, or **Render** gives every public visitor a single shareable `https://...` URL with all AI & database features active and zero exposed credentials.
 
 ---
 
@@ -95,14 +95,14 @@ Try the interactive demo hosted on GitHub Pages without running a local server:
 
 ## 🛡️ Security & Hardening Architecture
 
-RahmoraAI includes robust, production-grade security controls:
+RahmoraAI is hardened for **public multi-user deployment** with zero known dependency vulnerabilities (`npm audit`: 0 vulnerabilities) and defense-in-depth protections:
 
-- **Dual-Engine AI Failover**: Flagship **Google Gemini 3.8 Flash** with automatic round-robin failover to **Groq** (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`) to prevent quota disruptions.
-- **Sliding-Window Rate Limiting**: In-memory IP rate limiting on authentication and AI endpoints to defend against credential stuffing, brute-force attacks, and quota abuse.
-- **Cryptographic Password Recovery**: Single-use 256-bit cryptographically secure reset tokens with short TTLs (15 minutes) and 5-attempt brute-force lockouts.
-- **Firestore Security Rules**: Strict relational gatekeeper checks preventing privilege escalation, unauthorized profile modifications, negative counters, and ghost field injections.
-- **No Hardcoded Secrets**: All sensitive keys, tokens, and SMTP credentials run server-side via environment variables; secrets are never bundled into client distributions.
-- **Defensive HTTP Headers**: Enforces `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and removes server technology identifiers.
+- **Zero Client-Side Secrets & Private Server Proxy**: All `GEMINI_API_KEY`, `GROQ_API_KEY`, `SMTP_PASS`, `ADMIN_API_KEY`, and `PAYPAL_CLIENT_SECRET` credentials execute strictly on the server (`/api/*`), never bundled into Vite `VITE_*` client assets.
+- **Strict Origin Allowlist CORS & Security Headers**: Replaces wildcard CORS with an explicit origin allowlist (`APP_URL`, `ALLOWED_ORIGINS`, Vercel/Cloud Run/GitHub Pages/localhost), enforces `Permissions-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and production `Strict-Transport-Security`.
+- **Fail-Closed Payment & Admin Endpoints**: Mock payment approvals (`bank-transfer`, `tng-charge`, mock PayPal, unconfigured receipt approvals) are blocked in production unless explicitly enabled for local development (`ALLOW_MOCK_PAYMENTS=true`), PayPal order IDs are regex-validated against path injection, and admin routes require Firebase Admin ID token verification or constant-time `x-admin-key` header checks (never URL query keys).
+- **Cryptographic Auth Recovery & TLS 1.2+**: Uses `crypto.randomInt` CSPRNG OTPs (never logged in plaintext), constant-time token comparison (`crypto.timingSafeEqual`), 15-minute TTLs, 5-attempt lockouts, and strict SMTP `rejectUnauthorized: true` with TLS 1.2+.
+- **XSS, SSRF & Firestore Rule Enforcement**: Escapes exported HTML/DOCX strings, sanitizes rendered external URLs/media URLs against `javascript:`/`data:` injection, restricts LinkedIn parser inputs to valid LinkedIn domains, and enforces Firestore rules against privilege escalation and shadow writes.
+- **Sliding-Window Rate Limiting & Dual-Engine AI Failover**: Separate IP rate limiters protect auth verification, feedback, payments, and AI routes backed by **Google Gemini 3.8 Flash** + **Groq** failover.
 
 ---
 
@@ -208,21 +208,27 @@ This builds:
 npm start
 ```
 
-### Deploying the Interactive Demo to GitHub Pages
-This repository includes a pre-configured GitHub Actions workflow at [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) that automatically publishes the `./docs` interactive demo to GitHub Pages:
+### Deploying the Public Full-Stack Application (Vercel — Recommended)
+To share a **single public URL** for the entire application without exposing API keys or vulnerabilities:
+1. Push your repository to GitHub (`main` branch).
+2. Click the **Deploy with Vercel** button at the top of this README (or import the repo in your [Vercel Dashboard](https://vercel.com)).
+3. In **Settings → Environment Variables**, configure only **Server-Side** secrets:
+   - `GEMINI_API_KEY` *(required for AI Resume Builder, ATS Coach, Cover Letters, & Interview AI)*
+   - `APP_URL` *(set to your public `https://<project>.vercel.app` URL)*
+   - Optional: `GROQ_API_KEY`, `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`, `ADMIN_EMAIL`, `ADMIN_API_KEY`, `PAYPAL_CLIENT_ID`/`PAYPAL_CLIENT_SECRET`
+   - Keep `ALLOW_DEMO_CODE=false` and `ALLOW_MOCK_PAYMENTS=false` in production.
+4. Click **Deploy**. Vercel builds `dist/` and `api/index.js` via `vercel.json` and publishes your public URL (`https://<project>.vercel.app`).
+5. **Firebase Authorized Domains**: In **Firebase Console → Authentication → Settings → Authorized domains**, add your public `vercel.app` (or custom) domain so Google & Email sign-in work seamlessly for all visitors.
+
+### Deploying the Static Interactive Preview to GitHub Pages
+This repository includes a GitHub Actions workflow at [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) that publishes the `./docs` interactive showcase to GitHub Pages:
 
 1. Push your repository to GitHub on the `main` (or `master`) branch.
 2. Open your repository on GitHub and navigate to **Settings → Pages**.
 3. Under **Build and deployment → Source**, select **GitHub Actions**.
-4. Go to the **Actions** tab, select **Deploy GitHub Demo to GitHub Pages**, and click **Run workflow** (or push any commit to `main`).
-5. Once complete, your live demo will be accessible at:
+4. Go to the **Actions** tab, select **Deploy GitHub Demo to GitHub Pages**, and click **Run workflow**.
+5. Once complete, the static interactive preview is accessible at:
    **`https://billuhassan.github.io/CV-certificate-ai/`**
-
-### Deploying Full-Stack App to Vercel
-1. Push your repository to GitHub.
-2. Import the repository into your [Vercel Dashboard](https://vercel.com) (or use the **Deploy with Vercel** button at the top of this README).
-3. In **Settings → Environment Variables**, add your `GEMINI_API_KEY` (and optional `GROQ_API_KEY`, `SMTP_*`, etc.).
-4. Click **Deploy**. Vercel will build and serve both the static client and serverless API automatically.
 
 ---
 

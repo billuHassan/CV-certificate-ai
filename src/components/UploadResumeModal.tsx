@@ -5,6 +5,7 @@ import {
 import { ResumeData, WorkExperience, Education, Project, Certification, Language, Reference } from "../types";
 import ResumeTemplates from "./ResumeTemplates";
 import { parseDocumentClientSide, parseResumeClientSide, calculateClientSideAudit } from "../utils/clientResumeParser";
+import { escapeHtml } from "../utils/security";
 
 export interface AuditSection {
   sectionKey: string;
@@ -838,19 +839,19 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
-  // Download PDF / Print
+  // Download PDF / Print using sandboxed hidden iframe (no window.open / document.write)
   const handleDownloadPDF = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow || !parsedResume) return;
+    if (!parsedResume) return;
 
     const previewElem = document.getElementById("scanned-resume-preview-pane");
     const resumeHtml = previewElem ? previewElem.innerHTML : "";
+    const safeTitle = escapeHtml(parsedResume.personalInfo.fullName || "Resume");
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
+    const htmlDoc = `<!DOCTYPE html>
       <html>
         <head>
-          <title>${parsedResume.personalInfo.fullName || "Resume"} - Download PDF</title>
+          <meta charset="utf-8" />
+          <title>${safeTitle} - Download PDF</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @media print {
@@ -861,15 +862,35 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
         </head>
         <body>
           <div>${resumeHtml}</div>
-          <script>
-            setTimeout(() => {
-              window.print();
-            }, 500);
-          </script>
         </body>
-      </html>
-    `);
-    printWindow.document.close();
+      </html>`;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.srcdoc = htmlDoc;
+
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } finally {
+          setTimeout(() => {
+            if (iframe.parentNode) {
+              iframe.parentNode.removeChild(iframe);
+            }
+          }, 1500);
+        }
+      }, 500);
+    };
+
+    document.body.appendChild(iframe);
   };
 
   // Download DOCX
@@ -884,7 +905,7 @@ export default function UploadResumeModal({ isOpen, onClose, onImportToBuilder }
     const docxContent = `<html xmlns:o="urn:schemas-microsoft-office:office" xmlns:w="urn:schemas-microsoft-office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
   <meta charset="utf-8">
-  <title>${fullName} - ${title}</title>
+  <title>${escapeHtml(fullName)} - ${escapeHtml(title)}</title>
   <!--[if gte mso 9]>
   <xml>
     <w:WordDocument>

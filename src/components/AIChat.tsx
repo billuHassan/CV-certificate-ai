@@ -5,6 +5,7 @@ import {
   FileText, Briefcase, CheckCircle2, ArrowRight, Loader2, Globe, FileUp, Zap, HelpCircle
 } from "lucide-react";
 import { ResumeData, UserSession } from "../types";
+import { safeExternalUrl, safeMediaUrl } from "../utils/security";
 
 interface GroundingSource {
   title: string;
@@ -465,9 +466,9 @@ ${(data.responsibilities || []).map((resp: string) => `- ${resp}`).join("\n")}
                     : "bg-slate-50 border-slate-200 text-slate-800 rounded-tl-none shadow-sm"
               }`}>
                 {/* Optional attached media thumbnail */}
-                {msg.mediaUrl && (
+                {safeMediaUrl(msg.mediaUrl) && (
                   <div className="mb-3 rounded-xl overflow-hidden border border-indigo-500/30 max-w-xs bg-black/40">
-                    <img src={msg.mediaUrl} alt="Attached input" className="max-h-48 w-full object-contain" />
+                    <img src={safeMediaUrl(msg.mediaUrl)} alt="Attached input" className="max-h-48 w-full object-contain" />
                   </div>
                 )}
 
@@ -483,18 +484,22 @@ ${(data.responsibilities || []).map((resp: string) => `- ${resp}`).join("\n")}
                       <span>Google Search Grounding Sources:</span>
                     </div>
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {msg.groundingSources.map((source, idx) => (
-                        <a
-                          key={idx}
-                          href={source.uri}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
-                        >
-                          <span className="truncate max-w-[200px]">{source.title}</span>
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                        </a>
-                      ))}
+                      {msg.groundingSources.map((source, idx) => {
+                        const safeHref = safeExternalUrl(source.uri);
+                        if (!safeHref) return null;
+                        return (
+                          <a
+                            key={idx}
+                            href={safeHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+                          >
+                            <span className="truncate max-w-[200px]">{source.title}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

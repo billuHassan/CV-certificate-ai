@@ -22,6 +22,7 @@ import {
   UserCheck
 } from "lucide-react";
 import { ResumeData } from "../types";
+import { safeExternalUrl } from "../utils/security";
 
 interface JobIntelligenceProps {
   resumes: ResumeData[];
@@ -709,18 +710,22 @@ export default function JobIntelligence({
                       Live Search Grounding Citations:
                     </span>
                     <div className="flex flex-wrap gap-2">
-                      {posterResult.groundingSources.map((src, i) => (
-                        <a
-                          key={i}
-                          href={src.uri}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] rounded-lg border border-slate-700 transition"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span className="max-w-[200px] truncate">{src.title}</span>
-                        </a>
-                      ))}
+                      {posterResult.groundingSources.map((src, i) => {
+                        const safeHref = safeExternalUrl(src.uri);
+                        if (!safeHref) return null;
+                        return (
+                          <a
+                            key={i}
+                            href={safeHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] rounded-lg border border-slate-700 transition"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span className="max-w-[200px] truncate">{src.title}</span>
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -972,18 +977,22 @@ export default function JobIntelligence({
                       Google Search Grounding Sources:
                     </span>
                     <div className="flex flex-wrap gap-2">
-                      {companyResult.groundingSources.map((src, i) => (
-                        <a
-                          key={i}
-                          href={src.uri}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] rounded-lg border border-slate-700 transition"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span className="max-w-[200px] truncate">{src.title}</span>
-                        </a>
-                      ))}
+                      {companyResult.groundingSources.map((src, i) => {
+                        const safeHref = safeExternalUrl(src.uri);
+                        if (!safeHref) return null;
+                        return (
+                          <a
+                            key={i}
+                            href={safeHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] rounded-lg border border-slate-700 transition"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span className="max-w-[200px] truncate">{src.title}</span>
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

@@ -1,6 +1,7 @@
 import React from "react";
 import { Mail, Phone, MapPin, Globe, Linkedin, Github, Sparkles } from "lucide-react";
 import { ResumeData } from "../types";
+import { safeExternalUrl } from "../utils/security";
 
 interface ResumeTemplatesProps {
   data: ResumeData;
@@ -538,11 +539,18 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
                     </div>
                     <span className={`text-[10px] text-slate-500 font-normal ${config.styleCategory === 'cyber' ? "text-[#00ff66]/70" : ""}`}>{proj.startDate} – {proj.endDate}</span>
                   </div>
-                  {proj.url && (
-                    <a href={proj.url} target="_blank" rel="noreferrer" className={`text-[10px] text-blue-500 underline block mb-1.5 ${config.styleCategory === 'cyber' ? "!text-[#00ff66]/90" : ""}`}>
-                      {proj.url}
-                    </a>
-                  )}
+                  {proj.url && (() => {
+                    const safeHref = safeExternalUrl(proj.url);
+                    return safeHref ? (
+                      <a href={safeHref} target="_blank" rel="noopener noreferrer" className={`text-[10px] text-blue-500 underline block mb-1.5 ${config.styleCategory === 'cyber' ? "!text-[#00ff66]/90" : ""}`}>
+                        {proj.url}
+                      </a>
+                    ) : (
+                      <span className={`text-[10px] text-slate-400 block mb-1.5 ${config.styleCategory === 'cyber' ? "!text-[#00ff66]/70" : ""}`}>
+                        {proj.url}
+                      </span>
+                    );
+                  })()}
                   {proj.description && (
                     <p className={`text-slate-600 mt-1.5 leading-relaxed ${config.styleCategory === 'cyber' ? "text-[#00ff66]/85" : ""}`}>{proj.description}</p>
                   )}
@@ -605,17 +613,18 @@ export default function ResumeTemplates({ data, scale = 1 }: ResumeTemplatesProp
                     {cert.issuer && (
                       <span className={`text-slate-500 text-[11px] block mt-0.5 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}`}>{cert.issuer}</span>
                     )}
-                    {cert.url && (
-                      cert.url.startsWith("http://") || cert.url.startsWith("https://") ? (
-                        <a href={cert.url} target="_blank" rel="noreferrer" className={`text-[10px] text-indigo-500 underline block mt-0.5 ${config.styleCategory === 'cyber' ? '!text-[#00ff66]/90' : ''}`}>
+                    {cert.url && (() => {
+                      const safeHref = safeExternalUrl(cert.url);
+                      return safeHref ? (
+                        <a href={safeHref} target="_blank" rel="noopener noreferrer" className={`text-[10px] text-indigo-500 underline block mt-0.5 ${config.styleCategory === 'cyber' ? '!text-[#00ff66]/90' : ''}`}>
                           {cert.url}
                         </a>
                       ) : (
                         <span className={`text-[10px] text-slate-400 block mt-0.5 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/80' : ''}`}>
                           {cert.url}
                         </span>
-                      )
-                    )}
+                      );
+                    })()}
                   </div>
                   {cert.date && (
                     <span className={`text-[10px] text-slate-400 shrink-0 ${config.styleCategory === 'cyber' ? 'text-[#00ff66]/60' : ''}`}>{cert.date}</span>

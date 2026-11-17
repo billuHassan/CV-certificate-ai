@@ -15,6 +15,7 @@ import AtsKeywordSuggester from "./AtsKeywordSuggester";
 import { getResumeSnapshots, createResumeSnapshot, attachSnapshotToResume } from "../utils/snapshotManager";
 import { triggerRewarded, triggerInterstitial } from "./AdSystem";
 import { getRoleDomainInfo } from "../utils/roleAnalyzer";
+import { escapeHtml } from "../utils/security";
 
 interface ResumeBuilderProps {
   initialResume: ResumeData;
@@ -519,7 +520,7 @@ export default function ResumeBuilder({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${fullName} - ${title}</title>
+  <title>${escapeHtml(fullName)} - ${escapeHtml(title)}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..900;1,300..900&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -603,7 +604,7 @@ export default function ResumeBuilder({
       const docxContent = `<html xmlns:o="urn:schemas-microsoft-office:office" xmlns:w="urn:schemas-microsoft-office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
   <meta charset="utf-8">
-  <title>${fullName} - ${title}</title>
+  <title>${escapeHtml(fullName)} - ${escapeHtml(title)}</title>
   <!--[if gte mso 9]>
   <xml>
     <w:WordDocument>

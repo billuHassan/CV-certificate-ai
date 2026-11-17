@@ -108,7 +108,12 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isSignedIn() && (incoming().senderId == request.auth.uid && isValidDirectMessage(incoming()));
       allow update: if isSignedIn() && (
-        (resource.data.recipientId == request.auth.uid && incoming().read == true && incoming().message == resource.data.message) ||
+        (resource.data.recipientId == request.auth.uid &&
+         incoming().read == true &&
+         incoming().message == resource.data.message &&
+         incoming().senderId == resource.data.senderId &&
+         incoming().recipientId == resource.data.recipientId &&
+         incoming().chatId == resource.data.chatId) ||
         isAdmin()
       );
     }
